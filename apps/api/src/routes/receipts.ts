@@ -32,7 +32,7 @@ export const receiptsUploadRoute = createRoute({
       content: {
         "multipart/form-data": {
           schema: z.object({
-            file: z.string().openapi({
+            file: z.any().openapi({
               type: "string",
               format: "binary",
               description: "Receipt image file",

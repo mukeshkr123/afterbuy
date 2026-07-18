@@ -53,9 +53,14 @@ src/
 
 Phase 5 lands the shell. The following Phase 6+ tasks fill in the bodies:
 
-- **6.1** Purchases list infinite scroll
-- **6.3** Create/edit purchase form (react-hook-form + Zod resolver)
-- **6.4** Receipt capture + upload
+- **6.1** Purchases list infinite scroll ✅ Phase 6
+- **6.2** Purchase detail with receipts/claims/deadlines ✅ Phase 6
+- **6.3** Create/edit form with react-hook-form + Zod + category-default date prefill ✅ Phase 6
+- **6.4** Receipt capture — stubbed in Phase 6 (button + screen, no `expo-image-picker` yet)
+- **6.5** Search screen (debounced server query) ✅ Phase 6
+- **6.6** Delivery status control ✅ Phase 6
+- **6.7** Home (Upcoming + Recent + Quick add) ✅ Phase 6
+- **6.8** Delete with undo toast ✅ Phase 6
 - **7.2** Reminders screen with real data
 - **7.5** Settings (lead days, push toggle, timezone, dark mode)
 - **7.7** Account deletion flow

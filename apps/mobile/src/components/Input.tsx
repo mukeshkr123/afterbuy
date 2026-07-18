@@ -10,7 +10,7 @@ export interface InputProps {
   secureTextEntry?: boolean;
   autoCapitalize?: "none" | "sentences" | "words" | "characters";
   keyboardType?: KeyboardTypeOptions;
-  error?: string;
+  error?: string | undefined;
 }
 
 export function Input({

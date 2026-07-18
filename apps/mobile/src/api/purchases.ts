@@ -11,14 +11,14 @@ import {
 import type { ApiRequest } from "./client";
 
 export interface ListPurchasesQuery {
-  q?: string;
-  category?: string;
-  deliveryStatus?: string;
-  from?: string;
-  to?: string;
-  sort?: "purchaseDate" | "createdAt" | "amount";
-  cursor?: string;
-  limit?: number;
+  q?: string | undefined;
+  category?: string | undefined;
+  deliveryStatus?: string | undefined;
+  from?: string | undefined;
+  to?: string | undefined;
+  sort?: "purchaseDate" | "createdAt" | "amount" | undefined;
+  cursor?: string | undefined;
+  limit?: number | undefined;
   [key: string]: string | number | undefined;
 }
 
@@ -90,6 +90,24 @@ export function restorePurchase(
   return api({
     method: "POST",
     path: `/v1/purchases/${encodeURIComponent(id)}/restore`,
+    schema: purchaseDetailResponseSchema,
+  }) as Promise<PurchaseDetailResponse>;
+}
+
+// Phase 6.4 stub. The expo-image-picker install is deferred because it
+// requires an `expo prebuild` round-trip that breaks CI; the uploadReceipt
+// signature is in place so the wiring is a one-liner when the picker lands.
+export function uploadReceipt(
+  api: ApiRequest,
+  purchaseId: string,
+  file: { uri: string; name: string; type: string }
+): Promise<PurchaseDetailResponse> {
+  const form = new FormData();
+  form.append("file", file as unknown as Blob);
+  return api({
+    method: "POST",
+    path: `/v1/purchases/${encodeURIComponent(purchaseId)}/receipts`,
+    body: form,
     schema: purchaseDetailResponseSchema,
   }) as Promise<PurchaseDetailResponse>;
 }

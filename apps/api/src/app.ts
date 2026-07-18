@@ -21,7 +21,15 @@ import {
 } from "./logging";
 import { healthRoute, openApiDocumentConfig } from "./openapi";
 import { rateLimitMiddleware } from "./rate-limit";
-import { meGetRoute, mePatchRoute, meDeleteRoute, rowToMe } from "./routes/me";
+import {
+  meGetRoute,
+  mePatchRoute,
+  meDeleteRoute,
+  rowToMe,
+  handleGetMe,
+  handlePatchMe,
+  handleDeleteMe,
+} from "./routes/me";
 import { handleCategories, metaCategoriesRoute } from "./routes/meta";
 import {
   handleCreatePurchase,
@@ -116,58 +124,14 @@ export function createApp() {
   v1.use("*", rateLimitMiddleware);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  v1.openapi(meGetRoute, (async (c: any) => {
-    const db = createDbClient(c.env.DB);
-    const user = c.get("user");
-    const row = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, user.id))
-      .get();
-    if (!row) return apiError(c, 404, "not_found", "User not found");
-    return c.json(meResponseSchema.parse(rowToMe(row)), 200);
-  }) as any);
+  v1.openapi(meGetRoute, (async (c: any) => handleGetMe(c)) as any);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  v1.openapi(mePatchRoute, (async (c: any) => {
-    const body = patchMeRequestSchema.parse(
-      await c.req.json()
-    ) as PatchMeRequest;
-    const db = createDbClient(c.env.DB);
-    const user = c.get("user");
-    const now = new Date().toISOString();
-    const updates: Partial<UserRow> = { updatedAt: now };
-    if (body.reminderLeadDays !== undefined)
-      updates.reminderLeadDays = body.reminderLeadDays;
-    if (body.pushEnabled !== undefined)
-      updates.pushEnabled = body.pushEnabled ? 1 : 0;
-    if (body.timezone !== undefined) updates.timezone = body.timezone;
-
-    await db.update(users).set(updates).where(eq(users.id, user.id));
-    const updated = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, user.id))
-      .get();
-    if (!updated) return apiError(c, 404, "not_found", "User not found");
-    return c.json(meResponseSchema.parse(rowToMe(updated)), 200);
-  }) as any);
+  v1.openapi(mePatchRoute, (async (c: any) =>
+    handlePatchMe(c, await c.req.json())) as any);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  v1.openapi(meDeleteRoute, (async (c: any) => {
-    const db = createDbClient(c.env.DB);
-    const user = c.get("user");
-    const now = new Date().toISOString();
-    await db
-      .update(users)
-      .set({ deletedAt: now, updatedAt: now })
-      .where(eq(users.id, user.id));
-    await c.env.REMINDER_QUEUE.send({
-      type: "receipts.purge",
-      userId: user.id,
-    });
-    return c.body(null, 204);
-  }) as any);
+  v1.openapi(meDeleteRoute, (async (c: any) => handleDeleteMe(c)) as any);
 
   // Purchases
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
