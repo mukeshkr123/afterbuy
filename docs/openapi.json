@@ -1,0 +1,243 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Acme API",
+    "version": "0.1.0"
+  },
+  "components": {
+    "schemas": {},
+    "parameters": {}
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": ["System"],
+        "responses": {
+          "200": {
+            "description": "The API is fully configured.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": ["ok", "degraded"]
+                    },
+                    "stage": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    },
+                    "checks": {
+                      "type": "object",
+                      "properties": {
+                        "database": {
+                          "type": "boolean"
+                        },
+                        "storage": {
+                          "type": "boolean"
+                        },
+                        "queue": {
+                          "type": "boolean"
+                        },
+                        "cors": {
+                          "type": "boolean"
+                        },
+                        "optionalWebhookSecret": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "database",
+                        "storage",
+                        "queue",
+                        "cors",
+                        "optionalWebhookSecret"
+                      ]
+                    },
+                    "degradedReasons": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "stage",
+                    "requestId",
+                    "checks",
+                    "degradedReasons"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The API is reachable but degraded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": ["ok", "degraded"]
+                    },
+                    "stage": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    },
+                    "checks": {
+                      "type": "object",
+                      "properties": {
+                        "database": {
+                          "type": "boolean"
+                        },
+                        "storage": {
+                          "type": "boolean"
+                        },
+                        "queue": {
+                          "type": "boolean"
+                        },
+                        "cors": {
+                          "type": "boolean"
+                        },
+                        "optionalWebhookSecret": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "database",
+                        "storage",
+                        "queue",
+                        "cors",
+                        "optionalWebhookSecret"
+                      ]
+                    },
+                    "degradedReasons": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "stage",
+                    "requestId",
+                    "checks",
+                    "degradedReasons"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/jobs/example": {
+      "post": {
+        "tags": ["Jobs"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "message": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  }
+                },
+                "required": ["message"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "The job was accepted for asynchronous processing.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "accepted": {
+                      "type": "boolean",
+                      "enum": [true]
+                    },
+                    "job": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "message": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 500
+                        },
+                        "requestedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      },
+                      "required": ["id", "message", "requestedAt"]
+                    }
+                  },
+                  "required": ["accepted", "job"]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "The caller exceeded the example route rate limit.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error", "requestId"]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The queue producer is not configured.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error", "requestId"]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

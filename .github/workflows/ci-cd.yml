@@ -1,0 +1,105 @@
+name: CI/CD
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      rollback_ref:
+        description: "Optional commit, tag, or branch to deploy"
+        required: false
+        type: string
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v5
+        with:
+          version: 11.14.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm verify:ids
+      - run: pnpm verify:template
+      - run: pnpm verify:migrations
+      - run: pnpm api:openapi
+
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    needs: quality
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      PRODUCTION_D1_DB_NAME: ${{ vars.PRODUCTION_D1_DB_NAME }}
+      API_SMOKE_URL: ${{ vars.API_SMOKE_URL }}
+      WEB_SMOKE_URL: ${{ vars.WEB_SMOKE_URL }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.rollback_ref || github.sha }}
+      - uses: pnpm/action-setup@v5
+        with:
+          version: 11.14.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Validate config
+        run: pnpm validate:config
+      - name: Build
+        run: pnpm build
+      - name: Deploy SST
+        run: pnpm deploy
+      - name: Apply D1 migrations
+        env:
+          CLOUDFLARE_D1_DATABASE_ID: ${{ secrets.CLOUDFLARE_D1_DATABASE_ID }}
+        run: |
+          set -euo pipefail
+          : "${PRODUCTION_D1_DB_NAME:?Set vars.PRODUCTION_D1_DB_NAME in the production environment}"
+          : "${CLOUDFLARE_D1_DATABASE_ID:?Set secrets.CLOUDFLARE_D1_DATABASE_ID in the production environment}"
+          tmp_config="$(mktemp)"
+          trap 'rm -f "$tmp_config"' EXIT
+          cat > "$tmp_config" <<JSON
+          {
+            "name": "acme-ci-migrations",
+            "compatibility_date": "2026-07-18",
+            "d1_databases": [
+              {
+                "binding": "DB",
+                "database_name": "${PRODUCTION_D1_DB_NAME}",
+                "database_id": "${CLOUDFLARE_D1_DATABASE_ID}"
+              }
+            ]
+          }
+          JSON
+          pnpm wrangler d1 migrations apply "$PRODUCTION_D1_DB_NAME" --remote --config "$tmp_config"
+      - name: Smoke check
+        run: |
+          set -euo pipefail
+          : "${API_SMOKE_URL:?Set vars.API_SMOKE_URL in the production environment}"
+          : "${WEB_SMOKE_URL:?Set vars.WEB_SMOKE_URL in the production environment}"
+          for url in "$API_SMOKE_URL/health" "$WEB_SMOKE_URL/"; do
+            for attempt in 1 2 3 4 5; do
+              status="$(curl -sS -o /dev/null -w "%{http_code}" "$url" || true)"
+              if [ "$status" = "200" ]; then
+                break
+              fi
+              if [ "$attempt" = "5" ]; then
+                echo "Smoke check failed for $url with status $status"
+                exit 1
+              fi
+              sleep "$((attempt * 5))"
+            done
+          done

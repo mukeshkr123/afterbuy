@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "exactOptionalPropertyTypes": false,
+    "noImplicitAny": false,
+    "noUncheckedIndexedAccess": false,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": ["scripts/**/*.ts", "scripts/**/*.d.ts"],
+  "exclude": [".sst", "node_modules", "apps/**/dist", "packages/**/dist"]
+}

@@ -1,0 +1,30 @@
+{
+  "name": "@acme/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite --host 0.0.0.0",
+    "preview": "vite preview",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@acme/shared": "workspace:*",
+    "@vitejs/plugin-react": "6.0.3",
+    "vite": "8.1.5",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20260718.1",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "happy-dom": "20.10.6",
+    "typescript": "7.0.2",
+    "vitest": "4.1.10",
+    "wrangler": "4.112.0"
+  }
+}

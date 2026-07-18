@@ -1,0 +1,32 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "rangeStrategy": "pin",
+  "packageRules": [
+    {
+      "matchPackageNames": [
+        "sst",
+        "@pulumi/cloudflare",
+        "wrangler",
+        "@cloudflare/workers-types",
+        "@cloudflare/vitest-pool-workers",
+        "typescript"
+      ],
+      "groupName": "cloudflare platform pins",
+      "dependencyDashboardApproval": true
+    },
+    {
+      "matchPackageNames": [
+        "react",
+        "react-dom",
+        "@vitejs/plugin-react",
+        "vite"
+      ],
+      "groupName": "web runtime"
+    },
+    {
+      "matchPackageNames": ["drizzle-orm", "drizzle-kit"],
+      "groupName": "drizzle"
+    }
+  ]
+}

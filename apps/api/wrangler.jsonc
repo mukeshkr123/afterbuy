@@ -1,0 +1,67 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "acme-local-api",
+  "main": "src/index.ts",
+  // Keep this in sync with infra/env.ts COMPATIBILITY_DATE and SST worker transforms.
+  "compatibility_date": "2026-07-18",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1,
+  },
+  "vars": {
+    "APP_STAGE": "local",
+    "ALLOWED_ORIGINS": "http://localhost:5173",
+    "EXAMPLE_QUEUE_NAME": "local-example-queue",
+    "EXAMPLE_DLQ_NAME": "local-example-dlq",
+    "DAILY_CRON_EXPRESSION": "0 2 * * *",
+    "REQUIRED_RUNTIME_TOKEN": "",
+    "OPTIONAL_WEBHOOK_SECRET": "",
+    "RATE_LIMIT_ENABLED": "true",
+    "RATE_LIMIT_WINDOW_SECONDS": "60",
+    "RATE_LIMIT_MAX_REQUESTS": "60",
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      // Placeholder only: SST creates real D1 databases during deploy.
+      "database_name": "SST_CREATES_THIS_DATABASE",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+    },
+  ],
+  "r2_buckets": [
+    {
+      "binding": "STORAGE",
+      "bucket_name": "sst-creates-this-bucket",
+    },
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "APP_KV",
+      "id": "00000000000000000000000000000000",
+    },
+  ],
+  "queues": {
+    "producers": [
+      {
+        "binding": "EXAMPLE_QUEUE",
+        "queue": "local-example-queue",
+      },
+      {
+        "binding": "EXAMPLE_DLQ",
+        "queue": "local-example-dlq",
+      },
+    ],
+    "consumers": [
+      {
+        "queue": "local-example-queue",
+        "max_batch_size": 10,
+        "max_retries": 5,
+        "dead_letter_queue": "local-example-dlq",
+      },
+    ],
+  },
+  "triggers": {
+    "crons": ["0 2 * * *"],
+  },
+}
