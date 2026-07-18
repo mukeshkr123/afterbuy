@@ -1,25 +1,25 @@
 import { resourceName } from "./env";
 
 export function createQueues() {
-  const exampleDlq = new sst.cloudflare.Queue("ExampleDlq", {
+  const reminderDlq = new sst.cloudflare.Queue("ReminderDlq", {
     transform: {
       queue(args) {
-        args.queueName = resourceName("example-dlq");
+        args.queueName = resourceName("reminder-dlq");
       },
     },
   });
 
-  const example = new sst.cloudflare.Queue("ExampleQueue", {
+  const reminder = new sst.cloudflare.Queue("ReminderQueue", {
     transform: {
       queue(args) {
-        args.queueName = resourceName("example-queue");
+        args.queueName = resourceName("reminder-queue");
       },
     },
   });
 
   return {
-    example,
-    exampleDlq,
+    reminder,
+    reminderDlq,
   };
 }
 

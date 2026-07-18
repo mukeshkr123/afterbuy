@@ -9,19 +9,21 @@ function env(): Env {
     APP_KV: {
       put: vi.fn(async () => undefined),
     } as unknown as KVNamespace,
-    EXAMPLE_QUEUE: {
+    REMINDER_QUEUE: {
       send: vi.fn(async () => undefined),
     } as unknown as Queue,
-    EXAMPLE_DLQ: {
+    REMINDER_DLQ: {
       send: vi.fn(async () => undefined),
     } as unknown as Queue,
     ALLOWED_ORIGINS: "https://example.com",
     APP_STAGE: "test",
-    EXAMPLE_QUEUE_NAME: "acme-test-example-queue",
-    EXAMPLE_DLQ_NAME: "acme-test-example-dlq",
+    REMINDER_QUEUE_NAME: "acme-test-example-queue",
+    REMINDER_DLQ_NAME: "acme-test-example-dlq",
     DAILY_CRON_EXPRESSION: "0 2 * * *",
-    REQUIRED_RUNTIME_TOKEN: "set",
-    OPTIONAL_WEBHOOK_SECRET: "set",
+    CLERK_ISSUER: "",
+    CLERK_JWKS_URL: "",
+    CLERK_ALLOWED_AZP: "",
+    CLERK_WEBHOOK_SECRET: "set",
     RATE_LIMIT_ENABLED: "true",
     RATE_LIMIT_WINDOW_SECONDS: "60",
     RATE_LIMIT_MAX_REQUESTS: "60",
@@ -58,7 +60,7 @@ describe("queue dispatch", () => {
       messages: [{ body: { nope: true }, attempts: 5, retry: vi.fn(), ack }],
     });
 
-    expect(testEnv.EXAMPLE_DLQ.send).toHaveBeenCalledWith({ nope: true });
+    expect(testEnv.REMINDER_DLQ.send).toHaveBeenCalledWith({ nope: true });
     expect(ack).toHaveBeenCalledOnce();
   });
 });

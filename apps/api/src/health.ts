@@ -4,9 +4,10 @@ export function getHealth(env: Env, requestId: string) {
   const checks = {
     database: Boolean(env.DB),
     storage: Boolean(env.STORAGE),
-    queue: Boolean(env.EXAMPLE_QUEUE && env.EXAMPLE_QUEUE_NAME),
+    queue: Boolean(env.REMINDER_QUEUE && env.REMINDER_QUEUE_NAME),
     cors: Boolean(env.ALLOWED_ORIGINS),
-    optionalWebhookSecret: Boolean(env.OPTIONAL_WEBHOOK_SECRET),
+    optionalWebhookSecret: Boolean(env.CLERK_WEBHOOK_SECRET),
+    clerkAuthConfigured: Boolean(env.CLERK_ISSUER && env.CLERK_JWKS_URL),
   };
 
   const degradedReasons = Object.entries(checks)

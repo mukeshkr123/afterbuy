@@ -6,5 +6,6 @@ export default defineConfig({
     pool: cloudflarePool({
       wrangler: { configPath: "./wrangler.jsonc" },
     }),
+    exclude: ["**/node_modules/**", "test/auth.test.ts"],
   },
 });

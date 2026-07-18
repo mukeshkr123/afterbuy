@@ -11,7 +11,7 @@ interface ApiArgs {
 }
 
 export function createApi({ storage, queues }: ApiArgs) {
-  const apiToken = new sst.Secret("RuntimeApiToken");
+  const clerkWebhookSecret = new sst.Secret("ClerkWebhookSecret");
 
   const worker = new sst.cloudflare.Worker("ApiWorker", {
     handler: "apps/api/src/index.ts",
@@ -20,21 +20,23 @@ export function createApi({ storage, queues }: ApiArgs) {
       storage.database,
       storage.bucket,
       storage.kv,
-      queues.example,
-      queues.exampleDlq,
-      apiToken,
+      queues.reminder,
+      queues.reminderDlq,
+      clerkWebhookSecret,
     ],
     environment: {
       ALLOWED_ORIGINS: optionalEnv("ALLOWED_ORIGINS"),
       APP_STAGE: $app.stage,
-      EXAMPLE_QUEUE_NAME: queues.example.nodes.queue.queueName,
-      EXAMPLE_DLQ_NAME: queues.exampleDlq.nodes.queue.queueName,
+      REMINDER_QUEUE_NAME: queues.reminder.nodes.queue.queueName,
+      REMINDER_DLQ_NAME: queues.reminderDlq.nodes.queue.queueName,
       DAILY_CRON_EXPRESSION: DAILY_CRON,
-      REQUIRED_RUNTIME_TOKEN: apiToken.value,
-      OPTIONAL_WEBHOOK_SECRET: optionalEnv("OPTIONAL_WEBHOOK_SECRET"),
+      CLERK_ISSUER: optionalEnv("CLERK_ISSUER"),
+      CLERK_JWKS_URL: optionalEnv("CLERK_JWKS_URL"),
+      CLERK_ALLOWED_AZP: optionalEnv("CLERK_ALLOWED_AZP"),
+      CLERK_WEBHOOK_SECRET: clerkWebhookSecret.value,
       RATE_LIMIT_ENABLED: optionalEnv("RATE_LIMIT_ENABLED", "true"),
       RATE_LIMIT_WINDOW_SECONDS: optionalEnv("RATE_LIMIT_WINDOW_SECONDS", "60"),
-      RATE_LIMIT_MAX_REQUESTS: optionalEnv("RATE_LIMIT_MAX_REQUESTS", "60"),
+      RATE_LIMIT_MAX_REQUESTS: optionalEnv("RATE_LIMIT_MAX_REQUESTS", "120"),
     },
     transform: {
       worker(args) {
@@ -49,10 +51,10 @@ export function createApi({ storage, queues }: ApiArgs) {
     },
   });
 
-  new cloudflare.QueueConsumer("ApiExampleQueueConsumer", {
+  new cloudflare.QueueConsumer("ApiReminderQueueConsumer", {
     accountId: requireEnv("CLOUDFLARE_ACCOUNT_ID"),
-    deadLetterQueue: queues.exampleDlq.nodes.queue.queueName,
-    queueId: queues.example.nodes.queue.id,
+    deadLetterQueue: queues.reminderDlq.nodes.queue.queueName,
+    queueId: queues.reminder.nodes.queue.id,
     scriptName: worker.nodes.worker.scriptName,
     type: "worker",
     settings: {

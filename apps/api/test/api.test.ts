@@ -8,23 +8,23 @@ function env(overrides: Partial<Env> = {}): Env {
     STORAGE: {} as R2Bucket,
     APP_KV: {
       put: async () => undefined,
+      get: async () => null,
     } as unknown as KVNamespace,
-    EXAMPLE_QUEUE: {
+    REMINDER_QUEUE: {
       send: async () => undefined,
     } as unknown as Queue,
-    EXAMPLE_DLQ: {
+    REMINDER_DLQ: {
       send: async () => undefined,
     } as unknown as Queue,
     ALLOWED_ORIGINS: "https://example.com",
     APP_STAGE: "test",
-    EXAMPLE_QUEUE_NAME: "acme-test-example-queue",
-    EXAMPLE_DLQ_NAME: "acme-test-example-dlq",
+    REMINDER_QUEUE_NAME: "acme-test-example-queue",
+    REMINDER_DLQ_NAME: "acme-test-example-dlq",
     DAILY_CRON_EXPRESSION: "0 2 * * *",
-    REQUIRED_RUNTIME_TOKEN: "set",
-    OPTIONAL_WEBHOOK_SECRET: "set",
-    RATE_LIMIT_ENABLED: "true",
-    RATE_LIMIT_WINDOW_SECONDS: "60",
-    RATE_LIMIT_MAX_REQUESTS: "60",
+    CLERK_ISSUER: "https://clerk.test",
+    CLERK_JWKS_URL: "https://clerk.test/.well-known/jwks.json",
+    CLERK_ALLOWED_AZP: "",
+    CLERK_WEBHOOK_SECRET: "set",
     ...overrides,
   };
 }
@@ -36,11 +36,11 @@ describe("api", () => {
     await expect(res.json()).resolves.toMatchObject({ status: "ok" });
   });
 
-  test("reports degraded when optional config is missing", async () => {
+  test("reports degraded when webhook secret is missing", async () => {
     const res = await createApp().request(
       "/health",
       {},
-      env({ OPTIONAL_WEBHOOK_SECRET: "" })
+      env({ CLERK_WEBHOOK_SECRET: "" })
     );
     expect(res.status).toBe(503);
     await expect(res.json()).resolves.toMatchObject({ status: "degraded" });
@@ -64,6 +64,10 @@ describe("api", () => {
 
     expect(spec.paths["/health"]).toBeDefined();
     expect(spec.paths["/jobs/example"]).toBeDefined();
+    expect(spec.components.securitySchemes.bearerAuth).toMatchObject({
+      type: "http",
+      scheme: "bearer",
+    });
   });
 
   test("rate limits the example producer route", async () => {
@@ -99,5 +103,34 @@ describe("api", () => {
 
     expect(first.status).toBe(202);
     expect(second.status).toBe(429);
+    await expect(second.json()).resolves.toMatchObject({
+      error: { code: "rate_limited" },
+    });
+  });
+
+  test("returns 401 with envelope shape when /v1/me is hit without auth and Clerk is configured", async () => {
+    const res = await createApp().request(
+      "/v1/me",
+      {},
+      env({
+        CLERK_ISSUER: "https://clerk.test",
+        CLERK_JWKS_URL: "https://clerk.test/jwks",
+      })
+    );
+    expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body.error.code).toBe("unauthenticated");
+    expect(body.requestId).toBeTypeOf("string");
+  });
+
+  test("returns 503 when Clerk is not configured and /v1/me is hit", async () => {
+    const res = await createApp().request(
+      "/v1/me",
+      {},
+      env({ CLERK_ISSUER: "", CLERK_JWKS_URL: "" })
+    );
+    expect(res.status).toBe(503);
+    const body = await res.json();
+    expect(body.error.code).toBe("auth_not_configured");
   });
 });

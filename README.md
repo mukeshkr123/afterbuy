@@ -7,7 +7,7 @@ The SST app name is `acme`; stages supply the environment suffix.
 
 - pnpm workspaces, Node 22, TypeScript strict ESM
 - SST v3 with `home: "cloudflare"` and Pulumi Cloudflare provider
-- Hono API Worker, Vite React SPA Worker, D1, Drizzle, R2, KV, Queues, Cron
+- Hono API Worker, D1, Drizzle, R2, KV, Queues, Cron
 - Vitest, Cloudflare Workers test pool, ESLint 9, Prettier, Husky, GitHub Actions
 
 ## Local Development
@@ -22,7 +22,6 @@ pnpm test
 pnpm verify:skills
 pnpm verify:template
 pnpm --filter @acme/api dev
-pnpm --filter @acme/web dev
 ```
 
 `apps/api/wrangler.jsonc` is only for local development or direct Wrangler
@@ -51,8 +50,20 @@ gh secret set CLOUDFLARE_API_TOKEN --env production
 gh secret set CLOUDFLARE_D1_DATABASE_ID --env production
 gh variable set PRODUCTION_D1_DB_NAME --env production
 gh variable set API_SMOKE_URL --env production
-gh variable set WEB_SMOKE_URL --env production
+gh secret set CLERK_WEBHOOK_SECRET --env production
+gh variable set CLERK_ISSUER --env production
+gh variable set CLERK_JWKS_URL --env production
+gh variable set CLERK_ALLOWED_AZP --env production
 ```
+
+`CLERK_ISSUER` is your Clerk instance URL (e.g.
+`https://your-instance.clerk.accounts.dev`). `CLERK_JWKS_URL` is the JWKS
+endpoint on that instance (`.../.well-known/jwks.json`). `CLERK_ALLOWED_AZP`
+is a comma-separated allow-list of Clerk frontend `azp` claims permitted in
+prod; local and preview stages ignore this list.
+
+Demoing `/v1/me` against a stage requires all four Clerk values. Without them
+the route returns `503 auth_not_configured`.
 
 Jobs declaring `environment: production` use Environment-scoped values. Repo
 level values with the same names are ignored there.
@@ -147,12 +158,18 @@ map, and refresh commands.
 
 ## Security Defaults
 
-The web Worker ships strict static headers, including CSP, frame protections,
-HSTS, referrer policy, and permissions policy. Review CSP before adding OAuth
-providers, analytics, or third-party assets.
+All `/v1/*` routes require a Clerk session JWT in the `Authorization: Bearer`
+header. The Worker verifies it directly against Clerk's JWKS using `jose`,
+caching the key set for one hour. `/v1/webhooks/clerk` is the only
+unauthenticated `/v1` route and is verified via Svix signatures.
 
-The API includes a small KV-backed rate-limit example on `/jobs/example`.
-Disable locally with `RATE_LIMIT_ENABLED=false` only when testing the producer.
+`/v1` is rate-limited at 120 req/min per user via a KV-backed fixed window;
+`x-ratelimit-remaining` and `x-ratelimit-reset` are returned on every
+response. All `/v1` writes require an `Idempotency-Key: <UUID>` header; the
+middleware caches the response for 24 hours and replays it verbatim on a
+matching retry, or returns `409 conflict` if the body hash differs. Disable
+the limiter locally with `RATE_LIMIT_ENABLED=false` only when testing the
+producer.
 
 ## Moving Cloudflare Accounts
 
@@ -165,3 +182,4 @@ Disable locally with `RATE_LIMIT_ENABLED=false` only when testing the producer.
 
 Changing `app.name` creates a brand-new SST state namespace. Use that only as
 the escape hatch for unrecoverable state drift.
+ift.

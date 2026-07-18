@@ -28,7 +28,13 @@ const changed = execFileSync(
   .split("\n")
   .filter(Boolean);
 
-const forbidden = changed.filter((line) => /^[DM]\s/.test(line));
+// The journal and snapshot JSON files are updated by drizzle-kit on every
+// new migration; only flag deletes or modifies of the SQL migration files
+// themselves, which are the append-only records.
+const forbidden = changed.filter((line) => {
+  const m = /^[DM]\s+(.+)$/.exec(line);
+  return m ? /\.sql$/.test(m[1]!) : false;
+});
 
 if (forbidden.length > 0) {
   throw new Error(

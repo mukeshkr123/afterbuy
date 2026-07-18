@@ -5,6 +5,13 @@
     "version": "0.1.0"
   },
   "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
     "schemas": {},
     "parameters": {}
   },
@@ -47,6 +54,9 @@
                         },
                         "optionalWebhookSecret": {
                           "type": "boolean"
+                        },
+                        "clerkAuthConfigured": {
+                          "type": "boolean"
                         }
                       },
                       "required": [
@@ -54,7 +64,8 @@
                         "storage",
                         "queue",
                         "cors",
-                        "optionalWebhookSecret"
+                        "optionalWebhookSecret",
+                        "clerkAuthConfigured"
                       ]
                     },
                     "degradedReasons": {
@@ -109,6 +120,9 @@
                         },
                         "optionalWebhookSecret": {
                           "type": "boolean"
+                        },
+                        "clerkAuthConfigured": {
+                          "type": "boolean"
                         }
                       },
                       "required": [
@@ -116,7 +130,8 @@
                         "storage",
                         "queue",
                         "cors",
-                        "optionalWebhookSecret"
+                        "optionalWebhookSecret",
+                        "clerkAuthConfigured"
                       ]
                     },
                     "degradedReasons": {
@@ -140,73 +155,205 @@
         }
       }
     },
-    "/jobs/example": {
+    "/v1/webhooks/clerk": {
       "post": {
-        "tags": ["Jobs"],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "message": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 500
-                  }
-                },
-                "required": ["message"]
-              }
-            }
-          }
-        },
+        "tags": ["Identity"],
+        "security": [],
         "responses": {
-          "202": {
-            "description": "The job was accepted for asynchronous processing.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "accepted": {
-                      "type": "boolean",
-                      "enum": [true]
-                    },
-                    "job": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string",
-                          "format": "uuid"
-                        },
-                        "message": {
-                          "type": "string",
-                          "minLength": 1,
-                          "maxLength": 500
-                        },
-                        "requestedAt": {
-                          "type": "string",
-                          "format": "date-time"
-                        }
-                      },
-                      "required": ["id", "message", "requestedAt"]
-                    }
-                  },
-                  "required": ["accepted", "job"]
-                }
-              }
-            }
+          "200": {
+            "description": "Event accepted."
           },
-          "429": {
-            "description": "The caller exceeded the example route rate limit.",
+          "401": {
+            "description": "Invalid signature or missing Svix headers.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
                     "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "unauthenticated",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "validation_failed",
+                            "rate_limited",
+                            "internal",
+                            "unavailable",
+                            "auth_not_configured"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "fields": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": ["code", "message"]
+                    },
+                    "requestId": {
                       "type": "string"
+                    }
+                  },
+                  "required": ["error", "requestId"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me": {
+      "get": {
+        "tags": ["Identity"],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The authenticated user profile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "clerkUserId": {
+                      "type": "string"
+                    },
+                    "email": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "reminderLeadDays": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 365
+                    },
+                    "pushEnabled": {
+                      "type": "boolean"
+                    },
+                    "timezone": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    },
+                    "deletedAt": {
+                      "type": "string",
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "clerkUserId",
+                    "email",
+                    "reminderLeadDays",
+                    "pushEnabled",
+                    "timezone",
+                    "createdAt",
+                    "updatedAt"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "unauthenticated",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "validation_failed",
+                            "rate_limited",
+                            "internal",
+                            "unavailable",
+                            "auth_not_configured"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "fields": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": ["code", "message"]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error", "requestId"]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "unauthenticated",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "validation_failed",
+                            "rate_limited",
+                            "internal",
+                            "unavailable",
+                            "auth_not_configured"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "fields": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": ["code", "message"]
                     },
                     "requestId": {
                       "type": "string"
@@ -218,14 +365,2020 @@
             }
           },
           "503": {
-            "description": "The queue producer is not configured.",
+            "description": "Authentication is not configured.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
                     "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "unauthenticated",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "validation_failed",
+                            "rate_limited",
+                            "internal",
+                            "unavailable",
+                            "auth_not_configured"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "fields": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": ["code", "message"]
+                    },
+                    "requestId": {
                       "type": "string"
+                    }
+                  },
+                  "required": ["error", "requestId"]
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": ["Identity"],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reminderLeadDays": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 365
+                  },
+                  "pushEnabled": {
+                    "type": "boolean"
+                  },
+                  "timezone": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The updated user profile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "clerkUserId": {
+                      "type": "string"
+                    },
+                    "email": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "reminderLeadDays": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 365
+                    },
+                    "pushEnabled": {
+                      "type": "boolean"
+                    },
+                    "timezone": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    },
+                    "deletedAt": {
+                      "type": "string",
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "clerkUserId",
+                    "email",
+                    "reminderLeadDays",
+                    "pushEnabled",
+                    "timezone",
+                    "createdAt",
+                    "updatedAt"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "unauthenticated",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "validation_failed",
+                            "rate_limited",
+                            "internal",
+                            "unavailable",
+                            "auth_not_configured"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "fields": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": ["code", "message"]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error", "requestId"]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "unauthenticated",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "validation_failed",
+                            "rate_limited",
+                            "internal",
+                            "unavailable",
+                            "auth_not_configured"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "fields": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": ["code", "message"]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error", "requestId"]
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Identity"],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Account soft-deleted."
+          },
+          "401": {
+            "description": "Unauthenticated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "unauthenticated",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "validation_failed",
+                            "rate_limited",
+                            "internal",
+                            "unavailable",
+                            "auth_not_configured"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "fields": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": ["code", "message"]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error", "requestId"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/purchases": {
+      "get": {
+        "tags": ["Purchases"],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "required": false,
+            "name": "q",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "electronics",
+                "appliances",
+                "furniture",
+                "clothing",
+                "vehicle",
+                "home_improvement",
+                "services",
+                "other"
+              ]
+            },
+            "required": false,
+            "name": "category",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": ["ordered", "shipped", "delivered", "cancelled"]
+            },
+            "required": false,
+            "name": "deliveryStatus",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "required": false,
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "required": false,
+            "name": "to",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": ["purchaseDate", "createdAt", "amount"],
+              "default": "createdAt"
+            },
+            "required": false,
+            "name": "sort",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of purchases, newest first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "userId": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200
+                          },
+                          "merchant": {
+                            "type": "string",
+                            "nullable": true,
+                            "maxLength": 200
+                          },
+                          "category": {
+                            "type": "string",
+                            "enum": [
+                              "electronics",
+                              "appliances",
+                              "furniture",
+                              "clothing",
+                              "vehicle",
+                              "home_improvement",
+                              "services",
+                              "other"
+                            ]
+                          },
+                          "purchaseDate": {
+                            "type": "string",
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                          },
+                          "amountMinor": {
+                            "type": "integer",
+                            "nullable": true,
+                            "minimum": 0
+                          },
+                          "currency": {
+                            "type": "string",
+                            "minLength": 3,
+                            "maxLength": 3
+                          },
+                          "orderNumber": {
+                            "type": "string",
+                            "nullable": true,
+                            "maxLength": 200
+                          },
+                          "notes": {
+                            "type": "string",
+                            "nullable": true,
+                            "maxLength": 5000
+                          },
+                          "deliveryStatus": {
+                            "type": "string",
+                            "enum": [
+                              "ordered",
+                              "shipped",
+                              "delivered",
+                              "cancelled"
+                            ]
+                          },
+                          "trackingNumber": {
+                            "type": "string",
+                            "nullable": true,
+                            "maxLength": 200
+                          },
+                          "carrier": {
+                            "type": "string",
+                            "nullable": true,
+                            "maxLength": 100
+                          },
+                          "warrantyExpiresAt": {
+                            "type": "string",
+                            "nullable": true,
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                          },
+                          "returnDeadlineAt": {
+                            "type": "string",
+                            "nullable": true,
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "updatedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "deletedAt": {
+                            "type": "string",
+                            "nullable": true,
+                            "format": "date-time"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "userId",
+                          "title",
+                          "merchant",
+                          "category",
+                          "purchaseDate",
+                          "amountMinor",
+                          "currency",
+                          "orderNumber",
+                          "notes",
+                          "deliveryStatus",
+                          "trackingNumber",
+                          "carrier",
+                          "warrantyExpiresAt",
+                          "returnDeadlineAt",
+                          "createdAt",
+                          "updatedAt"
+                        ]
+                      }
+                    },
+                    "nextCursor": {
+                      "type": "string",
+                      "nullable": true
+                    }
+                  },
+                  "required": ["items", "nextCursor"]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "unauthenticated",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "validation_failed",
+                            "rate_limited",
+                            "internal",
+                            "unavailable",
+                            "auth_not_configured"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "fields": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": ["code", "message"]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error", "requestId"]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "unauthenticated",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "validation_failed",
+                            "rate_limited",
+                            "internal",
+                            "unavailable",
+                            "auth_not_configured"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "fields": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": ["code", "message"]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error", "requestId"]
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Purchases"],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "merchant": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "category": {
+                    "type": "string",
+                    "enum": [
+                      "electronics",
+                      "appliances",
+                      "furniture",
+                      "clothing",
+                      "vehicle",
+                      "home_improvement",
+                      "services",
+                      "other"
+                    ]
+                  },
+                  "purchaseDate": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  },
+                  "amountMinor": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "currency": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 3
+                  },
+                  "orderNumber": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "notes": {
+                    "type": "string",
+                    "maxLength": 5000
+                  },
+                  "deliveryStatus": {
+                    "type": "string",
+                    "enum": ["ordered", "shipped", "delivered", "cancelled"]
+                  },
+                  "trackingNumber": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "carrier": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "warrantyExpiresAt": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  },
+                  "returnDeadlineAt": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  }
+                },
+                "required": ["title"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The created purchase.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "userId": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "merchant": {
+                      "type": "string",
+                      "nullable": true,
+                      "maxLength": 200
+                    },
+                    "category": {
+                      "type": "string",
+                      "enum": [
+                        "electronics",
+                        "appliances",
+                        "furniture",
+                        "clothing",
+                        "vehicle",
+                        "home_improvement",
+                        "services",
+                        "other"
+                      ]
+                    },
+                    "purchaseDate": {
+                      "type": "string",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                    },
+                    "amountMinor": {
+                      "type": "integer",
+                      "nullable": true,
+                      "minimum": 0
+                    },
+                    "currency": {
+                      "type": "string",
+                      "minLength": 3,
+                      "maxLength": 3
+                    },
+                    "orderNumber": {
+                      "type": "string",
+                      "nullable": true,
+                      "maxLength": 200
+                    },
+                    "notes": {
+                      "type": "string",
+                      "nullable": true,
+                      "maxLength": 5000
+                    },
+                    "deliveryStatus": {
+                      "type": "string",
+                      "enum": ["ordered", "shipped", "delivered", "cancelled"]
+                    },
+                    "trackingNumber": {
+                      "type": "string",
+                      "nullable": true,
+                      "maxLength": 200
+                    },
+                    "carrier": {
+                      "type": "string",
+                      "nullable": true,
+                      "maxLength": 100
+                    },
+                    "warrantyExpiresAt": {
+                      "type": "string",
+                      "nullable": true,
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                    },
+                    "returnDeadlineAt": {
+                      "type": "string",
+                      "nullable": true,
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "updatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "deletedAt": {
+                      "type": "string",
+                      "nullable": true,
+                      "format": "date-time"
+                    },
+                    "receipts": {
+                      "type": "array",
+                      "items": {
+                        "nullable": true
+                      }
+                    },
+                    "claims": {
+                      "type": "array",
+                      "items": {
+                        "nullable": true
+                      }
+                    },
+                    "reminders": {
+                      "type": "array",
+                      "items": {
+                        "nullable": true
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "userId",
+                    "title",
+                    "merchant",
+                    "category",
+                    "purchaseDate",
+                    "amountMinor",
+                    "currency",
+                    "orderNumber",
+                    "notes",
+                    "deliveryStatus",
+                    "trackingNumber",
+                    "carrier",
+                    "warrantyExpiresAt",
+                    "returnDeadlineAt",
+                    "createdAt",
+                    "updatedAt",
+                    "receipts",
+                    "claims",
+                    "reminders"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "unauthenticated",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "validation_failed",
+                            "rate_limited",
+                            "internal",
+                            "unavailable",
+                            "auth_not_configured"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "fields": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": ["code", "message"]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error", "requestId"]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "unauthenticated",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "validation_failed",
+                            "rate_limited",
+                            "internal",
+                            "unavailable",
+                            "auth_not_configured"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "fields": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": ["code", "message"]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error", "requestId"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/purchases/{id}": {
+      "get": {
+        "tags": ["Purchases"],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The purchase detail.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "userId": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "merchant": {
+                      "type": "string",
+                      "nullable": true,
+                      "maxLength": 200
+                    },
+                    "category": {
+                      "type": "string",
+                      "enum": [
+                        "electronics",
+                        "appliances",
+                        "furniture",
+                        "clothing",
+                        "vehicle",
+                        "home_improvement",
+                        "services",
+                        "other"
+                      ]
+                    },
+                    "purchaseDate": {
+                      "type": "string",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                    },
+                    "amountMinor": {
+                      "type": "integer",
+                      "nullable": true,
+                      "minimum": 0
+                    },
+                    "currency": {
+                      "type": "string",
+                      "minLength": 3,
+                      "maxLength": 3
+                    },
+                    "orderNumber": {
+                      "type": "string",
+                      "nullable": true,
+                      "maxLength": 200
+                    },
+                    "notes": {
+                      "type": "string",
+                      "nullable": true,
+                      "maxLength": 5000
+                    },
+                    "deliveryStatus": {
+                      "type": "string",
+                      "enum": ["ordered", "shipped", "delivered", "cancelled"]
+                    },
+                    "trackingNumber": {
+                      "type": "string",
+                      "nullable": true,
+                      "maxLength": 200
+                    },
+                    "carrier": {
+                      "type": "string",
+                      "nullable": true,
+                      "maxLength": 100
+                    },
+                    "warrantyExpiresAt": {
+                      "type": "string",
+                      "nullable": true,
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                    },
+                    "returnDeadlineAt": {
+                      "type": "string",
+                      "nullable": true,
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "updatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "deletedAt": {
+                      "type": "string",
+                      "nullable": true,
+                      "format": "date-time"
+                    },
+                    "receipts": {
+                      "type": "array",
+                      "items": {
+                        "nullable": true
+                      }
+                    },
+                    "claims": {
+                      "type": "array",
+                      "items": {
+                        "nullable": true
+                      }
+                    },
+                    "reminders": {
+                      "type": "array",
+                      "items": {
+                        "nullable": true
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "userId",
+                    "title",
+                    "merchant",
+                    "category",
+                    "purchaseDate",
+                    "amountMinor",
+                    "currency",
+                    "orderNumber",
+                    "notes",
+                    "deliveryStatus",
+                    "trackingNumber",
+                    "carrier",
+                    "warrantyExpiresAt",
+                    "returnDeadlineAt",
+                    "createdAt",
+                    "updatedAt",
+                    "receipts",
+                    "claims",
+                    "reminders"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "unauthenticated",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "validation_failed",
+                            "rate_limited",
+                            "internal",
+                            "unavailable",
+                            "auth_not_configured"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "fields": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": ["code", "message"]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error", "requestId"]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Purchase not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "unauthenticated",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "validation_failed",
+                            "rate_limited",
+                            "internal",
+                            "unavailable",
+                            "auth_not_configured"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "fields": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": ["code", "message"]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error", "requestId"]
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": ["Purchases"],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "merchant": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "category": {
+                    "type": "string",
+                    "enum": [
+                      "electronics",
+                      "appliances",
+                      "furniture",
+                      "clothing",
+                      "vehicle",
+                      "home_improvement",
+                      "services",
+                      "other"
+                    ]
+                  },
+                  "purchaseDate": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  },
+                  "amountMinor": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "currency": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 3
+                  },
+                  "orderNumber": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "notes": {
+                    "type": "string",
+                    "maxLength": 5000
+                  },
+                  "deliveryStatus": {
+                    "type": "string",
+                    "enum": ["ordered", "shipped", "delivered", "cancelled"]
+                  },
+                  "trackingNumber": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "carrier": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "warrantyExpiresAt": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  },
+                  "returnDeadlineAt": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The updated purchase.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "userId": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "merchant": {
+                      "type": "string",
+                      "nullable": true,
+                      "maxLength": 200
+                    },
+                    "category": {
+                      "type": "string",
+                      "enum": [
+                        "electronics",
+                        "appliances",
+                        "furniture",
+                        "clothing",
+                        "vehicle",
+                        "home_improvement",
+                        "services",
+                        "other"
+                      ]
+                    },
+                    "purchaseDate": {
+                      "type": "string",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                    },
+                    "amountMinor": {
+                      "type": "integer",
+                      "nullable": true,
+                      "minimum": 0
+                    },
+                    "currency": {
+                      "type": "string",
+                      "minLength": 3,
+                      "maxLength": 3
+                    },
+                    "orderNumber": {
+                      "type": "string",
+                      "nullable": true,
+                      "maxLength": 200
+                    },
+                    "notes": {
+                      "type": "string",
+                      "nullable": true,
+                      "maxLength": 5000
+                    },
+                    "deliveryStatus": {
+                      "type": "string",
+                      "enum": ["ordered", "shipped", "delivered", "cancelled"]
+                    },
+                    "trackingNumber": {
+                      "type": "string",
+                      "nullable": true,
+                      "maxLength": 200
+                    },
+                    "carrier": {
+                      "type": "string",
+                      "nullable": true,
+                      "maxLength": 100
+                    },
+                    "warrantyExpiresAt": {
+                      "type": "string",
+                      "nullable": true,
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                    },
+                    "returnDeadlineAt": {
+                      "type": "string",
+                      "nullable": true,
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "updatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "deletedAt": {
+                      "type": "string",
+                      "nullable": true,
+                      "format": "date-time"
+                    },
+                    "receipts": {
+                      "type": "array",
+                      "items": {
+                        "nullable": true
+                      }
+                    },
+                    "claims": {
+                      "type": "array",
+                      "items": {
+                        "nullable": true
+                      }
+                    },
+                    "reminders": {
+                      "type": "array",
+                      "items": {
+                        "nullable": true
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "userId",
+                    "title",
+                    "merchant",
+                    "category",
+                    "purchaseDate",
+                    "amountMinor",
+                    "currency",
+                    "orderNumber",
+                    "notes",
+                    "deliveryStatus",
+                    "trackingNumber",
+                    "carrier",
+                    "warrantyExpiresAt",
+                    "returnDeadlineAt",
+                    "createdAt",
+                    "updatedAt",
+                    "receipts",
+                    "claims",
+                    "reminders"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "unauthenticated",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "validation_failed",
+                            "rate_limited",
+                            "internal",
+                            "unavailable",
+                            "auth_not_configured"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "fields": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": ["code", "message"]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error", "requestId"]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Purchase not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "unauthenticated",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "validation_failed",
+                            "rate_limited",
+                            "internal",
+                            "unavailable",
+                            "auth_not_configured"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "fields": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": ["code", "message"]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error", "requestId"]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "unauthenticated",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "validation_failed",
+                            "rate_limited",
+                            "internal",
+                            "unavailable",
+                            "auth_not_configured"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "fields": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": ["code", "message"]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error", "requestId"]
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Purchases"],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Purchase soft-deleted."
+          },
+          "401": {
+            "description": "Unauthenticated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "unauthenticated",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "validation_failed",
+                            "rate_limited",
+                            "internal",
+                            "unavailable",
+                            "auth_not_configured"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "fields": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": ["code", "message"]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error", "requestId"]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Purchase not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "unauthenticated",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "validation_failed",
+                            "rate_limited",
+                            "internal",
+                            "unavailable",
+                            "auth_not_configured"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "fields": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": ["code", "message"]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error", "requestId"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/purchases/{id}/restore": {
+      "post": {
+        "tags": ["Purchases"],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The restored purchase.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "userId": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "merchant": {
+                      "type": "string",
+                      "nullable": true,
+                      "maxLength": 200
+                    },
+                    "category": {
+                      "type": "string",
+                      "enum": [
+                        "electronics",
+                        "appliances",
+                        "furniture",
+                        "clothing",
+                        "vehicle",
+                        "home_improvement",
+                        "services",
+                        "other"
+                      ]
+                    },
+                    "purchaseDate": {
+                      "type": "string",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                    },
+                    "amountMinor": {
+                      "type": "integer",
+                      "nullable": true,
+                      "minimum": 0
+                    },
+                    "currency": {
+                      "type": "string",
+                      "minLength": 3,
+                      "maxLength": 3
+                    },
+                    "orderNumber": {
+                      "type": "string",
+                      "nullable": true,
+                      "maxLength": 200
+                    },
+                    "notes": {
+                      "type": "string",
+                      "nullable": true,
+                      "maxLength": 5000
+                    },
+                    "deliveryStatus": {
+                      "type": "string",
+                      "enum": ["ordered", "shipped", "delivered", "cancelled"]
+                    },
+                    "trackingNumber": {
+                      "type": "string",
+                      "nullable": true,
+                      "maxLength": 200
+                    },
+                    "carrier": {
+                      "type": "string",
+                      "nullable": true,
+                      "maxLength": 100
+                    },
+                    "warrantyExpiresAt": {
+                      "type": "string",
+                      "nullable": true,
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                    },
+                    "returnDeadlineAt": {
+                      "type": "string",
+                      "nullable": true,
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "updatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "deletedAt": {
+                      "type": "string",
+                      "nullable": true,
+                      "format": "date-time"
+                    },
+                    "receipts": {
+                      "type": "array",
+                      "items": {
+                        "nullable": true
+                      }
+                    },
+                    "claims": {
+                      "type": "array",
+                      "items": {
+                        "nullable": true
+                      }
+                    },
+                    "reminders": {
+                      "type": "array",
+                      "items": {
+                        "nullable": true
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "userId",
+                    "title",
+                    "merchant",
+                    "category",
+                    "purchaseDate",
+                    "amountMinor",
+                    "currency",
+                    "orderNumber",
+                    "notes",
+                    "deliveryStatus",
+                    "trackingNumber",
+                    "carrier",
+                    "warrantyExpiresAt",
+                    "returnDeadlineAt",
+                    "createdAt",
+                    "updatedAt",
+                    "receipts",
+                    "claims",
+                    "reminders"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "unauthenticated",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "validation_failed",
+                            "rate_limited",
+                            "internal",
+                            "unavailable",
+                            "auth_not_configured"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "fields": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": ["code", "message"]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error", "requestId"]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Purchase not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "unauthenticated",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "validation_failed",
+                            "rate_limited",
+                            "internal",
+                            "unavailable",
+                            "auth_not_configured"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "fields": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": ["code", "message"]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error", "requestId"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/meta/categories": {
+      "get": {
+        "tags": ["Meta"],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Category list with default warranty and return windows.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "category": {
+                            "type": "string",
+                            "enum": [
+                              "electronics",
+                              "appliances",
+                              "furniture",
+                              "clothing",
+                              "vehicle",
+                              "home_improvement",
+                              "services",
+                              "other"
+                            ]
+                          },
+                          "defaultReturnDays": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "defaultWarrantyDays": {
+                            "type": "integer",
+                            "minimum": 0
+                          }
+                        },
+                        "required": [
+                          "category",
+                          "defaultReturnDays",
+                          "defaultWarrantyDays"
+                        ]
+                      }
+                    }
+                  },
+                  "required": ["items"]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "unauthenticated",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "validation_failed",
+                            "rate_limited",
+                            "internal",
+                            "unavailable",
+                            "auth_not_configured"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "fields": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": ["code", "message"]
                     },
                     "requestId": {
                       "type": "string"

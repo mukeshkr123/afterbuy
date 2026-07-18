@@ -10,9 +10,14 @@ export function corsMiddleware() {
       }
       return origin;
     },
-    allowMethods: ["GET", "POST", "OPTIONS"],
-    allowHeaders: ["content-type", "x-request-id"],
-    exposeHeaders: ["x-request-id"],
+    allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allowHeaders: ["content-type", "x-request-id", "idempotency-key"],
+    exposeHeaders: [
+      "x-request-id",
+      "idempotency-key",
+      "x-ratelimit-remaining",
+      "x-ratelimit-reset",
+    ],
     maxAge: 600,
   });
 }

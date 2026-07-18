@@ -12,14 +12,16 @@
   "vars": {
     "APP_STAGE": "local",
     "ALLOWED_ORIGINS": "http://localhost:5173",
-    "EXAMPLE_QUEUE_NAME": "local-example-queue",
-    "EXAMPLE_DLQ_NAME": "local-example-dlq",
+    "REMINDER_QUEUE_NAME": "local-reminder-queue",
+    "REMINDER_DLQ_NAME": "local-reminder-dlq",
     "DAILY_CRON_EXPRESSION": "0 2 * * *",
-    "REQUIRED_RUNTIME_TOKEN": "",
-    "OPTIONAL_WEBHOOK_SECRET": "",
+    "CLERK_ISSUER": "",
+    "CLERK_JWKS_URL": "",
+    "CLERK_ALLOWED_AZP": "",
+    "CLERK_WEBHOOK_SECRET": "",
     "RATE_LIMIT_ENABLED": "true",
     "RATE_LIMIT_WINDOW_SECONDS": "60",
-    "RATE_LIMIT_MAX_REQUESTS": "60",
+    "RATE_LIMIT_MAX_REQUESTS": "120",
   },
   "d1_databases": [
     {
@@ -44,20 +46,20 @@
   "queues": {
     "producers": [
       {
-        "binding": "EXAMPLE_QUEUE",
-        "queue": "local-example-queue",
+        "binding": "REMINDER_QUEUE",
+        "queue": "local-reminder-queue",
       },
       {
-        "binding": "EXAMPLE_DLQ",
-        "queue": "local-example-dlq",
+        "binding": "REMINDER_DLQ",
+        "queue": "local-reminder-dlq",
       },
     ],
     "consumers": [
       {
-        "queue": "local-example-queue",
+        "queue": "local-reminder-queue",
         "max_batch_size": 10,
         "max_retries": 5,
-        "dead_letter_queue": "local-example-dlq",
+        "dead_letter_queue": "local-reminder-dlq",
       },
     ],
   },

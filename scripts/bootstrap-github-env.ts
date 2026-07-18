@@ -6,7 +6,7 @@ const secrets = [
   "CLOUDFLARE_D1_DATABASE_ID",
 ];
 
-const variables = ["PRODUCTION_D1_DB_NAME", "API_SMOKE_URL", "WEB_SMOKE_URL"];
+const variables = ["PRODUCTION_D1_DB_NAME", "API_SMOKE_URL"];
 
 console.log(`# GitHub Environment bootstrap for ${environment}`);
 console.log("# Run these commands and provide values interactively.");
