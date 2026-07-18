@@ -1,0 +1,14 @@
+node_modules/
+.expo/
+dist/
+web-build/
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+
+# @generated expo-typescript-types
+**/.expo/types/

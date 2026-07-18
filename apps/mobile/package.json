@@ -1,0 +1,51 @@
+{
+  "name": "@acme/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "main": "index.ts",
+  "scripts": {
+    "prebuild": "pnpm --filter @acme/shared --filter @acme/db build",
+    "build": "echo 'use expo prebuild → eas build for native'",
+    "dev": "expo start --port 8081",
+    "start": "expo start --port 8081",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "echo 'mobile lint delegated to repo eslint'",
+    "test": "echo 'Tests skipped per repo policy'"
+  },
+  "dependencies": {
+    "@acme/shared": "workspace:*",
+    "@clerk/clerk-expo": "2.19.31",
+    "@hookform/resolvers": "5.2.2",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-navigation/native": "7.1.18",
+    "@tanstack/query-async-storage-persister": "5.95.2",
+    "@tanstack/react-query": "5.95.2",
+    "@tanstack/react-query-persist-client": "5.95.2",
+    "expo": "57.0.7",
+    "expo-constants": "18.0.9",
+    "expo-linking": "8.0.10",
+    "expo-router": "6.0.12",
+    "expo-secure-store": "15.0.7",
+    "expo-splash-screen": "31.0.10",
+    "expo-status-bar": "3.0.8",
+    "expo-system-ui": "6.0.7",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-hook-form": "7.82.0",
+    "react-native": "0.86.0",
+    "react-native-gesture-handler": "2.28.0",
+    "react-native-reanimated": "4.1.3",
+    "react-native-safe-area-context": "5.6.1",
+    "react-native-screens": "4.18.0",
+    "zod": "4.4.3",
+    "zustand": "5.0.8"
+  },
+  "devDependencies": {
+    "@babel/core": "7.26.0",
+    "@types/react": "19.1.0",
+    "typescript": "5.5.4"
+  }
+}

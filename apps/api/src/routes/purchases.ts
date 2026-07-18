@@ -293,11 +293,17 @@ export async function handleCreatePurchase(ctx: AuthedContext) {
   const db = createDbClient(ctx.env.DB);
   await db.insert(purchases).values(row);
   await onPurchaseMutated(ctx.env, db, row.id);
+
+  const reminderRows = await db
+    .select()
+    .from(reminders)
+    .where(eq(reminders.purchaseId, row.id));
+
   const body = purchaseDetailResponseSchema.parse({
     ...rowToPurchase(row),
     receipts: [],
     claims: [],
-    reminders: [],
+    reminders: reminderRows.map(rowToReminder),
   });
   return ctx.json(body, 201);
 }
