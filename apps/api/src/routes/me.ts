@@ -1,5 +1,5 @@
 import { createRoute } from "@hono/zod-openapi";
-import { eq } from "drizzle-orm";
+import { eq, and, isNull } from "drizzle-orm";
 import {
   apiErrorResponseSchema,
   meResponseSchema,
@@ -7,10 +7,11 @@ import {
   type MeResponse,
   type PatchMeRequest,
 } from "@acme/shared";
-import { users, type UserRow } from "@acme/db";
+import { users, purchases, type UserRow } from "@acme/db";
 import { createDbClient } from "@acme/db";
 import type { AuthedContext } from "../auth";
 import { apiError } from "../errors";
+import { onPurchaseMutated } from "./purchases";
 
 export const meGetRoute = createRoute({
   method: "get",
@@ -116,6 +117,17 @@ export async function handlePatchMe(ctx: AuthedContext, rawBody: unknown) {
   if (body.timezone !== undefined) updates.timezone = body.timezone;
 
   await db.update(users).set(updates).where(eq(users.id, user.id));
+
+  if (body.reminderLeadDays !== undefined) {
+    const userPurchases = await db
+      .select({ id: purchases.id })
+      .from(purchases)
+      .where(and(eq(purchases.userId, user.id), isNull(purchases.deletedAt)));
+
+    for (const p of userPurchases) {
+      await onPurchaseMutated(ctx.env, db, p.id);
+    }
+  }
 
   const updated = await db
     .select()

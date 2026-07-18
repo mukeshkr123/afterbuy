@@ -48,6 +48,26 @@ import {
   receiptsUploadRoute,
   receiptsViewRoute,
 } from "./routes/receipts";
+import {
+  handleListClaims,
+  handleCreateClaim,
+  handlePatchClaim,
+  claimsListRoute,
+  claimsCreateRoute,
+  claimsPatchRoute,
+} from "./routes/claims";
+import {
+  handleListReminders,
+  handleDismissReminder,
+  remindersListRoute,
+  remindersDismissRoute,
+} from "./routes/reminders";
+import {
+  handleRegisterDevice,
+  handleDeleteDevice,
+  devicesRegisterRoute,
+  devicesDeleteRoute,
+} from "./routes/devices";
 
 export function createApp() {
   const app = new OpenAPIHono<{
@@ -173,6 +193,28 @@ export function createApp() {
   v1.openapi(receiptsGetRoute, ((c: any) => handleGetReceipt(c)) as any);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   v1.openapi(receiptsDeleteRoute, ((c: any) => handleDeleteReceipt(c)) as any);
+
+  // Claims
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  v1.openapi(claimsListRoute, ((c: any) => handleListClaims(c)) as any);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  v1.openapi(claimsCreateRoute, ((c: any) => handleCreateClaim(c)) as any);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  v1.openapi(claimsPatchRoute, ((c: any) => handlePatchClaim(c)) as any);
+
+  // Reminders
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  v1.openapi(remindersListRoute, ((c: any) => handleListReminders(c)) as any);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  v1.openapi(remindersDismissRoute, ((c: any) =>
+    handleDismissReminder(c)) as any);
+
+  // Devices
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  v1.openapi(devicesRegisterRoute, ((c: any) =>
+    handleRegisterDevice(c)) as any);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  v1.openapi(devicesDeleteRoute, ((c: any) => handleDeleteDevice(c)) as any);
 
   // Meta
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

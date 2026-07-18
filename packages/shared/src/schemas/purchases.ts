@@ -6,6 +6,9 @@ import {
 } from "../constants/categories";
 import { receiptSchema } from "./receipts";
 
+import { claimSchema } from "./claims";
+import { reminderSchema } from "./reminders";
+
 const isoDate = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Must be an ISO-8601 date (YYYY-MM-DD)");
@@ -45,8 +48,8 @@ export type Purchase = z.infer<typeof purchaseSchema>;
 // stays stable; the arrays default to empty.
 export const purchaseDetailResponseSchema = purchaseSchema.extend({
   receipts: z.array(receiptSchema),
-  claims: z.array(z.unknown()),
-  reminders: z.array(z.unknown()),
+  claims: z.array(claimSchema),
+  reminders: z.array(reminderSchema),
 });
 
 export type PurchaseDetailResponse = z.infer<

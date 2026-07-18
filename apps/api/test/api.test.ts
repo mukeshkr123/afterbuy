@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { createApp } from "../src/app";
 import type { Env } from "../src/env";
+import { checkRateLimit } from "../src/rate-limit";
 
 function env(overrides: Partial<Env> = {}): Env {
   return {
@@ -63,14 +64,14 @@ describe("api", () => {
     const spec = await res.json();
 
     expect(spec.paths["/health"]).toBeDefined();
-    expect(spec.paths["/jobs/example"]).toBeDefined();
+    expect(spec.paths["/v1/me"]).toBeDefined();
     expect(spec.components.securitySchemes.bearerAuth).toMatchObject({
       type: "http",
       scheme: "bearer",
     });
   });
 
-  test("rate limits the example producer route", async () => {
+  test("rate limits with env-driven limits", async () => {
     const store = new Map<string, string>();
     const testEnv = env({
       RATE_LIMIT_MAX_REQUESTS: "1",
@@ -82,30 +83,13 @@ describe("api", () => {
       } as unknown as KVNamespace,
     });
 
-    const first = await createApp().request(
-      "/jobs/example",
-      {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ message: "hello" }),
-      },
-      testEnv
-    );
-    const second = await createApp().request(
-      "/jobs/example",
-      {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ message: "again" }),
-      },
-      testEnv
-    );
+    const first = await checkRateLimit(testEnv, "user:test");
+    const second = await checkRateLimit(testEnv, "user:test");
 
-    expect(first.status).toBe(202);
-    expect(second.status).toBe(429);
-    await expect(second.json()).resolves.toMatchObject({
-      error: { code: "rate_limited" },
-    });
+    expect(first.allowed).toBe(true);
+    expect(first.remaining).toBe(0);
+    expect(second.allowed).toBe(false);
+    expect(second.remaining).toBe(0);
   });
 
   test("returns 401 with envelope shape when /v1/me is hit without auth and Clerk is configured", async () => {

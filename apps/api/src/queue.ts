@@ -1,5 +1,11 @@
 import { eq } from "drizzle-orm";
-import { createDbClient, receipts } from "@acme/db";
+import {
+  createDbClient,
+  receipts,
+  reminders,
+  purchases,
+  devices,
+} from "@acme/db";
 import { retryPolicy } from "@acme/shared";
 import type { Env } from "./env";
 
@@ -50,6 +56,12 @@ export async function handleQueueBatch(
           const userId = (payload as any).userId;
           if (userId) {
             await handlePurgeReceipts(env, userId);
+          }
+        } else if ("type" in payload && payload.type === "reminder.send") {
+          const reminderId = (payload as any).reminderId;
+          const userId = (payload as any).userId;
+          if (reminderId && userId) {
+            await handleSendReminder(env, reminderId, userId);
           }
         } else if (
           "message" in payload &&
@@ -108,4 +120,107 @@ async function handlePurgeReceipts(env: Env, userId: string): Promise<void> {
 
   // 2. Delete rows from D1 database
   await db.delete(receipts).where(eq(receipts.userId, userId));
+}
+
+async function handleSendReminder(
+  env: Env,
+  reminderId: string,
+  userId: string
+): Promise<void> {
+  const db = createDbClient(env.DB);
+
+  const reminderRow = await db
+    .select()
+    .from(reminders)
+    .where(eq(reminders.id, reminderId))
+    .get();
+
+  if (
+    !reminderRow ||
+    reminderRow.sentAt !== null ||
+    reminderRow.dismissedAt !== null
+  ) {
+    return;
+  }
+
+  const purchaseRow = await db
+    .select()
+    .from(purchases)
+    .where(eq(purchases.id, reminderRow.purchaseId))
+    .get();
+
+  if (!purchaseRow) {
+    return;
+  }
+
+  const userDevices = await db
+    .select()
+    .from(devices)
+    .where(eq(devices.userId, userId));
+
+  if (userDevices.length === 0) {
+    // Stamp sent_at even if no devices registered, to avoid stuck reminders
+    await db
+      .update(reminders)
+      .set({ sentAt: new Date().toISOString() })
+      .where(eq(reminders.id, reminderId));
+    return;
+  }
+
+  // Batch tokens up to 100 per Expo request (though typically much fewer per user)
+  const expoMessages = userDevices.map((d) => ({
+    to: d.expoPushToken,
+    title:
+      reminderRow.kind === "return_deadline"
+        ? "Return deadline approaching!"
+        : "Warranty expiring soon!",
+    body:
+      reminderRow.kind === "return_deadline"
+        ? `Your return window for "${purchaseRow.title}" expires on ${purchaseRow.returnDeadlineAt}.`
+        : `The warranty for "${purchaseRow.title}" expires on ${purchaseRow.warrantyExpiresAt}.`,
+    data: {
+      purchaseId: purchaseRow.id,
+      reminderId: reminderRow.id,
+    },
+  }));
+
+  const res = await fetch("https://exp.host/--/api/v2/push/send", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      "Accept-Encoding": "gzip, deflate",
+    },
+    body: JSON.stringify(expoMessages),
+  });
+
+  if (!res.ok) {
+    throw new Error(
+      `Expo push API returned status ${res.status}: ${await res.text()}`
+    );
+  }
+
+  const result = (await res.json()) as any;
+  if (result && Array.isArray(result.data)) {
+    for (let i = 0; i < result.data.length; i++) {
+      const ticket = result.data[i];
+      const device = userDevices[i];
+      if (!device) continue;
+      if (ticket.status === "error") {
+        console.error(
+          `Expo push error for token "${device.expoPushToken}":`,
+          ticket.message
+        );
+        if (ticket.details?.error === "DeviceNotRegistered") {
+          // Prune invalid token
+          await db.delete(devices).where(eq(devices.id, device.id));
+        }
+      }
+    }
+  }
+
+  await db
+    .update(reminders)
+    .set({ sentAt: new Date().toISOString() })
+    .where(eq(reminders.id, reminderId));
 }

@@ -15,12 +15,14 @@ The SST app name is `acme`; stages supply the environment suffix.
 This template supports a fully local development loop. It uses local Wrangler persistence under `.wrangler/` (which is gitignored), creates no Cloudflare resources, and does not require deployment.
 
 1. Install dependencies and agent skills:
+
    ```sh
    pnpm install
    pnpm skills:install
    ```
 
 2. Initialize the local D1 database schema (applies all committed SQL migrations to the local Wrangler D1 store):
+
    ```sh
    pnpm api:local:init
    ```
@@ -33,6 +35,7 @@ This template supports a fully local development loop. It uses local Wrangler pe
 ### Health Check
 
 Verify the API is running locally by requesting the health check endpoint:
+
 ```sh
 curl http://localhost:8787/health
 ```
@@ -44,13 +47,13 @@ All `/v1/*` routes normally require Clerk auth. For local development, you can b
 1. Ensure the local auth variables are configured in `apps/api/wrangler.jsonc` (or overridden in `apps/api/.dev.vars` which is gitignored):
    - `LOCAL_AUTH_ENABLED=true`
    - `LOCAL_AUTH_TOKEN=local-dev-token`
-   
+
 2. Make authenticated API requests using the local dev token:
    ```sh
    curl -H "Authorization: Bearer local-dev-token" http://localhost:8787/v1/me
    ```
 
-*Note: The first authenticated request using the local dev token will automatically provision a deterministic local user (`user_local_dev`) in the local D1 store.*
+_Note: The first authenticated request using the local dev token will automatically provision a deterministic local user (`user_local_dev`) in the local D1 store._
 
 ## First Deploy
 

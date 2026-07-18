@@ -1,4 +1,10 @@
-import { integer, sqliteTable, text, index } from "drizzle-orm/sqlite-core";
+import {
+  integer,
+  sqliteTable,
+  text,
+  index,
+  unique,
+} from "drizzle-orm/sqlite-core";
 
 export const users = sqliteTable("users", {
   id: text("id").primaryKey(),
@@ -105,3 +111,84 @@ export const receipts = sqliteTable(
 
 export type ReceiptRow = typeof receipts.$inferSelect;
 export type NewReceiptRow = typeof receipts.$inferInsert;
+
+export const claims = sqliteTable(
+  "claims",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id),
+    purchaseId: text("purchase_id")
+      .notNull()
+      .references(() => purchases.id),
+    type: text("type").notNull(),
+    status: text("status").notNull(),
+    openedAt: text("opened_at").notNull(),
+    resolvedAt: text("resolved_at"),
+    refundAmountMinor: integer("refund_amount_minor"),
+    reference: text("reference"),
+    notes: text("notes"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => ({
+    userIdx: index("claims_user_id_idx").on(table.userId),
+    purchaseIdx: index("claims_purchase_id_idx").on(table.purchaseId),
+  })
+);
+
+export type ClaimRow = typeof claims.$inferSelect;
+export type NewClaimRow = typeof claims.$inferInsert;
+
+export const reminders = sqliteTable(
+  "reminders",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id),
+    purchaseId: text("purchase_id")
+      .notNull()
+      .references(() => purchases.id),
+    kind: text("kind").notNull(),
+    fireOn: text("fire_on").notNull(), // YYYY-MM-DD
+    sentAt: text("sent_at"),
+    dismissedAt: text("dismissed_at"),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => ({
+    purchaseKindUnique: unique("reminders_purchase_id_kind_unique").on(
+      table.purchaseId,
+      table.kind
+    ),
+    fireOnSentIdx: index("reminders_fire_on_sent_at_idx").on(
+      table.fireOn,
+      table.sentAt
+    ),
+    userIdx: index("reminders_user_id_idx").on(table.userId),
+  })
+);
+
+export type ReminderRow = typeof reminders.$inferSelect;
+export type NewReminderRow = typeof reminders.$inferInsert;
+
+export const devices = sqliteTable(
+  "devices",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id),
+    expoPushToken: text("expo_push_token").notNull().unique(),
+    platform: text("platform").notNull(),
+    lastSeenAt: text("last_seen_at").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => ({
+    userIdx: index("devices_user_id_idx").on(table.userId),
+  })
+);
+
+export type DeviceRow = typeof devices.$inferSelect;
+export type NewDeviceRow = typeof devices.$inferInsert;

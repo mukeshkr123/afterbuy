@@ -6,3 +6,6 @@ export * from "./schemas/schemas";
 export * from "./schemas/purchases";
 export * from "./schemas/meta";
 export * from "./schemas/receipts";
+export * from "./schemas/claims";
+export * from "./schemas/reminders";
+export * from "./schemas/devices";

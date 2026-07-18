@@ -16,15 +16,22 @@ import {
   createDbClient,
   purchases,
   receipts,
+  claims,
+  reminders,
+  users,
   uuidv7,
   type DbClient,
   type PurchaseRow,
   type ReceiptRow,
+  type ClaimRow,
+  type ReminderRow,
 } from "@acme/db";
 import type { Env } from "../env";
 import type { AuthedContext } from "../auth";
 import { apiError } from "../errors";
 import { decodeCursor, encodeCursor, type Cursor } from "../keyset";
+import { rowToClaim } from "./claims";
+import { rowToReminder } from "./reminders";
 
 const TAG = "Purchases";
 
@@ -319,11 +326,21 @@ export async function handleGetPurchase(ctx: AuthedContext) {
     .from(receipts)
     .where(eq(receipts.purchaseId, id));
 
+  const claimRows = await db
+    .select()
+    .from(claims)
+    .where(eq(claims.purchaseId, id));
+
+  const reminderRows = await db
+    .select()
+    .from(reminders)
+    .where(eq(reminders.purchaseId, id));
+
   const body = purchaseDetailResponseSchema.parse({
     ...rowToPurchase(row),
     receipts: receiptRows.map(rowToReceipt),
-    claims: [],
-    reminders: [],
+    claims: claimRows.map(rowToClaim),
+    reminders: reminderRows.map(rowToReminder),
   });
   return ctx.json(body, 200);
 }
@@ -394,11 +411,21 @@ export async function handlePatchPurchase(ctx: AuthedContext) {
     .from(receipts)
     .where(eq(receipts.purchaseId, id));
 
+  const claimRows = await db
+    .select()
+    .from(claims)
+    .where(eq(claims.purchaseId, id));
+
+  const reminderRows = await db
+    .select()
+    .from(reminders)
+    .where(eq(reminders.purchaseId, id));
+
   const body = purchaseDetailResponseSchema.parse({
     ...rowToPurchase(updated),
     receipts: receiptRows.map(rowToReceipt),
-    claims: [],
-    reminders: [],
+    claims: claimRows.map(rowToClaim),
+    reminders: reminderRows.map(rowToReminder),
   });
   return ctx.json(body, 200);
 }
@@ -585,14 +612,91 @@ function zodFields(error: ZodError): Record<string, string> {
 
 // ---- Hook for Phase 4 -----------------------------------------------------
 
-// Phase 4 replaces this body with the real reminder-derivation logic. The
-// signature is fixed so Phase 4 is a drop-in.
 export async function onPurchaseMutated(
   _env: Env,
-  _db: DbClient,
-  _purchaseId: string
+  db: DbClient,
+  purchaseId: string
 ): Promise<void> {
-  // No-op until Phase 4 wires reminder regeneration.
+  const purchase = await db
+    .select()
+    .from(purchases)
+    .where(eq(purchases.id, purchaseId))
+    .get();
+
+  if (!purchase) return;
+
+  const user = await db
+    .select()
+    .from(users)
+    .where(eq(users.id, purchase.userId))
+    .get();
+
+  if (!user) return;
+
+  const leadDays = user.reminderLeadDays;
+
+  const kinds = [
+    {
+      kind: "warranty_expiry" as const,
+      dateStr: purchase.warrantyExpiresAt,
+    },
+    {
+      kind: "return_deadline" as const,
+      dateStr: purchase.returnDeadlineAt,
+    },
+  ];
+
+  for (const { kind, dateStr } of kinds) {
+    if (!dateStr) {
+      // If date is null, delete any unsent reminder
+      await db
+        .delete(reminders)
+        .where(
+          and(
+            eq(reminders.purchaseId, purchaseId),
+            eq(reminders.kind, kind),
+            isNull(reminders.sentAt)
+          )
+        );
+    } else {
+      // Calculate fireOn date
+      const d = new Date(dateStr + "T00:00:00Z");
+      d.setUTCDate(d.getUTCDate() - leadDays);
+      const fireOn = d.toISOString().slice(0, 10);
+
+      const existing = await db
+        .select()
+        .from(reminders)
+        .where(
+          and(eq(reminders.purchaseId, purchaseId), eq(reminders.kind, kind))
+        )
+        .get();
+
+      if (existing) {
+        if (existing.sentAt !== null) {
+          // Already sent, do not resurrect
+          continue;
+        }
+        // Update fireOn date
+        await db
+          .update(reminders)
+          .set({ fireOn })
+          .where(eq(reminders.id, existing.id));
+      } else {
+        // Create new reminder
+        await db.insert(reminders).values({
+          id: uuidv7(),
+          userId: user.id,
+          purchaseId: purchase.id,
+          kind,
+          fireOn,
+          sentAt: null,
+          dismissedAt: null,
+          createdAt: new Date().toISOString(),
+        });
+      }
+    }
+  }
 }
 
 function rowToReceipt(row: ReceiptRow) {
