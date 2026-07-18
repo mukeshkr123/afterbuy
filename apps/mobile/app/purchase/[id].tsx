@@ -33,7 +33,7 @@ interface ReceiptLike {
 }
 interface ClaimLike {
   id: string;
-  kind: string;
+  type: string;
   status: string;
 }
 
@@ -268,8 +268,7 @@ export default function PurchaseDetailScreen() {
           )}
           <Button
             label="Open a claim"
-            variant="ghost"
-            disabled
+            variant="secondary"
             onPress={() =>
               router.push({
                 pathname: "/purchase/[id]/claims",

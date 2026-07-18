@@ -5,3 +5,7 @@ dist
 coverage
 pnpm-lock.yaml
 agent-skills
+-e 
+# Expo generated
+expo-env.d.ts
+.expo/

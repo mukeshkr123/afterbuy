@@ -11,7 +11,12 @@ export function corsMiddleware() {
       return origin;
     },
     allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    allowHeaders: ["content-type", "x-request-id", "idempotency-key"],
+    allowHeaders: [
+      "authorization",
+      "content-type",
+      "x-request-id",
+      "idempotency-key",
+    ],
     exposeHeaders: [
       "x-request-id",
       "idempotency-key",

@@ -4,6 +4,7 @@ import {
   type MeResponse,
   type PatchMeRequest,
 } from "@acme/shared";
+import { z } from "zod";
 import type { ApiRequest } from "./client";
 
 export function getMe(api: ApiRequest): Promise<MeResponse> {
@@ -25,4 +26,12 @@ export function patchMe(
     body,
     schema: meResponseSchema,
   }) as Promise<MeResponse>;
+}
+
+export function deleteMe(api: ApiRequest): Promise<void> {
+  return api({
+    method: "DELETE",
+    path: "/v1/me",
+    schema: z.void(),
+  }) as Promise<void>;
 }

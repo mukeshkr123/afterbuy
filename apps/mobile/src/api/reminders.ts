@@ -1,22 +1,10 @@
-import type { ApiRequest } from "./client";
+import { reminderSchema, type Reminder } from "@acme/shared";
 import { z } from "zod";
+import type { ApiRequest } from "./client";
 
-// Phase 6 ships a stub. The schema lands in Phase 4; until then this
-// returns the envelope-shaped empty list so callers can wire UI.
-const reminderSchema = z.object({
-  id: z.string(),
-  purchaseId: z.string(),
-  kind: z.enum(["warranty_expiry", "return_deadline"]),
-  fireOn: z.string(),
-  sentAt: z.string().nullable(),
-  dismissedAt: z.string().nullable(),
-});
+const listResponse = z.object({ items: z.array(reminderSchema) });
 
-const remindersResponseSchema = z.object({
-  items: z.array(reminderSchema),
-});
-
-export type Reminder = z.infer<typeof reminderSchema>;
+export type { Reminder };
 
 export async function getReminders(
   api: ApiRequest,
@@ -26,6 +14,14 @@ export async function getReminders(
     method: "GET",
     path: "/v1/reminders",
     query: { scope },
-    schema: remindersResponseSchema,
+    schema: listResponse,
   }) as Promise<{ items: Reminder[] }>;
+}
+
+export function dismissReminder(api: ApiRequest, id: string): Promise<void> {
+  return api({
+    method: "POST",
+    path: `/v1/reminders/${encodeURIComponent(id)}/dismiss`,
+    schema: z.void(),
+  }) as Promise<void>;
 }

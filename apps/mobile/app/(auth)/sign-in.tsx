@@ -29,6 +29,10 @@ export default function SignInScreen() {
       if (result.status === "complete") {
         await setActive({ session: result.createdSessionId });
         router.replace("/(tabs)");
+      } else if (result.status === "needs_second_factor") {
+        // 2FA required — send the email OTP then navigate to MFA screen.
+        await signIn.prepareSecondFactor({ strategy: "email_code" });
+        router.push("/(auth)/mfa");
       } else {
         setError("Additional verification required.");
       }

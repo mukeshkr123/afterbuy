@@ -3,6 +3,8 @@ import { z } from "zod";
 const isoDateTime = z.string().datetime({ offset: true });
 
 export const claimTypeSchema = z.enum(["return", "refund", "warranty"]);
+export type ClaimType = z.infer<typeof claimTypeSchema>;
+
 export const claimStatusSchema = z.enum([
   "draft",
   "submitted",
@@ -12,6 +14,7 @@ export const claimStatusSchema = z.enum([
   "completed",
   "cancelled",
 ]);
+export type ClaimStatus = z.infer<typeof claimStatusSchema>;
 
 export const claimSchema = z.object({
   id: z.string(),

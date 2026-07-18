@@ -61,9 +61,12 @@ Phase 5 lands the shell. The following Phase 6+ tasks fill in the bodies:
 - **6.6** Delivery status control ✅ Phase 6
 - **6.7** Home (Upcoming + Recent + Quick add) ✅ Phase 6
 - **6.8** Delete with undo toast ✅ Phase 6
-- **7.2** Reminders screen with real data
-- **7.5** Settings (lead days, push toggle, timezone, dark mode)
-- **7.7** Account deletion flow
+- **7.1** Claims open + edit + status transitions ✅ Phase 7
+- **7.2** Reminders screen (Upcoming + History tabs) ✅ Phase 7
+- **7.3** `expo-notifications` registration + foreground handler ✅ Phase 7
+- **7.4** Deep link: push tap → purchase detail ✅ Phase 7
+- **7.5** Settings (lead days, push toggle, timezone, dark mode override) ✅ Phase 7
+- **7.7** Account deletion flow ✅ Phase 7
 - **8.x** Mutation outbox, offline replay
 - **9.x** App icon, splash, EAS submit profiles, store assets
 

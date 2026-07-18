@@ -11,6 +11,7 @@ export { OptionPicker } from "./OptionPicker";
 export { Sheet } from "./Sheet";
 export { Skeleton, SkeletonGroup } from "./Skeleton";
 export { StatusPill } from "./StatusPill";
+export { Switch } from "./Switch";
 export { Tabs } from "./Tabs";
 export { Toast } from "./Toast";
 export { UndoableToast } from "./UndoableToast";

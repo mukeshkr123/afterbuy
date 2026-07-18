@@ -6,11 +6,14 @@ export interface InputProps {
   label: string;
   value: string;
   onChangeText: (next: string) => void;
-  placeholder?: string;
-  secureTextEntry?: boolean;
-  autoCapitalize?: "none" | "sentences" | "words" | "characters";
-  keyboardType?: KeyboardTypeOptions;
+  placeholder?: string | undefined;
+  secureTextEntry?: boolean | undefined;
+  autoCapitalize?: "none" | "sentences" | "words" | "characters" | undefined;
+  autoCorrect?: boolean | undefined;
+  keyboardType?: KeyboardTypeOptions | undefined;
   error?: string | undefined;
+  multiline?: boolean | undefined;
+  numberOfLines?: number | undefined;
 }
 
 export function Input({
@@ -20,10 +23,16 @@ export function Input({
   placeholder,
   secureTextEntry,
   autoCapitalize = "sentences",
+  autoCorrect,
   keyboardType,
   error,
+  multiline = false,
+  numberOfLines,
 }: InputProps) {
   const { tokens } = useTheme();
+  const minHeight = multiline
+    ? Math.max(44, (numberOfLines ?? 3) * 22 + 16)
+    : 44;
   return (
     <View style={{ gap: tokens.spacing.xs }}>
       <Text
@@ -41,7 +50,10 @@ export function Input({
         placeholder={placeholder}
         secureTextEntry={secureTextEntry}
         autoCapitalize={autoCapitalize}
+        autoCorrect={autoCorrect}
         keyboardType={keyboardType}
+        multiline={multiline}
+        numberOfLines={multiline ? numberOfLines : undefined}
         accessibilityLabel={label}
         placeholderTextColor={tokens.colors.textMuted}
         style={[
@@ -54,6 +66,8 @@ export function Input({
             paddingHorizontal: tokens.spacing.md,
             paddingVertical: tokens.spacing.sm + 2,
             fontSize: tokens.type.body.fontSize,
+            minHeight,
+            textAlignVertical: multiline ? "top" : "auto",
           },
         ]}
       />
@@ -74,6 +88,5 @@ export function Input({
 const styles = StyleSheet.create({
   input: {
     borderWidth: 1,
-    minHeight: 44,
   },
 });

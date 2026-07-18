@@ -3,7 +3,7 @@ import { useTheme } from "../theme/ThemeProvider";
 
 export interface EmptyStateProps {
   title: string;
-  message?: string | undefined;
+  message?: string | null | undefined;
 }
 
 export function EmptyState({ title, message }: EmptyStateProps) {

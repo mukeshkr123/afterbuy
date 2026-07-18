@@ -19,5 +19,9 @@ export const apiKeys = {
   claims: {
     list: (q: { purchaseId?: string | undefined }) =>
       ["claims", "list", q] as const,
+    detail: (id: string) => ["claims", "detail", id] as const,
+  },
+  devices: {
+    all: () => ["devices"] as const,
   },
 } as const;

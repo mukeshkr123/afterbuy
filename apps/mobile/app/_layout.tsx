@@ -9,15 +9,20 @@ import { tokenCache } from "@/auth/ClerkProvider";
 import { ApiProvider } from "@/api/ApiProvider";
 import { queryClient, queryPersister } from "@/lib/queryClient";
 import { ThemeProvider } from "@/theme/ThemeProvider";
+import { PushRegistration } from "@/notifications/PushRegistration";
+import { usePushTapHandler } from "@/notifications/usePushHandler";
 
 const CLERK_PUBLISHABLE_KEY = process.env["EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY"];
 
 if (!CLERK_PUBLISHABLE_KEY) {
-  // We log rather than throw so the rest of the layout can still render in
-  // dev mode; the auth screens will surface the missing-key error on use.
   console.warn(
     "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY is not set — sign-in will fail."
   );
+}
+
+function PushWiring() {
+  usePushTapHandler();
+  return null;
 }
 
 export default function RootLayout() {
@@ -36,6 +41,8 @@ export default function RootLayout() {
               <ApiProvider>
                 <ThemeProvider>
                   <StatusBar style="auto" />
+                  <PushRegistration />
+                  <PushWiring />
                   <Stack
                     screenOptions={{
                       headerShown: false,

@@ -457,6 +457,7 @@ export async function handleDeletePurchase(ctx: AuthedContext) {
   if (!result.success || result.meta.changes === 0) {
     return apiError(ctx, 404, "not_found", "Purchase not found");
   }
+  await onPurchaseMutated(ctx.env, db, id);
   return ctx.body(null, 204);
 }
 

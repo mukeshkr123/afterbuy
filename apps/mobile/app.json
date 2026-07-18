@@ -7,7 +7,6 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
       "bundleIdentifier": "com.acme.app",
       "supportsTablet": true
@@ -22,7 +21,18 @@
     "web": {
       "bundler": "metro"
     },
-    "plugins": ["expo-secure-store", "expo-router"],
+    "plugins": [
+      "expo-secure-store",
+      "expo-router",
+      [
+        "expo-notifications",
+        {
+          "color": "#0B0B10"
+        }
+      ],
+      "expo-splash-screen",
+      "expo-web-browser"
+    ],
     "experiments": {
       "typedRoutes": true
     }
