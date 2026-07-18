@@ -79,3 +79,29 @@ export const purchases = sqliteTable(
 
 export type PurchaseRow = typeof purchases.$inferSelect;
 export type NewPurchaseRow = typeof purchases.$inferInsert;
+
+export const receipts = sqliteTable(
+  "receipts",
+  {
+    id: text("id").primaryKey(),
+    purchaseId: text("purchase_id")
+      .notNull()
+      .references(() => purchases.id),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id),
+    r2Key: text("r2_key").notNull(),
+    contentType: text("content_type").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    width: integer("width"),
+    height: integer("height"),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => ({
+    purchaseIdx: index("receipts_purchase_id_idx").on(table.purchaseId),
+    userIdx: index("receipts_user_id_idx").on(table.userId),
+  })
+);
+
+export type ReceiptRow = typeof receipts.$inferSelect;
+export type NewReceiptRow = typeof receipts.$inferInsert;

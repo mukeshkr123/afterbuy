@@ -19,8 +19,22 @@
     {
       "idx": 2,
       "version": "6",
-      "when": 1784500000000,
-      "tag": "0002_purchases_drop_example",
+      "when": 1784386380144,
+      "tag": "0002_zippy_quicksilver",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1784386405132,
+      "tag": "0003_fair_peter_parker",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1784386447009,
+      "tag": "0004_sloppy_ghost_rider",
       "breakpoints": true
     }
   ]

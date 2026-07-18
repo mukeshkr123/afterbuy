@@ -22,6 +22,8 @@
     "RATE_LIMIT_ENABLED": "true",
     "RATE_LIMIT_WINDOW_SECONDS": "60",
     "RATE_LIMIT_MAX_REQUESTS": "120",
+    "LOCAL_AUTH_ENABLED": "false",
+    "LOCAL_AUTH_TOKEN": "local-dev-token",
   },
   "d1_databases": [
     {

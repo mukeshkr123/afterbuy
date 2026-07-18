@@ -14,6 +14,21 @@ import { Webhook } from "svix";
 import type { Env } from "../src/env";
 import { createApp } from "../src/app";
 
+vi.mock("jose", async (importOriginal) => {
+  const original = await importOriginal<typeof import("jose")>();
+  return {
+    ...original,
+    createRemoteJWKSet: () => {
+      return async () => {
+        if (!keys) {
+          throw new Error("Mock keys not initialized");
+        }
+        return original.importJWK(keys.publicJwk);
+      };
+    },
+  };
+});
+
 interface FakeUserRow {
   id: string;
   clerkUserId: string;
@@ -42,29 +57,32 @@ interface FakeD1Statement {
 function makePrepared(sql: string): FakeD1Prepared {
   let boundArgs: unknown[] = [];
   const exec = async <T>(): Promise<{ results: T[] }> => {
-    if (/FROM\s+users/i.test(sql) && /WHERE/i.test(sql)) {
+    const cleanSql = sql.replace(/"/g, "");
+    if (/FROM\s+users/i.test(cleanSql) && /WHERE/i.test(cleanSql)) {
       const where =
-        sql.match(/WHERE\s+(.+?)(?:\s+ORDER|\s+LIMIT|\s+RETURNING|$)/i)?.[1] ??
-        "";
+        cleanSql.match(
+          /WHERE\s+(.+?)(?:\s+ORDER|\s+LIMIT|\s+RETURNING|$)/i
+        )?.[1] ?? "";
       const results = Array.from(userStore.values()).filter((row) =>
         matchesWhere(row, where, boundArgs)
       );
       return { results: results as unknown as T[] };
     }
-    if (/INSERT\s+INTO\s+users/i.test(sql)) {
-      const cols = (sql.match(/\(([^)]+)\)\s*VALUES/i)?.[1] ?? "")
+    if (/INSERT\s+INTO\s+users/i.test(cleanSql)) {
+      const cols = (cleanSql.match(/\(([^)]+)\)\s*VALUES/i)?.[1] ?? "")
         .split(",")
         .map((c) => c.trim());
       const row = Object.fromEntries(
         cols.map((c, i) => [c, boundArgs[i]])
       ) as FakeUserRow;
-      if (!userStore.has(row.clerkUserId)) {
-        userStore.set(row.clerkUserId, row);
+      const key = row.clerkUserId ?? (row as any).clerk_user_id;
+      if (key && !userStore.has(key)) {
+        userStore.set(key, row);
       }
       return { results: [] as T[] };
     }
-    if (/UPDATE\s+users\s+SET/i.test(sql)) {
-      const setMatch = sql.match(/SET\s+(.+?)\s+WHERE\s+(.+)/i);
+    if (/UPDATE\s+users\s+SET/i.test(cleanSql)) {
+      const setMatch = cleanSql.match(/SET\s+(.+?)\s+WHERE\s+(.+)/i);
       if (!setMatch) return { results: [] as T[] };
       const setClause = setMatch[1] ?? "";
       const whereClause = setMatch[2] ?? "";
@@ -72,9 +90,13 @@ function makePrepared(sql: string): FakeD1Prepared {
       const updates: Record<string, unknown> = {};
       let setArgIndex = 0;
       for (const part of setParts) {
-        const eq = /^([\w_]+)\s*=\s*\?$/i.exec(part);
+        const eq = /^(?:[\w_]+\.)?([\w_]+)\s*=\s*\?$/i.exec(part);
         if (eq) {
-          updates[eq[1]!] = boundArgs[setArgIndex++];
+          const colSnake = eq[1]!;
+          const colCamel = colSnake.replace(/_([a-z])/g, (_, letter) =>
+            letter.toUpperCase()
+          );
+          updates[colCamel] = boundArgs[setArgIndex++];
         }
       }
       const whereArgs = boundArgs.slice(setArgIndex);
@@ -99,6 +121,10 @@ function makePrepared(sql: string): FakeD1Prepared {
     async all() {
       return exec();
     },
+    async raw() {
+      const { results } = await exec<Record<string, unknown>>();
+      return results.map((row) => Object.values(row));
+    },
     async run() {
       await exec();
       return { success: true };
@@ -111,21 +137,28 @@ function matchesWhere(
   where: string,
   args: unknown[]
 ): boolean {
-  const conds = where.split(/\s+AND\s+/i);
+  const cleanWhere = where.replace(/"/g, "");
+  const conds = cleanWhere.split(/\s+AND\s+/i);
   let argIdx = 0;
   for (const condRaw of conds) {
     const cond = condRaw.trim();
-    const eq = /^([\w_]+)\s*=\s*\?$/i.exec(cond);
-    const isNull = /([\w_]+)\s+IS\s+NULL/i.exec(cond);
+    const eq = /^(?:[\w_]+\.)?([\w_]+)\s*=\s*\?$/i.exec(cond);
+    const isNull = /^(?:[\w_]+\.)?([\w_]+)\s+IS\s+NULL/i.exec(cond);
     if (eq) {
-      const col = eq[1]!;
+      const colSnake = eq[1]!;
+      const colCamel = colSnake.replace(/_([a-z])/g, (_, letter) =>
+        letter.toUpperCase()
+      );
       const arg = args[argIdx++];
-      if ((row as unknown as Record<string, unknown>)[col] !== arg)
-        return false;
+      const val = (row as unknown as Record<string, unknown>)[colCamel];
+      if (val !== arg) return false;
     } else if (isNull) {
-      const col = isNull[1]!;
-      if ((row as unknown as Record<string, unknown>)[col] !== null)
-        return false;
+      const colSnake = isNull[1]!;
+      const colCamel = colSnake.replace(/_([a-z])/g, (_, letter) =>
+        letter.toUpperCase()
+      );
+      const val = (row as unknown as Record<string, unknown>)[colCamel];
+      if (val !== null) return false;
     } else {
       return false;
     }
@@ -189,6 +222,20 @@ const WEBHOOK_SECRET = `whsec_${createHash("sha256")
   .digest("base64")
   .replace(/=+$/, "")}`;
 
+function signWebhook(
+  wh: Webhook,
+  msgId: string,
+  timestamp: Date,
+  payload: string
+) {
+  const signature = wh.sign(msgId, timestamp, payload);
+  return {
+    "svix-id": msgId,
+    "svix-timestamp": String(Math.floor(timestamp.getTime() / 1000)),
+    "svix-signature": signature,
+  };
+}
+
 interface TestKeys {
   privateKey: ReturnType<typeof generateKeyPairSync>["privateKey"];
   publicJwk: Awaited<ReturnType<typeof exportJWK>>;
@@ -221,6 +268,7 @@ beforeEach(async () => {
       } else {
         url = String(input);
       }
+      console.log("[TEST DEBUG] Mock fetch called with URL:", url);
       if (url === "https://clerk.test/.well-known/jwks.json") {
         return new Response(jwksBody, {
           status: 200,
@@ -379,6 +427,84 @@ describe("auth middleware", () => {
     });
     expect(payload.sub).toBe("round_trip");
   });
+
+  test("local auth disabled still returns existing Clerk errors when Clerk config is absent", async () => {
+    const res = await createApp().request(
+      "/v1/me",
+      {},
+      envForAuth({
+        APP_STAGE: "local",
+        LOCAL_AUTH_ENABLED: "false",
+        LOCAL_AUTH_TOKEN: "local-dev-token",
+        CLERK_ISSUER: "",
+        CLERK_JWKS_URL: "",
+      })
+    );
+    expect(res.status).toBe(503);
+    const body = await res.json();
+    expect(body.error.code).toBe("auth_not_configured");
+  });
+
+  test("APP_STAGE=local, LOCAL_AUTH_ENABLED=true, correct fixed token provisions a user and allows /v1/me", async () => {
+    const env = envForAuth({
+      APP_STAGE: "local",
+      LOCAL_AUTH_ENABLED: "true",
+      LOCAL_AUTH_TOKEN: "local-dev-token",
+      CLERK_ISSUER: "",
+      CLERK_JWKS_URL: "",
+    });
+
+    const res = await createApp().request(
+      "/v1/me",
+      { headers: { authorization: "Bearer local-dev-token" } },
+      env
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.clerkUserId).toBe("user_local_dev");
+    expect(body.email).toBe("local-dev@acme.com");
+    expect(userStore.has("user_local_dev")).toBe(true);
+  });
+
+  test("wrong token returns 401 when local auth is enabled", async () => {
+    const env = envForAuth({
+      APP_STAGE: "local",
+      LOCAL_AUTH_ENABLED: "true",
+      LOCAL_AUTH_TOKEN: "local-dev-token",
+      CLERK_ISSUER: "",
+      CLERK_JWKS_URL: "",
+    });
+
+    const res = await createApp().request(
+      "/v1/me",
+      { headers: { authorization: "Bearer wrong-token" } },
+      env
+    );
+    expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body.error.code).toBe("unauthenticated");
+  });
+
+  test("APP_STAGE=prod ignores local auth vars", async () => {
+    const env = envForAuth({
+      APP_STAGE: "prod",
+      LOCAL_AUTH_ENABLED: "true",
+      LOCAL_AUTH_TOKEN: "local-dev-token",
+      CLERK_ISSUER: "",
+      CLERK_JWKS_URL: "",
+    });
+
+    const res = await createApp().request(
+      "/v1/me",
+      { headers: { authorization: "Bearer local-dev-token" } },
+      env
+    );
+    // Since APP_STAGE=prod, it ignores local auth and falls through.
+    // Since Clerk config is absent (CLERK_ISSUER=""), it should return 503.
+    expect(res.status).toBe(503);
+    const body = await res.json();
+    expect(body.error.code).toBe("auth_not_configured");
+  });
 });
 
 describe("Clerk webhook", () => {
@@ -411,7 +537,7 @@ describe("Clerk webhook", () => {
       data: { id: "user_to_delete", deleted: true },
     });
     const wh = new Webhook(WEBHOOK_SECRET);
-    const headers = wh.sign("msg_id_1", new Date(), payload);
+    const headers = signWebhook(wh, "msg_id_1", new Date(), payload);
 
     const res = await createApp().request(
       "/v1/webhooks/clerk",
@@ -436,7 +562,7 @@ describe("Clerk webhook", () => {
       data: { id: "user_tamper" },
     });
     const wh = new Webhook(WEBHOOK_SECRET);
-    const headers = wh.sign("msg_id_2", new Date(), payload);
+    const headers = signWebhook(wh, "msg_id_2", new Date(), payload);
     const tampered = payload + " ";
 
     const res = await createApp().request(
@@ -461,7 +587,7 @@ describe("Clerk webhook", () => {
       data: { id: "session_xyz" },
     });
     const wh = new Webhook(WEBHOOK_SECRET);
-    const headers = wh.sign("msg_id_3", new Date(), payload);
+    const headers = signWebhook(wh, "msg_id_3", new Date(), payload);
 
     const res = await createApp().request(
       "/v1/webhooks/clerk",

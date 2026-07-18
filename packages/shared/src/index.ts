@@ -5,3 +5,4 @@ export * from "./constants/categories";
 export * from "./schemas/schemas";
 export * from "./schemas/purchases";
 export * from "./schemas/meta";
+export * from "./schemas/receipts";

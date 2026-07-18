@@ -4,6 +4,7 @@ import {
   PURCHASE_DELIVERY_STATUSES,
   PURCHASE_SORT_KEYS,
 } from "../constants/categories";
+import { receiptSchema } from "./receipts";
 
 const isoDate = z
   .string()
@@ -43,7 +44,7 @@ export type Purchase = z.infer<typeof purchaseSchema>;
 // Phase 3/4 will populate receipts/claims/reminders. From day one the shape
 // stays stable; the arrays default to empty.
 export const purchaseDetailResponseSchema = purchaseSchema.extend({
-  receipts: z.array(z.unknown()),
+  receipts: z.array(receiptSchema),
   claims: z.array(z.unknown()),
   reminders: z.array(z.unknown()),
 });

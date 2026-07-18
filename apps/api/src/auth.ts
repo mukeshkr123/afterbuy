@@ -171,6 +171,29 @@ export async function cachedFindOrProvisionUser(
 }
 
 export const authMiddleware: MiddlewareHandler<AuthedEnv> = async (c, next) => {
+  if (c.env.APP_STAGE === "local" && c.env.LOCAL_AUTH_ENABLED === "true") {
+    const token = extractBearerToken(c.req.raw);
+    if (!token) {
+      return apiError(c, 401, "unauthenticated", "Missing bearer token");
+    }
+    if (c.env.LOCAL_AUTH_TOKEN && token === c.env.LOCAL_AUTH_TOKEN) {
+      const db = createDbClient(c.env.DB);
+      const user = await cachedFindOrProvisionUser(
+        c.env,
+        db,
+        "user_local_dev",
+        {
+          email: "local-dev@acme.com",
+          timezone: "UTC",
+        }
+      );
+      c.set("user", user);
+      await next();
+      return;
+    }
+    return apiError(c, 401, "unauthenticated", "Invalid local dev token");
+  }
+
   if (!c.env.CLERK_ISSUER || !c.env.CLERK_JWKS_URL) {
     return apiError(
       c,

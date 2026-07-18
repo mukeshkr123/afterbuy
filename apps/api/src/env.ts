@@ -16,4 +16,6 @@ export interface Env {
   RATE_LIMIT_ENABLED?: string;
   RATE_LIMIT_WINDOW_SECONDS?: string;
   RATE_LIMIT_MAX_REQUESTS?: string;
+  LOCAL_AUTH_ENABLED?: string;
+  LOCAL_AUTH_TOKEN?: string;
 }

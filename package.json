@@ -9,6 +9,8 @@
     "pnpm": ">=11 <12"
   },
   "scripts": {
+    "api:dev": "pnpm --filter @acme/api dev",
+    "api:local:init": "tsx scripts/api-local-init.ts",
     "api:openapi": "tsx scripts/write-openapi.ts && prettier --write docs/openapi.json",
     "bootstrap:github-env": "tsx scripts/bootstrap-github-env.ts",
     "build": "pnpm -r build",

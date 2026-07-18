@@ -15,9 +15,11 @@ import {
 import {
   createDbClient,
   purchases,
+  receipts,
   uuidv7,
   type DbClient,
   type PurchaseRow,
+  type ReceiptRow,
 } from "@acme/db";
 import type { Env } from "../env";
 import type { AuthedContext } from "../auth";
@@ -312,9 +314,14 @@ export async function handleGetPurchase(ctx: AuthedContext) {
     .get();
   if (!row) return apiError(ctx, 404, "not_found", "Purchase not found");
 
+  const receiptRows = await db
+    .select()
+    .from(receipts)
+    .where(eq(receipts.purchaseId, id));
+
   const body = purchaseDetailResponseSchema.parse({
     ...rowToPurchase(row),
-    receipts: [],
+    receipts: receiptRows.map(rowToReceipt),
     claims: [],
     reminders: [],
   });
@@ -382,9 +389,14 @@ export async function handlePatchPurchase(ctx: AuthedContext) {
 
   await onPurchaseMutated(ctx.env, db, updated.id);
 
+  const receiptRows = await db
+    .select()
+    .from(receipts)
+    .where(eq(receipts.purchaseId, id));
+
   const body = purchaseDetailResponseSchema.parse({
     ...rowToPurchase(updated),
-    receipts: [],
+    receipts: receiptRows.map(rowToReceipt),
     claims: [],
     reminders: [],
   });
@@ -581,4 +593,17 @@ export async function onPurchaseMutated(
   _purchaseId: string
 ): Promise<void> {
   // No-op until Phase 4 wires reminder regeneration.
+}
+
+function rowToReceipt(row: ReceiptRow) {
+  return {
+    id: row.id,
+    purchaseId: row.purchaseId,
+    userId: row.userId,
+    contentType: row.contentType,
+    sizeBytes: row.sizeBytes,
+    width: row.width,
+    height: row.height,
+    createdAt: row.createdAt,
+  };
 }

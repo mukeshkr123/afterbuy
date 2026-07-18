@@ -38,6 +38,16 @@ import {
   purchasesRestoreRoute,
 } from "./routes/purchases";
 import { handleClerkWebhook, clerkWebhookRoute } from "./routes/webhooks";
+import {
+  handleDeleteReceipt,
+  handleGetReceipt,
+  handleUploadReceipt,
+  handleViewReceipt,
+  receiptsDeleteRoute,
+  receiptsGetRoute,
+  receiptsUploadRoute,
+  receiptsViewRoute,
+} from "./routes/receipts";
 
 export function createApp() {
   const app = new OpenAPIHono<{
@@ -72,6 +82,9 @@ export function createApp() {
 
   // /v1/webhooks/clerk is unauthenticated (Svix-signed).
   app.openapi(clerkWebhookRoute, (c) => handleClerkWebhook(c));
+
+  // Receipts view is unauthenticated
+  app.openapi(receiptsViewRoute, (c) => handleViewReceipt(c));
 
   // All /v1 routes require Clerk auth. Middleware order matters:
   //   auth       — populates `user` on context
@@ -152,6 +165,14 @@ export function createApp() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   v1.openapi(purchasesRestoreRoute, ((c: any) =>
     handleRestorePurchase(c)) as any);
+
+  // Receipts
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  v1.openapi(receiptsUploadRoute, ((c: any) => handleUploadReceipt(c)) as any);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  v1.openapi(receiptsGetRoute, ((c: any) => handleGetReceipt(c)) as any);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  v1.openapi(receiptsDeleteRoute, ((c: any) => handleDeleteReceipt(c)) as any);
 
   // Meta
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

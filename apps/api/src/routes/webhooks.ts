@@ -70,7 +70,8 @@ export async function handleClerkWebhook(c: Context) {
       "svix-timestamp": svixTimestamp,
       "svix-signature": svixSignature,
     }) as ClerkEvent;
-  } catch {
+  } catch (err) {
+    console.error("[WEBHOOK DEBUG] Svix verification failed:", err);
     return apiError(c, 401, "unauthenticated", "Invalid signature");
   }
 
