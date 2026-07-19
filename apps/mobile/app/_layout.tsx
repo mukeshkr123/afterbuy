@@ -1,5 +1,4 @@
 import { ClerkProvider } from "@clerk/clerk-expo";
-import { QueryClientProvider } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -8,9 +7,10 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { tokenCache } from "@/auth/ClerkProvider";
 import { ApiProvider } from "@/api/ApiProvider";
 import { queryClient, queryPersister } from "@/lib/queryClient";
-import { ThemeProvider } from "@/theme/ThemeProvider";
+import { ThemeProvider, useTheme } from "@/theme/ThemeProvider";
 import { PushRegistration } from "@/notifications/PushRegistration";
 import { usePushTapHandler } from "@/notifications/usePushHandler";
+import { OnlineProvider, OfflineBanner } from "@/offline/OnlineProvider";
 
 const CLERK_PUBLISHABLE_KEY = process.env["EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY"];
 
@@ -25,6 +25,14 @@ function PushWiring() {
   return null;
 }
 
+function ThemedStatusBar() {
+  const { tokens } = useTheme();
+  // The root <Stack> lives inside ThemeProvider so we can read the resolved
+  // scheme and pick a StatusBar style that matches the header tint.
+  const isDark = tokens.colors.bg !== "#FFFFFF";
+  return <StatusBar style={isDark ? "light" : "dark"} />;
+}
+
 export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -37,10 +45,11 @@ export default function RootLayout() {
             client={queryClient}
             persistOptions={{ persister: queryPersister }}
           >
-            <QueryClientProvider client={queryClient}>
-              <ApiProvider>
-                <ThemeProvider>
-                  <StatusBar style="auto" />
+            <ApiProvider>
+              <ThemeProvider>
+                <OnlineProvider>
+                  <ThemedStatusBar />
+                  <OfflineBanner />
                   <PushRegistration />
                   <PushWiring />
                   <Stack
@@ -49,9 +58,9 @@ export default function RootLayout() {
                       contentStyle: { backgroundColor: "transparent" },
                     }}
                   />
-                </ThemeProvider>
-              </ApiProvider>
-            </QueryClientProvider>
+                </OnlineProvider>
+              </ThemeProvider>
+            </ApiProvider>
           </PersistQueryClientProvider>
         </ClerkProvider>
       </SafeAreaProvider>

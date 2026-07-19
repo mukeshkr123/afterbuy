@@ -1,5 +1,5 @@
 import { useClerk, useUser } from "@clerk/clerk-expo";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { ScrollView, Text, View } from "react-native";
 import {
@@ -15,6 +15,7 @@ import { useApi } from "@/api/ApiProvider";
 import { apiKeys } from "@/api/apiKeys";
 import { getMe } from "@/api/auth";
 import { useTheme } from "@/theme/ThemeProvider";
+import { useEnqueueMutation, usePendingCount } from "@/offline";
 
 export default function ProfileScreen() {
   const { signOut } = useClerk();
@@ -23,6 +24,7 @@ export default function ProfileScreen() {
   const qc = useQueryClient();
   const router = useRouter();
   const { tokens, preference, setPreference } = useTheme();
+  const pending = usePendingCount();
 
   const me = useQuery({
     queryKey: apiKeys.me(),
@@ -30,12 +32,26 @@ export default function ProfileScreen() {
     enabled: Boolean(user),
   });
 
-  const updatePush = useMutation({
-    mutationFn: async (next: boolean) => {
-      // Update push preference via /v1/me; theme preference is local-only.
-      const { patchMe } = await import("@/api/auth");
-      return patchMe(api, { pushEnabled: next });
-    },
+  const updatePush = useEnqueueMutation<{ pushEnabled: boolean }, unknown>({
+    build: (input) => ({
+      method: "PATCH",
+      endpoint: "/v1/me",
+      body: input,
+      label: input.pushEnabled
+        ? "Enable push notifications"
+        : "Disable push notifications",
+      optimisticPatch: {
+        queryKey: apiKeys.me(),
+        updater: (prev) =>
+          prev && typeof prev === "object"
+            ? {
+                ...(prev as Record<string, unknown>),
+                pushEnabled: input.pushEnabled,
+              }
+            : prev,
+        rollback: () => undefined,
+      },
+    }),
     onSuccess: () => qc.invalidateQueries({ queryKey: apiKeys.me() }),
   });
 
@@ -80,7 +96,7 @@ export default function ProfileScreen() {
           trailing={
             <Switch
               value={Boolean(me.data?.pushEnabled)}
-              onValueChange={(v) => updatePush.mutate(v)}
+              onValueChange={(v) => updatePush.mutate({ pushEnabled: v })}
               accessibilityLabel="Push notifications"
             />
           }

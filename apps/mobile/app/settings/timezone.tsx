@@ -1,14 +1,15 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { Stack, useRouter } from "expo-router";
 import { useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { Button, Card, FormError, Input } from "@/components";
 import { useApi } from "@/api/ApiProvider";
 import { apiKeys } from "@/api/apiKeys";
-import { getMe, patchMe } from "@/api/auth";
+import { getMe } from "@/api/auth";
 import { useQuery } from "@tanstack/react-query";
 import { fromCaught } from "@/hooks/useApiError";
 import { useTheme } from "@/theme/ThemeProvider";
+import { useEnqueueMutation } from "@/offline";
 
 export default function TimezoneScreen() {
   const api = useApi();
@@ -21,8 +22,21 @@ export default function TimezoneScreen() {
     message: null,
   });
 
-  const save = useMutation({
-    mutationFn: () => patchMe(api, { timezone: value }),
+  const save = useEnqueueMutation<{ timezone: string }, unknown>({
+    build: (input) => ({
+      method: "PATCH",
+      endpoint: "/v1/me",
+      body: input,
+      label: `Set timezone to ${input.timezone}`,
+      optimisticPatch: {
+        queryKey: apiKeys.me(),
+        updater: (prev) =>
+          prev && typeof prev === "object"
+            ? { ...(prev as Record<string, unknown>), timezone: input.timezone }
+            : prev,
+        rollback: () => undefined,
+      },
+    }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: apiKeys.me() });
       router.back();
@@ -54,7 +68,7 @@ export default function TimezoneScreen() {
             <FormError message={error.message} />
             <Button
               label={save.isPending ? "Saving…" : "Save"}
-              onPress={() => save.mutate()}
+              onPress={() => save.mutate({ timezone: value })}
               disabled={save.isPending}
             />
             <Button

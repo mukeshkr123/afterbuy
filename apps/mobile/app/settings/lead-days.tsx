@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { Stack, useRouter } from "expo-router";
 import { useState } from "react";
 import { ScrollView, View } from "react-native";
@@ -6,10 +6,11 @@ import { Button, Card, FormError, Input } from "@/components";
 import { OptionPicker } from "@/components/OptionPicker";
 import { useApi } from "@/api/ApiProvider";
 import { apiKeys } from "@/api/apiKeys";
-import { getMe, patchMe } from "@/api/auth";
+import { getMe } from "@/api/auth";
 import { useQuery } from "@tanstack/react-query";
 import { fromCaught } from "@/hooks/useApiError";
 import { useTheme } from "@/theme/ThemeProvider";
+import { useEnqueueMutation } from "@/offline";
 
 const PRESETS: Array<{ value: string; label: string }> = [
   { value: "1", label: "1 day" },
@@ -32,8 +33,24 @@ export default function LeadDaysScreen() {
     message: null,
   });
 
-  const save = useMutation({
-    mutationFn: () => patchMe(api, { reminderLeadDays: Number(value) }),
+  const save = useEnqueueMutation<{ reminderLeadDays: number }, unknown>({
+    build: (input) => ({
+      method: "PATCH",
+      endpoint: "/v1/me",
+      body: input,
+      label: `Set lead time to ${input.reminderLeadDays} days`,
+      optimisticPatch: {
+        queryKey: apiKeys.me(),
+        updater: (prev) =>
+          prev && typeof prev === "object"
+            ? {
+                ...(prev as Record<string, unknown>),
+                reminderLeadDays: input.reminderLeadDays,
+              }
+            : prev,
+        rollback: () => undefined,
+      },
+    }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: apiKeys.me() });
       router.back();
@@ -70,7 +87,7 @@ export default function LeadDaysScreen() {
             <FormError message={error.message} />
             <Button
               label={save.isPending ? "Saving…" : "Save"}
-              onPress={() => save.mutate()}
+              onPress={() => save.mutate({ reminderLeadDays: Number(value) })}
               disabled={save.isPending}
             />
           </View>

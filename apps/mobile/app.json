@@ -31,7 +31,14 @@
         }
       ],
       "expo-splash-screen",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "AfterBuy needs camera access so you can photograph receipts.",
+          "photosPermission": "AfterBuy needs photo library access to attach receipt images."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

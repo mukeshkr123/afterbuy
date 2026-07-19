@@ -15,7 +15,17 @@ export interface ApiRequestOptions<TBody> {
   body?: TBody;
   query?: Record<string, string | number | undefined>;
   schema: z.ZodTypeAny;
+  /**
+   * Stable idempotency key. When omitted, the client generates a fresh
+   * UUID — fine for one-shot calls, **wrong** for outbox-replayed calls.
+   * The outbox always supplies one.
+   */
   idempotencyKey?: string;
+  /**
+   * Set to "multipart" to skip JSON body serialization and JSON Content-Type.
+   * The `body` field is forwarded as-is and must be a FormData instance.
+   */
+  bodyKind?: "json" | "multipart" | undefined;
 }
 
 export type ApiRequest = <T>(req: ApiRequestOptions<unknown>) => Promise<T>;
@@ -41,6 +51,26 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Network/transport-level error: request never reached the server, or the
+ * server never responded (timeout, DNS, offline). Distinct from ApiError so
+ * the outbox can treat it as retryable.
+ */
+export class NetworkError extends Error {
+  public readonly code: "network_error" | "timeout";
+  public override readonly cause: unknown;
+
+  constructor(
+    message: string,
+    code: "network_error" | "timeout",
+    cause?: unknown
+  ) {
+    super(message);
+    this.code = code;
+    this.cause = cause;
+  }
+}
+
 export function createApi(opts: ApiOptions): ApiRequest {
   return async function request<T>(
     req: ApiRequestOptions<unknown>
@@ -56,16 +86,34 @@ export function createApi(opts: ApiOptions): ApiRequest {
     const headers: Record<string, string> = {
       accept: "application/json",
     };
-    if (req.body !== undefined) headers["content-type"] = "application/json";
+    if (req.bodyKind !== "multipart") {
+      headers["content-type"] = "application/json";
+    }
     if (token) headers.authorization = `Bearer ${token}`;
     if (req.method !== "GET") {
       headers["idempotency-key"] = req.idempotencyKey ?? uuidv4();
     }
 
     const init: RequestInit = { method: req.method, headers };
-    if (req.body !== undefined) init.body = JSON.stringify(req.body);
+    if (req.body !== undefined) {
+      if (req.bodyKind === "multipart") {
+        // FormData sets its own Content-Type with boundary; do not stringify.
+        init.body = req.body as unknown as never;
+      } else {
+        init.body = JSON.stringify(req.body);
+      }
+    }
 
-    const res = await fetch(url.toString(), init);
+    let res: Response;
+    try {
+      res = await fetch(url.toString(), init);
+    } catch (e) {
+      throw new NetworkError(
+        e instanceof Error ? e.message : "Network request failed",
+        "network_error",
+        e
+      );
+    }
     const text = await res.text();
     if (!res.ok) {
       const json = safeJson(text);
