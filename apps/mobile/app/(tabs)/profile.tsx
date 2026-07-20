@@ -1,29 +1,18 @@
 // Profile screen matching design mockup
 import { useClerk, useUser } from "@clerk/clerk-expo";
-import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import React from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useApi } from "@/api/ApiProvider";
-import { apiKeys } from "@/api/apiKeys";
-import { getMe } from "@/api/auth";
 import { useTheme } from "@/theme/ThemeProvider";
 
 export default function ProfileScreen() {
   const { signOut } = useClerk();
   const { user } = useUser();
-  const api = useApi();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { tokens } = useTheme();
-
-  const me = useQuery({
-    queryKey: apiKeys.me(),
-    queryFn: () => getMe(api),
-    enabled: Boolean(user),
-  });
 
   const isDark = tokens.colors.bg !== "#FFFFFF";
   const bgColor = isDark ? tokens.colors.bg : "#FAFAFA";
@@ -33,9 +22,7 @@ export default function ProfileScreen() {
   const borderColor = isDark ? tokens.colors.border : "#F3F4F6";
 
   const userEmail =
-    user?.primaryEmailAddress?.emailAddress ??
-    me.data?.email ??
-    "rohan.verma@gmail.com";
+    user?.primaryEmailAddress?.emailAddress ?? "rohan.verma@gmail.com";
   const userName = user?.firstName
     ? `${user.firstName} ${user.lastName ?? ""}`.trim()
     : "Rohan Verma";
