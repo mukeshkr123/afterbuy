@@ -14,24 +14,40 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/theme/ThemeProvider";
+import { OnboardingHubIllustration } from "@/components/onboarding/OnboardingHubIllustration";
+import { OnboardingReceiptScanIllustration } from "@/components/onboarding/OnboardingReceiptScanIllustration";
+import { OnboardingDeadlineIllustration } from "@/components/onboarding/OnboardingDeadlineIllustration";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-const SLIDES = [
+interface OnboardingSlide {
+  id: string;
+  headline: string;
+  supportingCopy: string;
+  IllustrationComponent: React.ComponentType;
+}
+
+const SLIDES: OnboardingSlide[] = [
   {
     id: "1",
-    title: "Everything you buy,\nmanaged in one place.",
-    image: require("../assets/welcome_slide1.png"),
+    headline: "Every purchase,\nall in one place.",
+    supportingCopy:
+      "Track receipts, deliveries, returns, warranties,\nand claims without searching across different apps.",
+    IllustrationComponent: OnboardingHubIllustration,
   },
   {
     id: "2",
-    title: "Keep digital receipts\norganized automatically.",
-    image: require("../assets/welcome_slide2.png"),
+    headline: "Receipts, organized\nautomatically.",
+    supportingCopy:
+      "Save digital receipts and keep every purchase\ndetail easy to find.",
+    IllustrationComponent: OnboardingReceiptScanIllustration,
   },
   {
     id: "3",
-    title: "Never miss a return\nor warranty deadline.",
-    image: require("../assets/welcome_slide3.png"),
+    headline: "Never miss an important\ndeadline.",
+    supportingCopy:
+      "Get timely reminders before return windows\nand warranties expire.",
+    IllustrationComponent: OnboardingDeadlineIllustration,
   },
 ];
 
@@ -65,6 +81,18 @@ export default function WelcomeScreen() {
     setActiveIndex(index);
   };
 
+  const handlePrimaryAction = () => {
+    if (activeIndex < SLIDES.length - 1) {
+      scrollToSlide(activeIndex + 1);
+    } else {
+      router.push("/(auth)/sign-up");
+    }
+  };
+
+  const handleSkip = () => {
+    router.push("/(auth)/sign-up");
+  };
+
   const accentColor = tokens.colors.accent;
 
   return (
@@ -72,27 +100,52 @@ export default function WelcomeScreen() {
       style={[
         styles.container,
         {
-          paddingTop: Math.max(insets.top + 8, 20),
-          paddingBottom: Math.max(insets.bottom + 8, 24),
+          paddingTop: Math.max(insets.top + 4, 16),
+          paddingBottom: Math.max(insets.bottom + 8, 20),
           backgroundColor: tokens.colors.canvas,
         },
       ]}
     >
-      {/* App Branding Header */}
+      {/* Top Header & Brand Bar (Identical 44px height across all slides) */}
       <View style={styles.headerContainer}>
-        <View style={styles.logoRow}>
+        {/* Brand mark: Icon + subtle wordmark on slide 1, Icon only on slide 2 & 3 */}
+        <View style={styles.brandMarkContainer}>
           <Image
             source={require("../assets/logo_icon.png")}
             style={styles.logoIcon}
             resizeMode="contain"
           />
-          <Text style={[styles.brandTitle, { color: tokens.colors.text }]}>
-            AfterBuy
-          </Text>
+          {activeIndex === 0 && (
+            <Text style={[styles.brandTitle, { color: tokens.colors.text }]}>
+              AfterBuy
+            </Text>
+          )}
         </View>
+
+        {/* Top Right Action: "Skip" on slides 1 & 2, empty layout placeholder on slide 3 */}
+        {activeIndex < SLIDES.length - 1 ? (
+          <Pressable
+            onPress={handleSkip}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="Skip onboarding"
+            style={({ pressed }) => [
+              styles.skipButton,
+              pressed && { opacity: 0.6 },
+            ]}
+          >
+            <Text
+              style={[styles.skipText, { color: tokens.colors.textSubtle }]}
+            >
+              Skip
+            </Text>
+          </Pressable>
+        ) : (
+          <View style={styles.headerPlaceholder} />
+        )}
       </View>
 
-      {/* Main Slide Carousel */}
+      {/* Main Carousel View */}
       <View style={styles.carouselContainer}>
         <ScrollView
           ref={scrollRef}
@@ -103,27 +156,38 @@ export default function WelcomeScreen() {
           scrollEventThrottle={16}
           contentContainerStyle={styles.scrollContent}
         >
-          {SLIDES.map((slide) => (
-            <View key={slide.id} style={styles.slide}>
-              {/* Tagline / Title */}
-              <Text style={[styles.slideTitle, { color: tokens.colors.text }]}>
-                {slide.title}
-              </Text>
+          {SLIDES.map((slide) => {
+            const Illustration = slide.IllustrationComponent;
+            return (
+              <View key={slide.id} style={styles.slide}>
+                {/* Product Illustration */}
+                <View style={styles.illustrationWrapper}>
+                  <Illustration />
+                </View>
 
-              {/* Illustration Image */}
-              <View style={styles.imageWrapper}>
-                <Image
-                  source={slide.image}
-                  style={styles.illustration}
-                  resizeMode="contain"
-                />
+                {/* Typography Block */}
+                <View style={styles.textBlock}>
+                  <Text
+                    style={[styles.headlineText, { color: tokens.colors.text }]}
+                  >
+                    {slide.headline}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.supportingCopyText,
+                      { color: tokens.colors.textSubtle },
+                    ]}
+                  >
+                    {slide.supportingCopy}
+                  </Text>
+                </View>
               </View>
-            </View>
-          ))}
+            );
+          })}
         </ScrollView>
       </View>
 
-      {/* Animated Pagination Dots */}
+      {/* Segmented Progress Bar */}
       <View style={styles.paginationRow}>
         {SLIDES.map((_, index) => {
           const inputRange = [
@@ -134,13 +198,13 @@ export default function WelcomeScreen() {
 
           const dotWidth = scrollX.interpolate({
             inputRange,
-            outputRange: [8, 22, 8],
+            outputRange: [8, 24, 8],
             extrapolate: "clamp",
           });
 
           const dotOpacity = scrollX.interpolate({
             inputRange,
-            outputRange: [0.4, 1, 0.4],
+            outputRange: [0.3, 1, 0.3],
             extrapolate: "clamp",
           });
 
@@ -149,9 +213,9 @@ export default function WelcomeScreen() {
               key={index}
               onPress={() => scrollToSlide(index)}
               accessibilityRole="button"
-              accessibilityLabel={`Go to slide ${index + 1} of ${SLIDES.length}`}
+              accessibilityLabel={`Step ${index + 1} of ${SLIDES.length}`}
               accessibilityState={{ selected: index === activeIndex }}
-              hitSlop={14}
+              hitSlop={12}
             >
               <Animated.View
                 style={[
@@ -168,25 +232,33 @@ export default function WelcomeScreen() {
         })}
       </View>
 
-      {/* Bottom CTA Actions */}
+      {/* Bottom CTA Block */}
       <View style={styles.footerContainer}>
         <Pressable
           accessibilityRole="button"
+          accessibilityLabel={
+            activeIndex === SLIDES.length - 1
+              ? "Get Started with AfterBuy"
+              : "Next onboarding slide"
+          }
           style={({ pressed }) => [
-            styles.getStartedButton,
+            styles.primaryButton,
             {
               backgroundColor: accentColor,
-              borderRadius: tokens.radius.xl,
+              borderRadius: 16,
               ...tokens.shadow.raised,
             },
-            pressed && { opacity: 0.92, transform: [{ scale: 0.985 }] },
+            pressed && { opacity: 0.93, transform: [{ scale: 0.985 }] },
           ]}
-          onPress={() => router.push("/(auth)/sign-up")}
+          onPress={handlePrimaryAction}
         >
           <Text
-            style={[styles.getStartedText, { color: tokens.colors.accentText }]}
+            style={[
+              styles.primaryButtonText,
+              { color: tokens.colors.accentText },
+            ]}
           >
-            Get Started
+            {activeIndex === SLIDES.length - 1 ? "Get Started" : "Next"}
           </Text>
         </Pressable>
 
@@ -194,9 +266,15 @@ export default function WelcomeScreen() {
           <Text
             style={[styles.haveAccountText, { color: tokens.colors.textMuted }]}
           >
-            Have an account?{" "}
+            Already have an account?{" "}
           </Text>
-          <Pressable onPress={() => router.push("/(auth)/sign-in")} hitSlop={8}>
+          <Pressable
+            onPress={() => router.push("/(auth)/sign-in")}
+            hitSlop={12}
+            accessibilityRole="link"
+            accessibilityLabel="Sign in to existing account"
+            style={styles.signInLinkTouchTarget}
+          >
             <Text style={[styles.signInLink, { color: accentColor }]}>
               Sign in
             </Text>
@@ -213,24 +291,41 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   headerContainer: {
-    alignItems: "center",
-    paddingTop: 8,
-    paddingHorizontal: 24,
-  },
-  logoRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    justifyContent: "space-between",
+    paddingHorizontal: 24,
+    height: 44,
+  },
+  brandMarkContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   logoIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 8,
   },
   brandTitle: {
-    fontSize: 30,
-    fontWeight: "800",
-    letterSpacing: -0.8,
+    fontSize: 20,
+    fontWeight: "700",
+    letterSpacing: -0.4,
+  },
+  skipButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    minHeight: 44,
+    justifyContent: "center",
+  },
+  skipText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  headerPlaceholder: {
+    width: 44,
+    height: 44,
   },
   carouselContainer: {
     flex: 1,
@@ -243,55 +338,62 @@ const styles = StyleSheet.create({
     width: SCREEN_WIDTH,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 28,
+    paddingHorizontal: 24,
   },
-  slideTitle: {
-    fontSize: 24,
-    fontWeight: "800",
-    textAlign: "center",
-    lineHeight: 32,
-    marginBottom: 20,
-    letterSpacing: -0.5,
-  },
-  imageWrapper: {
-    width: SCREEN_WIDTH * 0.82,
-    height: SCREEN_WIDTH * 0.82,
-    maxHeight: 310,
-    maxWidth: 310,
+  illustrationWrapper: {
+    width: "100%",
+    height: 250,
     alignItems: "center",
     justifyContent: "center",
   },
-  illustration: {
-    width: "100%",
-    height: "100%",
+  textBlock: {
+    alignItems: "center",
+    paddingHorizontal: 8,
+    marginTop: 24,
+  },
+  headlineText: {
+    fontSize: 32,
+    fontWeight: "700",
+    textAlign: "center",
+    lineHeight: 38,
+    letterSpacing: -0.5,
+    marginBottom: 10,
+    maxWidth: 330,
+  },
+  supportingCopyText: {
+    fontSize: 15,
+    fontWeight: "400",
+    textAlign: "center",
+    lineHeight: 22,
+    maxWidth: 320,
   },
   paginationRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    marginVertical: 16,
+    marginVertical: 14,
   },
   dot: {
-    height: 8,
+    height: 7,
     borderRadius: 4,
   },
   footerContainer: {
     paddingHorizontal: 24,
-    gap: 18,
+    gap: 16,
     alignItems: "center",
     width: "100%",
   },
-  getStartedButton: {
+  primaryButton: {
     width: "100%",
-    height: 56,
+    height: 54,
     alignItems: "center",
     justifyContent: "center",
   },
-  getStartedText: {
-    fontSize: 18,
-    fontWeight: "700",
-    letterSpacing: 0.2,
+  primaryButtonText: {
+    fontSize: 17,
+    fontWeight: "600",
+    letterSpacing: 0.1,
   },
   signInRow: {
     flexDirection: "row",
@@ -299,11 +401,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   haveAccountText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "400",
   },
+  signInLinkTouchTarget: {
+    minHeight: 44,
+    justifyContent: "center",
+  },
   signInLink: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "700",
   },
 });

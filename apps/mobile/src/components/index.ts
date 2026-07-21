@@ -15,6 +15,7 @@ export { ScreenScroll, ScreenView } from "./ScreenScroll";
 export { SectionCard } from "./SectionCard";
 export { Sheet } from "./Sheet";
 export { Skeleton, SkeletonGroup } from "./Skeleton";
+export { SocialAuthButton } from "./SocialAuthButton";
 export { StatusPill } from "./StatusPill";
 export { Switch } from "./Switch";
 export { Tabs } from "./Tabs";

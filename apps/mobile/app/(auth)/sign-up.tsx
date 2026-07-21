@@ -1,12 +1,14 @@
-import { useSignUp } from "@clerk/clerk-expo";
+import { useOAuth, useSignUp } from "@clerk/clerk-expo";
 import { Link, useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -16,6 +18,7 @@ import {
   Input,
   ScreenHeader,
   ScreenScroll,
+  SocialAuthButton,
 } from "@/components";
 import { useTheme } from "@/theme/ThemeProvider";
 
@@ -26,22 +29,74 @@ export default function SignUpScreen() {
   const router = useRouter();
   const { tokens } = useTheme();
 
+  const { startOAuthFlow: startAppleOAuth } = useOAuth({
+    strategy: "oauth_apple",
+  });
+  const { startOAuthFlow: startGoogleOAuth } = useOAuth({
+    strategy: "oauth_google",
+  });
+
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  // Consent must be given, not assumed — this used to default to true.
   const [agreedTerms, setAgreedTerms] = useState(false);
   const [pending, setPending] = useState(false);
+  const [socialLoading, setSocialLoading] = useState<"apple" | "google" | null>(
+    null
+  );
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  const emailInputRef = useRef<TextInput>(null);
+  const passwordInputRef = useRef<TextInput>(null);
+
+  const isValidEmail = (val: string) =>
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val.trim());
+
+  const isFormValid =
+    fullName.trim().length > 0 &&
+    isValidEmail(email) &&
+    password.length >= MIN_PASSWORD_LENGTH &&
+    agreedTerms;
+
+  const handleSocialSignUp = async (
+    strategy: "oauth_apple" | "oauth_google"
+  ) => {
+    const providerKey = strategy === "oauth_apple" ? "apple" : "google";
+    setSocialLoading(providerKey);
+    setError(null);
+    try {
+      const flow =
+        strategy === "oauth_apple" ? startAppleOAuth : startGoogleOAuth;
+      const { createdSessionId, setActive: setOAuthActive } = await flow();
+      if (createdSessionId && setOAuthActive) {
+        await setOAuthActive({ session: createdSessionId });
+        router.replace("/(tabs)");
+      }
+    } catch (e: unknown) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : "Social authentication was canceled or failed."
+      );
+    } finally {
+      setSocialLoading(null);
+    }
+  };
+
+  const openLegalDocument = (title: string, content: string) => {
+    Alert.alert(title, content);
+  };
 
   const onSubmit = async () => {
     if (!isLoaded || !signUp) return;
 
     const nextFieldErrors: Record<string, string> = {};
-    if (!fullName.trim()) nextFieldErrors["fullName"] = "Enter your name.";
-    if (!email.trim()) nextFieldErrors["email"] = "Enter your email.";
+    if (!fullName.trim()) nextFieldErrors["fullName"] = "Enter your full name.";
+    if (!email.trim() || !isValidEmail(email)) {
+      nextFieldErrors["email"] = "Enter a valid email address.";
+    }
     if (password.length < MIN_PASSWORD_LENGTH) {
       nextFieldErrors["password"] =
         `Use at least ${MIN_PASSWORD_LENGTH} characters.`;
@@ -65,9 +120,6 @@ export default function SignUpScreen() {
 
       const result = await signUp.create({
         emailAddress: email.trim(),
-        // The password is the one the user chose. It was previously derived
-        // from the email address, which made every account's credentials
-        // guessable by anyone who knew the address.
         password,
         firstName,
         ...(lastName ? { lastName } : {}),
@@ -83,10 +135,24 @@ export default function SignUpScreen() {
         router.replace("/(auth)/verify");
       }
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Sign-up failed");
+      setError(
+        e instanceof Error
+          ? e.message
+          : "An account with this email already exists."
+      );
     } finally {
       setPending(false);
     }
+  };
+
+  const getPasswordHint = () => {
+    if (password.length === 0) {
+      return "At least 8 characters.";
+    }
+    if (password.length >= MIN_PASSWORD_LENGTH) {
+      return "Password meets requirement.";
+    }
+    return `Use at least ${MIN_PASSWORD_LENGTH} characters.`;
   };
 
   return (
@@ -94,7 +160,8 @@ export default function SignUpScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       style={{ flex: 1 }}
     >
-      <ScreenScroll gap={tokens.spacing.xl}>
+      <ScreenScroll gap={12} contentStyle={styles.scrollContainer}>
+        {/* Top Header */}
         <ScreenHeader
           title=""
           onBack={() =>
@@ -102,65 +169,125 @@ export default function SignUpScreen() {
           }
         />
 
-        <View style={{ gap: tokens.spacing.xs }}>
+        {/* Heading & Supporting Copy */}
+        <View style={styles.headingBlock}>
           <Text
             accessibilityRole="header"
             style={[
               styles.title,
               {
                 color: tokens.colors.text,
-                fontSize: tokens.type.display.fontSize - 2,
               },
             ]}
           >
-            Create account
+            Create your account
           </Text>
           <Text
-            style={{
-              color: tokens.colors.textMuted,
-              fontSize: tokens.type.body.fontSize,
-              lineHeight: tokens.type.body.lineHeight,
-            }}
+            style={[
+              styles.subtitle,
+              {
+                color: tokens.colors.textSubtle,
+              },
+            ]}
           >
-            Let&apos;s get you started.
+            Keep your purchases, receipts, and protection details in one place.
           </Text>
         </View>
 
-        <View style={{ gap: tokens.spacing.lg }}>
+        {/* Social Authentication Section */}
+        <View style={styles.socialBlock}>
+          <SocialAuthButton
+            provider="apple"
+            onPress={() => void handleSocialSignUp("oauth_apple")}
+            loading={socialLoading === "apple"}
+            disabled={pending || socialLoading !== null}
+          />
+          <SocialAuthButton
+            provider="google"
+            onPress={() => void handleSocialSignUp("oauth_google")}
+            loading={socialLoading === "google"}
+            disabled={pending || socialLoading !== null}
+          />
+        </View>
+
+        {/* Section Divider */}
+        <View style={styles.dividerRow}>
+          <View
+            style={[
+              styles.dividerLine,
+              { backgroundColor: tokens.colors.border },
+            ]}
+          />
+          <Text
+            style={[styles.dividerText, { color: tokens.colors.textMuted }]}
+          >
+            or continue with email
+          </Text>
+          <View
+            style={[
+              styles.dividerLine,
+              { backgroundColor: tokens.colors.border },
+            ]}
+          />
+        </View>
+
+        {/* Form Fields */}
+        <View style={styles.formBlock}>
           <Input
             label="Full name"
             value={fullName}
-            onChangeText={setFullName}
+            onChangeText={(text) => {
+              setFullName(text);
+              if (fieldErrors["fullName"]) {
+                setFieldErrors((prev) => ({ ...prev, fullName: "" }));
+              }
+            }}
             placeholder="Your name"
             autoCapitalize="words"
             textContentType="name"
             autoComplete="name"
+            returnKeyType="next"
+            onSubmitEditing={() => emailInputRef.current?.focus()}
             error={fieldErrors["fullName"]}
           />
 
           <Input
             label="Email"
             value={email}
-            onChangeText={setEmail}
+            onChangeText={(text) => {
+              setEmail(text);
+              if (fieldErrors["email"]) {
+                setFieldErrors((prev) => ({ ...prev, email: "" }));
+              }
+            }}
             placeholder="you@example.com"
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
             textContentType="emailAddress"
             autoComplete="email"
+            returnKeyType="next"
+            onSubmitEditing={() => passwordInputRef.current?.focus()}
             error={fieldErrors["email"]}
           />
 
           <Input
             label="Password"
             value={password}
-            onChangeText={setPassword}
+            onChangeText={(text) => {
+              setPassword(text);
+              if (fieldErrors["password"]) {
+                setFieldErrors((prev) => ({ ...prev, password: "" }));
+              }
+            }}
             placeholder="Choose a password"
             secureTextEntry={!showPassword}
             autoCapitalize="none"
             textContentType="newPassword"
             autoComplete="new-password"
-            hint={`At least ${MIN_PASSWORD_LENGTH} characters.`}
+            returnKeyType="done"
+            onSubmitEditing={() => void onSubmit()}
+            hint={getPasswordHint()}
             error={fieldErrors["password"]}
             adornment={
               <Pressable
@@ -181,75 +308,98 @@ export default function SignUpScreen() {
             }
           />
 
-          <Pressable
-            style={[styles.checkboxRow, { gap: tokens.spacing.md }]}
-            onPress={() => setAgreedTerms((v) => !v)}
-            accessibilityRole="checkbox"
-            accessibilityState={{ checked: agreedTerms }}
-            accessibilityLabel="Agree to the Terms of Service and Privacy Policy"
-            hitSlop={6}
-          >
-            <View
-              style={[
-                styles.checkbox,
-                {
-                  borderRadius: tokens.radius.sm,
-                  borderColor: agreedTerms
-                    ? tokens.colors.accent
-                    : tokens.colors.border,
-                  backgroundColor: agreedTerms
-                    ? tokens.colors.accent
-                    : "transparent",
-                },
-              ]}
+          {/* Terms & Privacy Agreement Row */}
+          <View style={styles.termsRowContainer}>
+            <Pressable
+              onPress={() => setAgreedTerms((v) => !v)}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: agreedTerms }}
+              accessibilityLabel="Agree to the Terms of Service and Privacy Policy"
+              hitSlop={8}
+              style={styles.checkboxTouchable}
             >
-              {agreedTerms ? (
-                <Ionicons
-                  name="checkmark"
-                  size={14}
-                  color={tokens.colors.accentText}
-                />
-              ) : null}
-            </View>
+              <View
+                style={[
+                  styles.checkbox,
+                  {
+                    borderRadius: 6,
+                    borderColor: agreedTerms
+                      ? tokens.colors.accent
+                      : tokens.colors.border,
+                    backgroundColor: agreedTerms
+                      ? tokens.colors.accent
+                      : "transparent",
+                  },
+                ]}
+              >
+                {agreedTerms && (
+                  <Ionicons
+                    name="checkmark"
+                    size={14}
+                    color={tokens.colors.accentText}
+                  />
+                )}
+              </View>
+            </Pressable>
+
             <Text
-              style={{
-                flex: 1,
-                color: tokens.colors.textMuted,
-                fontSize: tokens.type.bodySmall.fontSize,
-                lineHeight: tokens.type.bodySmall.lineHeight,
-              }}
+              style={[styles.termsText, { color: tokens.colors.textSubtle }]}
             >
-              I agree to the Terms of Service and Privacy Policy
+              I agree to the{" "}
+              <Text
+                onPress={() =>
+                  openLegalDocument(
+                    "Terms of Service",
+                    "By using AfterBuy, you agree to track and manage your purchase receipts, warranties, and deadline notifications responsibly."
+                  )
+                }
+                style={[styles.legalLink, { color: tokens.colors.accent }]}
+              >
+                Terms of Service
+              </Text>{" "}
+              and{" "}
+              <Text
+                onPress={() =>
+                  openLegalDocument(
+                    "Privacy Policy",
+                    "AfterBuy encrypts your transaction receipts and personal credentials. We never sell your personal data."
+                  )
+                }
+                style={[styles.legalLink, { color: tokens.colors.accent }]}
+              >
+                Privacy Policy
+              </Text>
+              .
             </Text>
-          </Pressable>
+          </View>
 
           <FormError message={error} />
 
           <Button
-            label={pending ? "Creating account…" : "Continue"}
-            disabled={pending}
+            label={pending ? "Creating account…" : "Create account"}
+            disabled={!isFormValid || pending || socialLoading !== null}
             onPress={() => void onSubmit()}
           />
 
-          <View style={styles.signInRow}>
+          <View style={styles.footerRow}>
             <Text
-              style={{
-                color: tokens.colors.textMuted,
-                fontSize: tokens.type.bodySmall.fontSize + 1,
-              }}
+              style={[styles.footerText, { color: tokens.colors.textMuted }]}
             >
               Already have an account?{" "}
             </Text>
-            <Link href="/(auth)/sign-in">
-              <Text
-                style={{
-                  color: tokens.colors.accent,
-                  fontSize: tokens.type.bodySmall.fontSize + 1,
-                  fontWeight: "700",
-                }}
+            <Link href="/(auth)/sign-in" asChild>
+              <Pressable
+                hitSlop={8}
+                accessibilityRole="link"
+                accessibilityLabel="Sign in to existing account"
+                style={styles.footerLinkTouch}
               >
-                Sign in
-              </Text>
+                <Text
+                  style={[styles.footerLink, { color: tokens.colors.accent }]}
+                >
+                  Sign in
+                </Text>
+              </Pressable>
             </Link>
           </View>
         </View>
@@ -259,9 +409,45 @@ export default function SignUpScreen() {
 }
 
 const styles = StyleSheet.create({
+  scrollContainer: {
+    paddingBottom: 36,
+  },
+  headingBlock: {
+    gap: 4,
+    marginTop: 0,
+    marginBottom: 4,
+  },
   title: {
-    fontWeight: "800",
-    letterSpacing: -0.8,
+    fontSize: 32,
+    fontWeight: "700",
+    letterSpacing: -0.6,
+    lineHeight: 38,
+  },
+  subtitle: {
+    fontSize: 15,
+    fontWeight: "400",
+    lineHeight: 22,
+    maxWidth: 320,
+  },
+  socialBlock: {
+    gap: 10,
+  },
+  dividerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: 6,
+    gap: 12,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+  },
+  dividerText: {
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  formBlock: {
+    gap: 14,
   },
   adornmentPress: {
     width: 44,
@@ -269,22 +455,51 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  checkboxRow: {
+  termsRowContainer: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
+    gap: 8,
+    marginTop: 2,
+  },
+  checkboxTouchable: {
+    minWidth: 44,
     minHeight: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: -10,
+    marginLeft: -10,
   },
   checkbox: {
     width: 22,
     height: 22,
-    borderWidth: 2,
+    borderWidth: 1.5,
     alignItems: "center",
     justifyContent: "center",
   },
-  signInRow: {
+  termsText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  legalLink: {
+    fontWeight: "600",
+  },
+  footerRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     marginTop: 4,
+  },
+  footerText: {
+    fontSize: 14,
+    fontWeight: "400",
+  },
+  footerLinkTouch: {
+    minHeight: 44,
+    justifyContent: "center",
+  },
+  footerLink: {
+    fontSize: 14,
+    fontWeight: "700",
   },
 });

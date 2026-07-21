@@ -14,6 +14,8 @@ export interface InputProps {
   keyboardType?: KeyboardTypeOptions | undefined;
   textContentType?: TextInputProps["textContentType"];
   autoComplete?: TextInputProps["autoComplete"];
+  returnKeyType?: TextInputProps["returnKeyType"];
+  onSubmitEditing?: () => void;
   error?: string | undefined;
   multiline?: boolean | undefined;
   numberOfLines?: number | undefined;
@@ -36,6 +38,8 @@ export function Input({
   keyboardType,
   textContentType,
   autoComplete,
+  returnKeyType,
+  onSubmitEditing,
   error,
   multiline = false,
   numberOfLines,
@@ -46,8 +50,8 @@ export function Input({
   const { tokens } = useTheme();
   const [focused, setFocused] = useState(false);
   const minHeight = multiline
-    ? Math.max(44, (numberOfLines ?? 3) * 22 + 16)
-    : 48;
+    ? Math.max(54, (numberOfLines ?? 3) * 22 + 16)
+    : 54;
 
   const borderColor = error
     ? tokens.colors.danger
@@ -83,6 +87,8 @@ export function Input({
           keyboardType={keyboardType}
           textContentType={textContentType}
           autoComplete={autoComplete}
+          returnKeyType={returnKeyType}
+          onSubmitEditing={onSubmitEditing}
           multiline={multiline}
           numberOfLines={multiline ? numberOfLines : undefined}
           accessibilityLabel={label}
@@ -93,10 +99,9 @@ export function Input({
               color: tokens.colors.text,
               borderColor,
               backgroundColor: tokens.colors.surface,
-              borderRadius: tokens.radius.md,
-              paddingLeft: tokens.spacing.md,
-              paddingRight: adornment ? 48 : tokens.spacing.md,
-              paddingVertical: tokens.spacing.sm + 2,
+              borderRadius: 16,
+              paddingLeft: tokens.spacing.lg,
+              paddingRight: adornment ? 48 : tokens.spacing.lg,
               fontSize: tokens.type.body.fontSize,
               minHeight,
               textAlignVertical: multiline ? "top" : "auto",
