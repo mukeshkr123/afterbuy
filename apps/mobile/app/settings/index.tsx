@@ -1,265 +1,172 @@
 import { Stack, useRouter } from "expo-router";
 import React from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import Constants from "expo-constants";
 import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  View,
-} from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
+  IconTile,
+  ListItem,
+  ScreenHeader,
+  ScreenScroll,
+  SectionCard,
+} from "@/components";
 import { useTheme } from "@/theme/ThemeProvider";
+import type { ThemePreference } from "@/lib/settings";
+
+const THEMES: ReadonlyArray<{ value: ThemePreference; label: string }> = [
+  { value: "system", label: "System" },
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" },
+];
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const { tokens, preference, setPreference } = useTheme();
 
-  const isDark = preference === "dark";
-  const bgColor = isDark ? tokens.colors.bg : "#FAFAFA";
-  const cardBg = isDark ? tokens.colors.surface : "#FFFFFF";
-  const textColor = tokens.colors.text ?? "#0F172A";
-  const textMuted = tokens.colors.textMuted ?? "#6B7280";
-  const borderColor = isDark ? tokens.colors.border : "#F3F4F6";
+  const version =
+    Constants.expoConfig?.version ?? Constants.nativeAppVersion ?? null;
 
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
 
-      <View style={{ flex: 1, backgroundColor: bgColor }}>
-        <ScrollView
-          contentContainerStyle={[
-            styles.scrollContent,
-            {
-              paddingTop: Math.max(insets.top + 8, 20),
-              paddingBottom: Math.max(insets.bottom + 20, 28),
-            },
-          ]}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Header Bar */}
-          <View style={styles.headerRow}>
-            <Pressable
-              style={styles.backButton}
-              onPress={() => router.back()}
-              hitSlop={12}
-            >
-              <Ionicons name="chevron-back" size={24} color={textColor} />
-            </Pressable>
+      <ScreenScroll gap={tokens.spacing.xl - 4}>
+        <ScreenHeader title="Settings" />
 
-            <Text style={[styles.headerTitle, { color: textColor }]}>
-              Settings
-            </Text>
-
-            <View style={{ width: 38 }} />
-          </View>
-
-          {/* General Section */}
-          <View style={styles.sectionContainer}>
-            <Text style={[styles.sectionTitle, { color: textColor }]}>
-              General
-            </Text>
-
-            <View style={[styles.groupCard, { backgroundColor: cardBg }]}>
-              {/* Dark Mode Row */}
-              <View
-                style={[
-                  styles.settingRow,
-                  { borderBottomColor: borderColor, borderBottomWidth: 1 },
-                ]}
+        <View style={{ gap: tokens.spacing.md - 2 }}>
+          <SectionLabel>Appearance</SectionLabel>
+          <SectionCard>
+            <View style={{ gap: tokens.spacing.md }}>
+              <Text
+                style={{
+                  color: tokens.colors.textMuted,
+                  fontSize: tokens.type.bodySmall.fontSize,
+                }}
               >
-                <Text style={[styles.settingLabel, { color: textColor }]}>
-                  Dark Mode
-                </Text>
-                <Switch
-                  value={isDark}
-                  onValueChange={(val) =>
-                    void setPreference(val ? "dark" : "light")
-                  }
-                  trackColor={{ false: "#E5E7EB", true: "#4F46E5" }}
-                  thumbColor="#FFFFFF"
-                />
+                Theme
+              </Text>
+              {/* A three-way choice, not a switch — "system" is a real stored
+                  preference that a boolean toggle silently discarded. */}
+              <View style={[styles.segmented, { gap: tokens.spacing.sm }]}>
+                {THEMES.map((t) => {
+                  const active = preference === t.value;
+                  return (
+                    <Pressable
+                      key={t.value}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected: active }}
+                      accessibilityLabel={`${t.label} theme`}
+                      onPress={() => void setPreference(t.value)}
+                      style={({ pressed }) => [
+                        styles.segment,
+                        {
+                          backgroundColor: active
+                            ? tokens.colors.accent
+                            : tokens.colors.surfaceMuted,
+                          borderRadius: tokens.radius.md,
+                        },
+                        pressed && { opacity: 0.85 },
+                      ]}
+                    >
+                      <Text
+                        style={{
+                          color: active
+                            ? tokens.colors.accentText
+                            : tokens.colors.text,
+                          fontSize: tokens.type.bodySmall.fontSize,
+                          fontWeight: "600",
+                        }}
+                      >
+                        {t.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
               </View>
-
-              {/* Language Row */}
-              <Pressable
-                style={({ pressed }) => [
-                  styles.settingRow,
-                  { borderBottomColor: borderColor, borderBottomWidth: 1 },
-                  pressed && { opacity: 0.8 },
-                ]}
-                onPress={() => {}}
-              >
-                <Text style={[styles.settingLabel, { color: textColor }]}>
-                  Language
-                </Text>
-                <View style={styles.rightValueBox}>
-                  <Text style={[styles.rightValueText, { color: textMuted }]}>
-                    English
-                  </Text>
-                  <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
-                </View>
-              </Pressable>
-
-              {/* Currency Row */}
-              <Pressable
-                style={({ pressed }) => [
-                  styles.settingRow,
-                  pressed && { opacity: 0.8 },
-                ]}
-                onPress={() => {}}
-              >
-                <Text style={[styles.settingLabel, { color: textColor }]}>
-                  Currency
-                </Text>
-                <View style={styles.rightValueBox}>
-                  <Text style={[styles.rightValueText, { color: textMuted }]}>
-                    INR (₹)
-                  </Text>
-                  <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
-                </View>
-              </Pressable>
             </View>
-          </View>
+          </SectionCard>
+        </View>
 
-          {/* Data & Privacy Section */}
-          <View style={styles.sectionContainer}>
-            <Text style={[styles.sectionTitle, { color: textColor }]}>
-              Data & Privacy
-            </Text>
+        <View style={{ gap: tokens.spacing.md - 2 }}>
+          <SectionLabel>Reminders</SectionLabel>
+          <SectionCard flush>
+            <ListItem
+              title="Reminder Timing"
+              subtitle="How far ahead we warn you"
+              leading={<IconTile icon="time-outline" tone="accent" />}
+              chevron
+              onPress={() => router.push("/settings/lead-days")}
+            />
+            <ListItem
+              title="Time Zone"
+              subtitle="When daily reminders are sent"
+              divider={false}
+              leading={<IconTile icon="globe-outline" tone="accent" />}
+              chevron
+              onPress={() => router.push("/settings/timezone")}
+            />
+          </SectionCard>
+        </View>
 
-            <View style={[styles.groupCard, { backgroundColor: cardBg }]}>
-              {/* Data Backup */}
-              <Pressable
-                style={({ pressed }) => [
-                  styles.settingRow,
-                  { borderBottomColor: borderColor, borderBottomWidth: 1 },
-                  pressed && { opacity: 0.8 },
-                ]}
-                onPress={() => {}}
-              >
-                <Text style={[styles.settingLabel, { color: textColor }]}>
-                  Data Backup
-                </Text>
-                <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
-              </Pressable>
+        <View style={{ gap: tokens.spacing.md - 2 }}>
+          <SectionLabel>Privacy</SectionLabel>
+          <SectionCard flush>
+            <ListItem
+              title="App Permissions"
+              subtitle="Notifications, camera and photos"
+              leading={<IconTile icon="lock-closed-outline" tone="neutral" />}
+              chevron
+              onPress={() => router.push("/settings/permissions")}
+            />
+            <ListItem
+              title="Delete Account"
+              subtitle="Permanently remove your data"
+              divider={false}
+              leading={<IconTile icon="trash-outline" tone="warning" />}
+              chevron
+              onPress={() => router.push("/delete-account")}
+            />
+          </SectionCard>
+        </View>
 
-              {/* Export My Data */}
-              <Pressable
-                style={({ pressed }) => [
-                  styles.settingRow,
-                  pressed && { opacity: 0.8 },
-                ]}
-                onPress={() => {}}
-              >
-                <Text style={[styles.settingLabel, { color: textColor }]}>
-                  Export My Data
-                </Text>
-                <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
-              </Pressable>
-            </View>
-          </View>
-
-          {/* App Permissions Link */}
-          <View style={styles.sectionContainer}>
-            <View style={[styles.groupCard, { backgroundColor: cardBg }]}>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.settingRow,
-                  pressed && { opacity: 0.8 },
-                ]}
-                onPress={() => router.push("/settings/permissions")}
-              >
-                <Text style={[styles.settingLabel, { color: textColor }]}>
-                  App Permissions
-                </Text>
-                <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
-              </Pressable>
-            </View>
-          </View>
-
-          {/* About Section */}
-          <View style={styles.sectionContainer}>
-            <Text style={[styles.sectionTitle, { color: textColor }]}>
-              About
-            </Text>
-
-            <View style={[styles.groupCard, { backgroundColor: cardBg }]}>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.settingRow,
-                  pressed && { opacity: 0.8 },
-                ]}
-                onPress={() => {}}
-              >
-                <Text style={[styles.settingLabel, { color: textColor }]}>
-                  About AfterBuy
-                </Text>
-                <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
-              </Pressable>
-            </View>
-          </View>
-        </ScrollView>
-      </View>
+        {version ? (
+          <Text
+            style={{
+              color: tokens.colors.textMuted,
+              fontSize: tokens.type.bodySmall.fontSize,
+              textAlign: "center",
+            }}
+          >
+            AfterBuy {version}
+          </Text>
+        ) : null}
+      </ScreenScroll>
     </>
   );
 }
 
+function SectionLabel({ children }: { children: string }) {
+  const { tokens } = useTheme();
+  return (
+    <Text
+      style={{
+        color: tokens.colors.text,
+        fontSize: tokens.type.bodySmall.fontSize + 1,
+        fontWeight: "700",
+      }}
+    >
+      {children}
+    </Text>
+  );
+}
+
 const styles = StyleSheet.create({
-  scrollContent: {
-    paddingHorizontal: 20,
-    gap: 20,
-  },
-  headerRow: {
+  segmented: {
     flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
   },
-  backButton: {
-    width: 38,
-    height: 38,
+  segment: {
+    flex: 1,
+    alignItems: "center",
     justifyContent: "center",
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "800",
-    letterSpacing: -0.3,
-  },
-  sectionContainer: {
-    gap: 10,
-  },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: "700",
-  },
-  groupCard: {
-    borderRadius: 18,
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-    overflow: "hidden",
-  },
-  settingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 16,
-    paddingHorizontal: 18,
-  },
-  settingLabel: {
-    fontSize: 15,
-    fontWeight: "600",
-  },
-  rightValueBox: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  rightValueText: {
-    fontSize: 14,
+    minHeight: 44,
   },
 });

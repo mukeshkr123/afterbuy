@@ -1,7 +1,8 @@
 import NetInfo, { type NetInfoState } from "@react-native-community/netinfo";
 import { onlineManager } from "@tanstack/react-query";
 import { useEffect, useSyncExternalStore } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text } from "react-native";
+import { useRouter } from "expo-router";
 import { useTheme } from "../theme/ThemeProvider";
 import { outbox } from "./outbox";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -57,14 +58,18 @@ export function OfflineBanner() {
   const pending = usePendingCount();
   const { tokens } = useTheme();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   if (online && pending === 0) return null;
   const label = !online
     ? `Offline${pending > 0 ? ` · ${pending} pending` : ""}`
     : `${pending} syncing…`;
   const tone = !online ? tokens.colors.warning : tokens.colors.accent;
   return (
-    <View
-      pointerEvents="none"
+    // Offline is the only state with somewhere to go: the full-screen
+    // explanation of what still works without a connection.
+    <Pressable
+      onPress={online ? undefined : () => router.push("/no-internet")}
+      disabled={online}
       style={[
         styles.banner,
         {
@@ -73,11 +78,17 @@ export function OfflineBanner() {
         },
       ]}
       accessibilityLiveRegion="polite"
-      accessibilityRole="alert"
-      accessibilityLabel={label}
+      accessibilityRole={online ? "alert" : "button"}
+      accessibilityLabel={
+        online ? label : `${label}. Tap to learn what still works.`
+      }
     >
-      <Text style={styles.text}>{label}</Text>
-    </View>
+      {/* In dark mode the accent is a pale indigo, so white-on-accent fails
+          contrast. `accentText` is the token paired with each fill. */}
+      <Text style={[styles.text, { color: tokens.colors.accentText }]}>
+        {label}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -93,7 +104,6 @@ const styles = StyleSheet.create({
     zIndex: 100,
   },
   text: {
-    color: "#FFFFFF",
     fontSize: 12,
     fontWeight: "600",
   },

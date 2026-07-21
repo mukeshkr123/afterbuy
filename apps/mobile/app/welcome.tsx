@@ -65,9 +65,7 @@ export default function WelcomeScreen() {
     setActiveIndex(index);
   };
 
-  const isDark = tokens.colors.bg !== "#FFFFFF";
-  const bgColor = isDark ? tokens.colors.bg : "#FFFFFF";
-  const accentColor = tokens.colors.accent ?? "#4F46E5";
+  const accentColor = tokens.colors.accent;
 
   return (
     <View
@@ -76,7 +74,7 @@ export default function WelcomeScreen() {
         {
           paddingTop: Math.max(insets.top + 8, 20),
           paddingBottom: Math.max(insets.bottom + 8, 24),
-          backgroundColor: bgColor,
+          backgroundColor: tokens.colors.canvas,
         },
       ]}
     >
@@ -150,7 +148,10 @@ export default function WelcomeScreen() {
             <Pressable
               key={index}
               onPress={() => scrollToSlide(index)}
-              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={`Go to slide ${index + 1} of ${SLIDES.length}`}
+              accessibilityState={{ selected: index === activeIndex }}
+              hitSlop={14}
             >
               <Animated.View
                 style={[
@@ -170,14 +171,23 @@ export default function WelcomeScreen() {
       {/* Bottom CTA Actions */}
       <View style={styles.footerContainer}>
         <Pressable
+          accessibilityRole="button"
           style={({ pressed }) => [
             styles.getStartedButton,
-            { backgroundColor: accentColor },
+            {
+              backgroundColor: accentColor,
+              borderRadius: tokens.radius.xl,
+              ...tokens.shadow.raised,
+            },
             pressed && { opacity: 0.92, transform: [{ scale: 0.985 }] },
           ]}
           onPress={() => router.push("/(auth)/sign-up")}
         >
-          <Text style={styles.getStartedText}>Get Started</Text>
+          <Text
+            style={[styles.getStartedText, { color: tokens.colors.accentText }]}
+          >
+            Get Started
+          </Text>
         </Pressable>
 
         <View style={styles.signInRow}>
@@ -275,17 +285,10 @@ const styles = StyleSheet.create({
   getStartedButton: {
     width: "100%",
     height: 56,
-    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#4F46E5",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 6,
   },
   getStartedText: {
-    color: "#FFFFFF",
     fontSize: 18,
     fontWeight: "700",
     letterSpacing: 0.2,

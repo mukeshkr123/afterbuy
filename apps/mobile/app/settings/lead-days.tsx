@@ -1,9 +1,15 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Stack, useRouter } from "expo-router";
 import React, { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import {
+  Button,
+  IconTile,
+  ScreenHeader,
+  ScreenScroll,
+  SectionCard,
+} from "@/components";
 import { useApi } from "@/api/ApiProvider";
 import { apiKeys } from "@/api/apiKeys";
 import { getMe } from "@/api/auth";
@@ -11,30 +17,26 @@ import { useEnqueueMutation } from "@/offline";
 import { useTheme } from "@/theme/ThemeProvider";
 
 const LEAD_PRESETS = [
-  { days: 7, label: "7 Days Before" },
-  { days: 14, label: "14 Days Before" },
-  { days: 30, label: "30 Days Before" },
-  { days: 60, label: "60 Days Before" },
+  { days: 7, label: "7 days before" },
+  { days: 14, label: "14 days before" },
+  { days: 30, label: "30 days before" },
+  { days: 60, label: "60 days before" },
 ];
+
+const DEFAULT_LEAD_DAYS = 30;
 
 export default function LeadDaysScreen() {
   const api = useApi();
   const qc = useQueryClient();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const { tokens } = useTheme();
 
   const me = useQuery({ queryKey: apiKeys.me(), queryFn: () => getMe(api) });
-  const [selectedDays, setSelectedDays] = useState<number>(
-    me.data?.reminderLeadDays ?? 30
-  );
 
-  const isDark = tokens.colors.bg !== "#FFFFFF";
-  const bgColor = isDark ? tokens.colors.bg : "#FAFAFA";
-  const cardBg = isDark ? tokens.colors.surface : "#FFFFFF";
-  const textColor = tokens.colors.text ?? "#0F172A";
-  const textMuted = tokens.colors.textMuted ?? "#6B7280";
-  const borderColor = isDark ? tokens.colors.border : "#F3F4F6";
+  // `useState(me.data?…)` captured the value before the query resolved and
+  // never caught up, so the saved setting appeared unselected on open.
+  const [picked, setPicked] = useState<number | null>(null);
+  const selectedDays = picked ?? me.data?.reminderLeadDays ?? DEFAULT_LEAD_DAYS;
 
   const saveMutation = useEnqueueMutation<
     { reminderLeadDays: number },
@@ -67,180 +69,92 @@ export default function LeadDaysScreen() {
     <>
       <Stack.Screen options={{ headerShown: false }} />
 
-      <View style={{ flex: 1, backgroundColor: bgColor }}>
-        <ScrollView
-          contentContainerStyle={[
-            styles.scrollContent,
-            {
-              paddingTop: Math.max(insets.top + 8, 20),
-              paddingBottom: Math.max(insets.bottom + 20, 28),
-            },
-          ]}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Header Bar */}
-          <View style={styles.headerRow}>
-            <Pressable
-              style={styles.backButton}
-              onPress={() => router.back()}
-              hitSlop={12}
+      <ScreenScroll gap={tokens.spacing.lg + 2}>
+        <ScreenHeader title="Reminder Lead Time" />
+
+        <SectionCard>
+          <View style={[styles.infoRow, { gap: tokens.spacing.md + 2 }]}>
+            <IconTile icon="alarm-outline" tone="accent" />
+            <Text
+              style={{
+                flex: 1,
+                color: tokens.colors.textMuted,
+                fontSize: tokens.type.bodySmall.fontSize,
+                lineHeight: tokens.type.bodySmall.lineHeight,
+              }}
             >
-              <Ionicons name="chevron-back" size={24} color={textColor} />
-            </Pressable>
-
-            <Text style={[styles.headerTitle, { color: textColor }]}>
-              Reminder Lead Time
-            </Text>
-
-            <View style={{ width: 38 }} />
-          </View>
-
-          {/* Subtitle Card */}
-          <View style={[styles.infoCard, { backgroundColor: cardBg }]}>
-            <Ionicons name="alarm-outline" size={24} color="#4F46E5" />
-            <Text style={[styles.infoText, { color: textMuted }]}>
-              Select how many days in advance you want to receive warranty and
-              return notifications.
+              How far ahead we warn you that a warranty or return window is
+              about to end.
             </Text>
           </View>
+        </SectionCard>
 
-          {/* Preset Options List */}
-          <View style={[styles.groupCard, { backgroundColor: cardBg }]}>
-            {LEAD_PRESETS.map((preset, idx) => {
-              const isLast = idx === LEAD_PRESETS.length - 1;
-              const isSelected = selectedDays === preset.days;
-
-              return (
-                <Pressable
-                  key={preset.days}
-                  style={({ pressed }) => [
-                    styles.presetRow,
-                    !isLast && {
-                      borderBottomColor: borderColor,
-                      borderBottomWidth: 1,
-                    },
-                    pressed && { opacity: 0.8 },
-                  ]}
-                  onPress={() => setSelectedDays(preset.days)}
+        <SectionCard flush>
+          {LEAD_PRESETS.map((preset, idx) => {
+            const isLast = idx === LEAD_PRESETS.length - 1;
+            const isSelected = selectedDays === preset.days;
+            return (
+              <Pressable
+                key={preset.days}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: isSelected }}
+                accessibilityLabel={preset.label}
+                onPress={() => setPicked(preset.days)}
+                style={({ pressed }) => [
+                  styles.presetRow,
+                  {
+                    paddingVertical: tokens.spacing.lg + 2,
+                    paddingHorizontal: tokens.spacing.xl - 4,
+                    borderBottomWidth: isLast ? 0 : StyleSheet.hairlineWidth,
+                    borderBottomColor: tokens.colors.border,
+                  },
+                  pressed && { opacity: 0.8 },
+                ]}
+              >
+                <Text
+                  style={{
+                    color: isSelected
+                      ? tokens.colors.accent
+                      : tokens.colors.text,
+                    fontSize: tokens.type.body.fontSize,
+                    fontWeight: "700",
+                  }}
                 >
-                  <Text
-                    style={[
-                      styles.presetLabel,
-                      { color: isSelected ? "#4F46E5" : textColor },
-                    ]}
-                  >
-                    {preset.label}
-                  </Text>
+                  {preset.label}
+                </Text>
+                <Ionicons
+                  name={isSelected ? "checkmark-circle" : "ellipse-outline"}
+                  size={22}
+                  color={
+                    isSelected ? tokens.colors.accent : tokens.colors.border
+                  }
+                />
+              </Pressable>
+            );
+          })}
+        </SectionCard>
 
-                  {isSelected ? (
-                    <Ionicons
-                      name="checkmark-circle"
-                      size={22}
-                      color="#4F46E5"
-                    />
-                  ) : (
-                    <Ionicons
-                      name="ellipse-outline"
-                      size={22}
-                      color="#CBD5E1"
-                    />
-                  )}
-                </Pressable>
-              );
-            })}
-          </View>
-
-          {/* Save Action Button */}
-          <Pressable
-            style={({ pressed }) => [
-              styles.saveButton,
-              pressed && { opacity: 0.92, transform: [{ scale: 0.99 }] },
-            ]}
-            onPress={() =>
-              saveMutation.mutate({ reminderLeadDays: selectedDays })
-            }
-          >
-            <Text style={styles.saveButtonText}>Save Setting</Text>
-          </Pressable>
-        </ScrollView>
-      </View>
+        <Button
+          label={saveMutation.isPending ? "Saving…" : "Save setting"}
+          disabled={saveMutation.isPending}
+          onPress={() =>
+            saveMutation.mutate({ reminderLeadDays: selectedDays })
+          }
+        />
+      </ScreenScroll>
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollContent: {
-    paddingHorizontal: 20,
-    gap: 20,
-  },
-  headerRow: {
+  infoRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-  },
-  backButton: {
-    width: 38,
-    height: 38,
-    justifyContent: "center",
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "800",
-    letterSpacing: -0.3,
-  },
-  infoCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-    padding: 16,
-    borderRadius: 18,
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  infoText: {
-    flex: 1,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  groupCard: {
-    borderRadius: 20,
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-    overflow: "hidden",
   },
   presetRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: 18,
-    paddingHorizontal: 20,
-  },
-  presetLabel: {
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  saveButton: {
-    backgroundColor: "#4F46E5",
-    height: 52,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#4F46E5",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
-    marginTop: 6,
-  },
-  saveButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "700",
+    minHeight: 56,
   },
 });

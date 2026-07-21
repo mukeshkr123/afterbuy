@@ -19,18 +19,73 @@ import { useApi } from "@/api/ApiProvider";
 import { getCategories } from "@/api/categories";
 import { fromCaught } from "@/hooks/useApiError";
 import { deriveReturnDeadline, todayIso } from "@/lib/date";
+import { categoryLabel, deliveryDisplay } from "@/lib/purchaseDisplay";
 import { useTheme } from "../theme/ThemeProvider";
+
+/**
+ * Amount input in major units.
+ *
+ * The API stores minor units, but asking a user for "1499" when they paid
+ * ₹14.99 is a data-entry trap. The typed string is kept locally so partial
+ * input like "14." survives a re-render.
+ */
+function AmountField({
+  initialMinor,
+  onChangeMinor,
+  error,
+}: {
+  initialMinor: number | null | undefined;
+  onChangeMinor: (next: number | undefined) => void;
+  error?: string | undefined;
+}) {
+  const [text, setText] = useState(
+    initialMinor === null || initialMinor === undefined
+      ? ""
+      : String(initialMinor / 100)
+  );
+
+  return (
+    <Input
+      label="Amount paid (optional)"
+      value={text}
+      placeholder="0.00"
+      keyboardType="decimal-pad"
+      onChangeText={(next) => {
+        // One optional decimal point, at most two decimals.
+        const cleaned = next
+          .replace(/[^0-9.]/g, "")
+          .replace(/(\..*)\./g, "$1")
+          .replace(/^(\d*\.\d{2}).+$/, "$1");
+        setText(cleaned);
+        const major = Number.parseFloat(cleaned);
+        onChangeMinor(
+          cleaned === "" || Number.isNaN(major)
+            ? undefined
+            : Math.round(major * 100)
+        );
+      }}
+      error={error}
+    />
+  );
+}
 
 export interface PurchaseFormProps {
   initial?: Partial<CreatePurchaseRequest>;
   onSubmit: (data: CreatePurchaseRequest) => Promise<PurchaseDetailResponse>;
   submitLabel: string;
+  /**
+   * Render the fields bare, without the surrounding ScrollView and Card. Use
+   * when the caller already provides a scrolling page — nesting two scroll
+   * views breaks momentum and keyboard avoidance.
+   */
+  embedded?: boolean | undefined;
 }
 
 export function PurchaseForm({
   initial,
   onSubmit,
   submitLabel,
+  embedded = false,
 }: PurchaseFormProps) {
   const api = useApi();
   const { tokens } = useTheme();
@@ -84,6 +139,157 @@ export function PurchaseForm({
     fields: Record<string, string>;
   }>({ message: null, fields: {} });
 
+  const fields = (
+    <View style={{ gap: tokens.spacing.md }}>
+      <Controller
+        control={control}
+        name="title"
+        render={({ field, fieldState }) => (
+          <Input
+            label="Title"
+            value={field.value ?? ""}
+            onChangeText={field.onChange}
+            error={fieldState.error?.message ?? serverError.fields["title"]}
+          />
+        )}
+      />
+      <Controller
+        control={control}
+        name="merchant"
+        render={({ field, fieldState }) => (
+          <Input
+            label="Merchant"
+            value={field.value ?? ""}
+            onChangeText={field.onChange}
+            error={fieldState.error?.message ?? serverError.fields["merchant"]}
+          />
+        )}
+      />
+      <Controller
+        control={control}
+        name="category"
+        render={({ field, fieldState }) => (
+          <OptionPicker
+            label="Category"
+            value={
+              (field.value ?? "other") as (typeof PURCHASE_CATEGORIES)[number]
+            }
+            options={PURCHASE_CATEGORIES.map((c) => ({
+              value: c,
+              label: categoryLabel(c),
+            }))}
+            onChange={field.onChange}
+            error={fieldState.error?.message ?? serverError.fields["category"]}
+          />
+        )}
+      />
+      <Controller
+        control={control}
+        name="purchaseDate"
+        render={({ field, fieldState }) => (
+          <DateField
+            label="Purchase date"
+            value={field.value ?? ""}
+            onChange={field.onChange}
+            error={
+              fieldState.error?.message ?? serverError.fields["purchaseDate"]
+            }
+          />
+        )}
+      />
+      <Controller
+        control={control}
+        name="amountMinor"
+        render={({ field, fieldState }) => (
+          <AmountField
+            initialMinor={field.value}
+            onChangeMinor={field.onChange}
+            error={
+              fieldState.error?.message ?? serverError.fields["amountMinor"]
+            }
+          />
+        )}
+      />
+      <Controller
+        control={control}
+        name="deliveryStatus"
+        render={({ field, fieldState }) => (
+          <OptionPicker
+            label="Delivery status"
+            value={
+              (field.value ??
+                "ordered") as (typeof PURCHASE_DELIVERY_STATUSES)[number]
+            }
+            options={PURCHASE_DELIVERY_STATUSES.map((s) => ({
+              value: s,
+              label: deliveryDisplay(s).label,
+            }))}
+            onChange={field.onChange}
+            error={
+              fieldState.error?.message ?? serverError.fields["deliveryStatus"]
+            }
+          />
+        )}
+      />
+      <Controller
+        control={control}
+        name="returnDeadlineAt"
+        render={({ field, fieldState }) => (
+          <DateField
+            label="Return deadline"
+            value={field.value ?? ""}
+            onChange={field.onChange}
+            error={
+              fieldState.error?.message ??
+              serverError.fields["returnDeadlineAt"]
+            }
+          />
+        )}
+      />
+      <Controller
+        control={control}
+        name="warrantyExpiresAt"
+        render={({ field, fieldState }) => (
+          <DateField
+            label="Warranty expires"
+            value={field.value ?? ""}
+            onChange={field.onChange}
+            error={
+              fieldState.error?.message ??
+              serverError.fields["warrantyExpiresAt"]
+            }
+          />
+        )}
+      />
+      <Controller
+        control={control}
+        name="notes"
+        render={({ field, fieldState }) => (
+          <Input
+            label="Notes (optional)"
+            value={field.value ?? ""}
+            onChangeText={field.onChange}
+            error={fieldState.error?.message ?? serverError.fields["notes"]}
+          />
+        )}
+      />
+      <FormError message={serverError.message} />
+      <Button
+        label={formState.isSubmitting ? "Saving…" : submitLabel}
+        onPress={handleSubmit(async (data) => {
+          try {
+            await onSubmit(data);
+          } catch (e) {
+            setServerError(fromCaught(e));
+          }
+        })}
+        disabled={formState.isSubmitting}
+      />
+    </View>
+  );
+
+  if (embedded) return fields;
+
   return (
     <ScrollView
       contentContainerStyle={{
@@ -91,167 +297,7 @@ export function PurchaseForm({
         gap: tokens.spacing.md,
       }}
     >
-      <Card>
-        <View style={{ gap: tokens.spacing.md }}>
-          <Controller
-            control={control}
-            name="title"
-            render={({ field, fieldState }) => (
-              <Input
-                label="Title"
-                value={field.value ?? ""}
-                onChangeText={field.onChange}
-                error={fieldState.error?.message ?? serverError.fields["title"]}
-              />
-            )}
-          />
-          <Controller
-            control={control}
-            name="merchant"
-            render={({ field, fieldState }) => (
-              <Input
-                label="Merchant"
-                value={field.value ?? ""}
-                onChangeText={field.onChange}
-                error={
-                  fieldState.error?.message ?? serverError.fields["merchant"]
-                }
-              />
-            )}
-          />
-          <Controller
-            control={control}
-            name="category"
-            render={({ field, fieldState }) => (
-              <OptionPicker
-                label="Category"
-                value={
-                  (field.value ??
-                    "other") as (typeof PURCHASE_CATEGORIES)[number]
-                }
-                options={PURCHASE_CATEGORIES.map((c) => ({
-                  value: c,
-                  label: c,
-                }))}
-                onChange={field.onChange}
-                error={
-                  fieldState.error?.message ?? serverError.fields["category"]
-                }
-              />
-            )}
-          />
-          <Controller
-            control={control}
-            name="purchaseDate"
-            render={({ field, fieldState }) => (
-              <DateField
-                label="Purchase date"
-                value={field.value ?? ""}
-                onChange={field.onChange}
-                error={
-                  fieldState.error?.message ??
-                  serverError.fields["purchaseDate"]
-                }
-              />
-            )}
-          />
-          <Controller
-            control={control}
-            name="amountMinor"
-            render={({ field, fieldState }) => (
-              <Input
-                label="Amount (minor units, optional)"
-                value={
-                  field.value !== undefined && field.value !== null
-                    ? String(field.value)
-                    : ""
-                }
-                onChangeText={(v) => field.onChange(v ? Number(v) : undefined)}
-                keyboardType="number-pad"
-                error={
-                  fieldState.error?.message ?? serverError.fields["amountMinor"]
-                }
-              />
-            )}
-          />
-          <Controller
-            control={control}
-            name="deliveryStatus"
-            render={({ field, fieldState }) => (
-              <OptionPicker
-                label="Delivery status"
-                value={
-                  (field.value ??
-                    "ordered") as (typeof PURCHASE_DELIVERY_STATUSES)[number]
-                }
-                options={PURCHASE_DELIVERY_STATUSES.map((s) => ({
-                  value: s,
-                  label: s,
-                }))}
-                onChange={field.onChange}
-                error={
-                  fieldState.error?.message ??
-                  serverError.fields["deliveryStatus"]
-                }
-              />
-            )}
-          />
-          <Controller
-            control={control}
-            name="returnDeadlineAt"
-            render={({ field, fieldState }) => (
-              <DateField
-                label="Return deadline"
-                value={field.value ?? ""}
-                onChange={field.onChange}
-                error={
-                  fieldState.error?.message ??
-                  serverError.fields["returnDeadlineAt"]
-                }
-              />
-            )}
-          />
-          <Controller
-            control={control}
-            name="warrantyExpiresAt"
-            render={({ field, fieldState }) => (
-              <DateField
-                label="Warranty expires"
-                value={field.value ?? ""}
-                onChange={field.onChange}
-                error={
-                  fieldState.error?.message ??
-                  serverError.fields["warrantyExpiresAt"]
-                }
-              />
-            )}
-          />
-          <Controller
-            control={control}
-            name="notes"
-            render={({ field, fieldState }) => (
-              <Input
-                label="Notes (optional)"
-                value={field.value ?? ""}
-                onChangeText={field.onChange}
-                error={fieldState.error?.message ?? serverError.fields["notes"]}
-              />
-            )}
-          />
-          <FormError message={serverError.message} />
-          <Button
-            label={formState.isSubmitting ? "Saving…" : submitLabel}
-            onPress={handleSubmit(async (data) => {
-              try {
-                await onSubmit(data);
-              } catch (e) {
-                setServerError(fromCaught(e));
-              }
-            })}
-            disabled={formState.isSubmitting}
-          />
-        </View>
-      </Card>
+      <Card>{fields}</Card>
     </ScrollView>
   );
 }

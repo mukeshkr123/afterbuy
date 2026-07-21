@@ -1,207 +1,185 @@
-// Profile screen matching design mockup
 import { useClerk, useUser } from "@clerk/clerk-expo";
-import { useRouter } from "expo-router";
-import React from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
+import { useRouter, type Href } from "expo-router";
+import React, { useState } from "react";
+import { StyleSheet, Text, View } from "react-native";
+import {
+  Button,
+  Dialog,
+  IconTile,
+  ListItem,
+  ScreenScroll,
+  SectionCard,
+} from "@/components";
 import { useTheme } from "@/theme/ThemeProvider";
+
+// Only destinations that exist. The screen previously listed "Connected
+// Accounts", "Address Book", "Payment Methods" and "Notification Preferences",
+// all of which routed to /settings and none of which are built.
+const MENU: ReadonlyArray<{
+  id: string;
+  title: string;
+  subtitle: string;
+  icon: "settings-outline" | "notifications-outline" | "time-outline";
+  href: Href;
+}> = [
+  {
+    id: "settings",
+    title: "Account Settings",
+    subtitle: "Profile, theme and security",
+    icon: "settings-outline",
+    href: "/settings",
+  },
+  {
+    id: "permissions",
+    title: "Permissions",
+    subtitle: "Notifications and device access",
+    icon: "notifications-outline",
+    href: "/settings/permissions",
+  },
+  {
+    id: "lead-days",
+    title: "Reminder Timing",
+    subtitle: "How far ahead we warn you",
+    icon: "time-outline",
+    href: "/settings/lead-days",
+  },
+];
 
 export default function ProfileScreen() {
   const { signOut } = useClerk();
   const { user } = useUser();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const { tokens } = useTheme();
-
-  const isDark = tokens.colors.bg !== "#FFFFFF";
-  const bgColor = isDark ? tokens.colors.bg : "#FAFAFA";
-  const cardBg = isDark ? tokens.colors.surface : "#FFFFFF";
-  const textColor = tokens.colors.text ?? "#0F172A";
-  const textMuted = tokens.colors.textMuted ?? "#6B7280";
-  const borderColor = isDark ? tokens.colors.border : "#F3F4F6";
+  const [confirmSignOut, setConfirmSignOut] = useState(false);
 
   const userEmail =
-    user?.primaryEmailAddress?.emailAddress ?? "rohan.verma@gmail.com";
-  const userName = user?.firstName
-    ? `${user.firstName} ${user.lastName ?? ""}`.trim()
-    : "Rohan Verma";
+    user?.primaryEmailAddress?.emailAddress ??
+    user?.emailAddresses?.[0]?.emailAddress ??
+    "";
+  const userName =
+    user?.fullName ||
+    (user?.firstName
+      ? `${user.firstName} ${user.lastName ?? ""}`.trim()
+      : "") ||
+    userEmail ||
+    "Your account";
 
-  const menuItems = [
-    {
-      id: "account",
-      title: "Account Settings",
-      route: "/settings",
-    },
-    {
-      id: "connected",
-      title: "Connected Accounts",
-      route: "/settings",
-    },
-    {
-      id: "address",
-      title: "Address Book",
-      route: "/settings",
-    },
-    {
-      id: "payment",
-      title: "Payment Methods",
-      route: "/settings",
-    },
-    {
-      id: "notifications",
-      title: "Notification Preferences",
-      route: "/settings",
-    },
-    {
-      id: "app_settings",
-      title: "Settings",
-      route: "/settings",
-    },
-    {
-      id: "permissions",
-      title: "Permissions",
-      route: "/settings/permissions",
-    },
-  ];
+  const initials =
+    userName
+      .split(" ")
+      .map((n) => n[0])
+      .filter(Boolean)
+      .slice(0, 2)
+      .join("")
+      .toUpperCase() || "?";
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: bgColor }}
-      contentContainerStyle={[
-        styles.scrollContent,
-        {
-          paddingTop: Math.max(insets.top + 12, 24),
-          paddingBottom: Math.max(insets.bottom + 20, 28),
-        },
-      ]}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* Header User Profile Row */}
-      <View style={styles.userHeaderRow}>
-        <View style={styles.avatarCircle}>
-          <Text style={styles.avatarText}>
-            {userName
-              .split(" ")
-              .map((n) => n[0])
-              .join("")
-              .toUpperCase()}
-          </Text>
-        </View>
-
-        <View style={styles.userMeta}>
-          <Text style={[styles.userNameText, { color: textColor }]}>
-            {userName}
-          </Text>
-          <Text style={[styles.userEmailText, { color: textMuted }]}>
-            {userEmail}
-          </Text>
-        </View>
-      </View>
-
-      {/* Profile Menu Items List Card */}
-      <View style={[styles.menuGroupCard, { backgroundColor: cardBg }]}>
-        {menuItems.map((item, idx) => {
-          const isLast = idx === menuItems.length - 1;
-          return (
-            <Pressable
-              key={item.id}
-              style={({ pressed }) => [
-                styles.menuItem,
-                !isLast && {
-                  borderBottomColor: borderColor,
-                  borderBottomWidth: 1,
+    <>
+      <ScreenScroll gap={tokens.spacing.xl - 2}>
+        <View style={[styles.userHeaderRow, { gap: tokens.spacing.lg }]}>
+          <View
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+            style={[
+              styles.avatarCircle,
+              { backgroundColor: tokens.colors.accent },
+            ]}
+          >
+            <Text
+              style={[
+                styles.avatarText,
+                {
+                  color: tokens.colors.accentText,
+                  fontSize: tokens.type.title.fontSize,
                 },
-                pressed && { opacity: 0.8 },
               ]}
-              onPress={() => router.push(item.route as never)}
             >
-              <Text style={[styles.menuItemTitle, { color: textColor }]}>
-                {item.title}
-              </Text>
-              <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
-            </Pressable>
-          );
-        })}
-      </View>
+              {initials}
+            </Text>
+          </View>
 
-      {/* Sign Out Action Button */}
-      <Pressable
-        style={styles.signOutButton}
-        onPress={() => {
+          <View style={{ gap: 3, flex: 1 }}>
+            <Text
+              numberOfLines={1}
+              style={[
+                styles.userNameText,
+                {
+                  color: tokens.colors.text,
+                  fontSize: tokens.type.title.fontSize - 2,
+                },
+              ]}
+            >
+              {userName}
+            </Text>
+            {userEmail ? (
+              <Text
+                numberOfLines={1}
+                style={{
+                  color: tokens.colors.textMuted,
+                  fontSize: tokens.type.bodySmall.fontSize,
+                }}
+              >
+                {userEmail}
+              </Text>
+            ) : null}
+          </View>
+        </View>
+
+        <SectionCard flush>
+          {MENU.map((item, idx) => (
+            <ListItem
+              key={item.id}
+              title={item.title}
+              subtitle={item.subtitle}
+              divider={idx < MENU.length - 1}
+              leading={<IconTile icon={item.icon} tone="neutral" />}
+              chevron
+              onPress={() => router.push(item.href)}
+            />
+          ))}
+        </SectionCard>
+
+        <Button
+          label="Sign Out"
+          variant="ghost"
+          onPress={() => setConfirmSignOut(true)}
+        />
+      </ScreenScroll>
+
+      <Dialog
+        visible={confirmSignOut}
+        title="Sign out?"
+        description="Your orders stay saved to your account. You'll need to sign in again to see them."
+        primaryLabel="Sign out"
+        onPrimary={() => {
+          setConfirmSignOut(false);
           void signOut();
         }}
-      >
-        <Text style={styles.signOutText}>Sign Out</Text>
-      </Pressable>
-    </ScrollView>
+        secondaryLabel="Cancel"
+        onDismiss={() => setConfirmSignOut(false)}
+      />
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollContent: {
-    paddingHorizontal: 20,
-    gap: 22,
-  },
   userHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 16,
     marginVertical: 4,
   },
   avatarCircle: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: "#2563EB",
     alignItems: "center",
     justifyContent: "center",
   },
   avatarText: {
-    color: "#FFFFFF",
-    fontSize: 22,
     fontWeight: "800",
-  },
-  userMeta: {
-    gap: 3,
   },
   userNameText: {
-    fontSize: 20,
     fontWeight: "800",
     letterSpacing: -0.3,
-  },
-  userEmailText: {
-    fontSize: 14,
-  },
-  menuGroupCard: {
-    borderRadius: 20,
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-    overflow: "hidden",
-  },
-  menuItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 18,
-    paddingHorizontal: 20,
-  },
-  menuItemTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  signOutButton: {
-    paddingVertical: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 4,
-  },
-  signOutText: {
-    color: "#EF4444",
-    fontSize: 15,
-    fontWeight: "700",
   },
 });

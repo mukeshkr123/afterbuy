@@ -1,86 +1,99 @@
-import { Stack, useRouter } from "expo-router";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
+import { Button, ScreenView } from "@/components";
 import { useTheme } from "@/theme/ThemeProvider";
 
 export default function OrderSuccessScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { tokens } = useTheme();
+  const { id } = useLocalSearchParams<{ id?: string }>();
 
-  const isDark = tokens.colors.bg !== "#FFFFFF";
-  const bgColor = isDark ? tokens.colors.bg : "#FFFFFF";
-  const textColor = tokens.colors.text ?? "#0F172A";
-  const textMuted = tokens.colors.textMuted ?? "#6B7280";
+  const goToOrders = () => router.replace("/(tabs)/purchases");
 
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
 
-      <View style={{ flex: 1, backgroundColor: bgColor }}>
+      <ScreenView>
         <View
           style={[
             styles.container,
             {
-              paddingTop: Math.max(insets.top + 8, 20),
-              paddingBottom: Math.max(insets.bottom + 20, 28),
+              paddingHorizontal: tokens.spacing.xxl - 4,
+              paddingTop: Math.max(insets.top + tokens.spacing.xxl, 48),
+              paddingBottom: Math.max(insets.bottom + tokens.spacing.xl, 28),
+              gap: tokens.spacing.xl,
             },
           ]}
         >
-          {/* Header Bar */}
-          <View style={styles.headerRow}>
-            <Pressable
-              style={styles.backButton}
-              onPress={() => router.back()}
-              hitSlop={12}
+          <View style={[styles.centerContent, { gap: tokens.spacing.md }]}>
+            <View
+              style={[
+                styles.pedestalCircle,
+                { backgroundColor: tokens.colors.successSoft },
+              ]}
             >
-              <Ionicons name="chevron-back" size={24} color={textColor} />
-            </Pressable>
-
-            <Text style={[styles.headerTitle, { color: textColor }]}>
-              Success State
-            </Text>
-
-            <View style={{ width: 38 }} />
-          </View>
-
-          {/* Center Content */}
-          <View style={styles.centerContent}>
-            <View style={styles.pedestalCircle}>
               <Image
                 source={require("../assets/success_badge_icon.png")}
                 style={styles.illustrationImage}
                 resizeMode="contain"
+                accessibilityRole="image"
+                accessibilityLabel=""
               />
             </View>
 
-            <Text style={[styles.mainTitle, { color: textColor }]}>
-              Order Added Successfully
+            <Text
+              accessibilityRole="header"
+              style={[
+                styles.mainTitle,
+                {
+                  color: tokens.colors.text,
+                  fontSize: tokens.type.title.fontSize,
+                },
+              ]}
+            >
+              Order added
             </Text>
-            <Text style={[styles.subtitle, { color: textMuted }]}>
-              We'll help you track everything.
+            <Text
+              style={[
+                styles.subtitle,
+                {
+                  color: tokens.colors.textMuted,
+                  fontSize: tokens.type.body.fontSize,
+                  lineHeight: tokens.type.body.lineHeight,
+                },
+              ]}
+            >
+              We&apos;ll remind you before the return window closes and before
+              the warranty runs out.
             </Text>
           </View>
 
-          {/* Bottom Action Button */}
-          <Pressable
-            style={({ pressed }) => [
-              styles.actionButton,
-              pressed && { opacity: 0.92, transform: [{ scale: 0.99 }] },
-            ]}
-            onPress={() =>
-              router.push({
-                pathname: "/purchase/[id]",
-                params: { id: "1" },
-              })
-            }
-          >
-            <Text style={styles.actionButtonText}>View Order</Text>
-          </Pressable>
+          <View style={{ gap: tokens.spacing.sm }}>
+            {/* Without an id there is no order to open — the screen used to
+                navigate to the literal purchase "1". */}
+            {id ? (
+              <Button
+                label="View order"
+                onPress={() =>
+                  router.replace({
+                    pathname: "/purchase/[id]",
+                    params: { id },
+                  })
+                }
+              />
+            ) : null}
+            <Button
+              label="Back to orders"
+              variant={id ? "secondary" : "primary"}
+              onPress={goToOrders}
+            />
+          </View>
         </View>
-      </View>
+      </ScreenView>
     </>
   );
 }
@@ -88,33 +101,17 @@ export default function OrderSuccessScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 28,
     justifyContent: "space-between",
-  },
-  headerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  backButton: {
-    width: 38,
-    height: 38,
-    justifyContent: "center",
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "800",
-    letterSpacing: -0.3,
   },
   centerContent: {
+    flex: 1,
     alignItems: "center",
-    gap: 12,
+    justifyContent: "center",
   },
   pedestalCircle: {
     width: 170,
     height: 170,
     borderRadius: 85,
-    backgroundColor: "#F0FDF4",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 8,
@@ -125,30 +122,11 @@ const styles = StyleSheet.create({
     height: "100%",
   },
   mainTitle: {
-    fontSize: 22,
     fontWeight: "800",
     letterSpacing: -0.3,
     textAlign: "center",
   },
   subtitle: {
-    fontSize: 15,
     textAlign: "center",
-  },
-  actionButton: {
-    backgroundColor: "#4F46E5",
-    height: 52,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#4F46E5",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  actionButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "700",
   },
 });

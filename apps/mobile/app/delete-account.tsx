@@ -2,32 +2,36 @@ import { useClerk } from "@clerk/clerk-expo";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Stack, useRouter } from "expo-router";
 import React, { useState } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import {
+  Button,
+  FormError,
+  Input,
+  ScreenHeader,
+  ScreenScroll,
+  SectionCard,
+} from "@/components";
 import { useApi } from "@/api/ApiProvider";
 import { deleteMe } from "@/api/auth";
+import { fromCaught, type FormErrorState } from "@/hooks/useApiError";
 import { useTheme } from "@/theme/ThemeProvider";
+
+const CONFIRM_WORD = "delete";
 
 export default function DeleteAccountScreen() {
   const api = useApi();
   const qc = useQueryClient();
   const router = useRouter();
   const { signOut } = useClerk();
-  const insets = useSafeAreaInsets();
   const { tokens } = useTheme();
 
   const [step, setStep] = useState<"intro" | "confirm">("intro");
   const [typedConfirm, setTypedConfirm] = useState("");
-  const [focused, setFocused] = useState(false);
+  const [error, setError] = useState<FormErrorState>({
+    message: null,
+    fields: {},
+  });
 
   const deleteMutation = useMutation({
     mutationFn: () => deleteMe(api),
@@ -35,248 +39,137 @@ export default function DeleteAccountScreen() {
       try {
         await signOut();
       } catch {
-        // best-effort
+        // Best-effort: the server-side account is already gone.
       }
       qc.clear();
       router.replace("/welcome");
     },
+    // A failed deletion used to leave the button spinning with no explanation.
+    onError: (e) => setError(fromCaught(e)),
   });
 
-  const isDark = tokens.colors.bg !== "#FFFFFF";
-  const bgColor = isDark ? tokens.colors.bg : "#FAFAFA";
-  const cardBg = isDark ? tokens.colors.surface : "#FFFFFF";
-  const textColor = tokens.colors.text ?? "#0F172A";
-  const textMuted = tokens.colors.textMuted ?? "#6B7280";
-  const borderColor = isDark ? tokens.colors.border : "#E2E8F0";
-  const inputBg = isDark ? tokens.colors.surface : "#F8FAFC";
-
-  const canDelete = typedConfirm.trim().toLowerCase() === "delete";
+  const canDelete = typedConfirm.trim().toLowerCase() === CONFIRM_WORD;
 
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
 
-      <View style={{ flex: 1, backgroundColor: bgColor }}>
-        <ScrollView
-          contentContainerStyle={[
-            styles.scrollContent,
-            {
-              paddingTop: Math.max(insets.top + 8, 20),
-              paddingBottom: Math.max(insets.bottom + 20, 28),
-            },
-          ]}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Header Bar */}
-          <View style={styles.headerRow}>
-            <Pressable
-              style={styles.backButton}
-              onPress={() => router.back()}
-              hitSlop={12}
+      <ScreenScroll gap={tokens.spacing.lg + 2}>
+        <ScreenHeader title="Delete Account" />
+
+        <SectionCard tone="danger">
+          <View style={[styles.warningBody, { gap: tokens.spacing.md }]}>
+            <View
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+              // The card is already `dangerSurface`; the ring needs to sit
+              // above it, not blend into it.
+              style={[
+                styles.warningIcon,
+                { backgroundColor: tokens.colors.surface },
+              ]}
             >
-              <Ionicons name="chevron-back" size={24} color={textColor} />
-            </Pressable>
-
-            <Text style={[styles.headerTitle, { color: textColor }]}>
-              Delete Account
-            </Text>
-
-            <View style={{ width: 38 }} />
-          </View>
-
-          {/* Warning Header Card */}
-          <View style={styles.warningCard}>
-            <View style={styles.warningIconBox}>
-              <Ionicons name="warning-outline" size={32} color="#EF4444" />
+              <Ionicons
+                name="warning-outline"
+                size={32}
+                color={tokens.colors.danger}
+              />
             </View>
-            <Text style={styles.warningTitle}>Permanent Action</Text>
-            <Text style={styles.warningDescription}>
-              Deleting your account will permanently remove all your tracked
-              purchases, warranty reminders, receipt invoices, and claims
-              history. This action cannot be undone.
+            <Text
+              accessibilityRole="header"
+              style={{
+                color: tokens.colors.text,
+                fontSize: tokens.type.title.fontSize,
+                fontWeight: "800",
+                textAlign: "center",
+              }}
+            >
+              Permanent action
+            </Text>
+            <Text
+              style={{
+                color: tokens.colors.textSubtle,
+                fontSize: tokens.type.body.fontSize,
+                lineHeight: tokens.type.body.lineHeight,
+                textAlign: "center",
+              }}
+            >
+              Deleting your account permanently removes every tracked purchase,
+              warranty reminder, receipt and claim. This cannot be undone.
             </Text>
           </View>
+        </SectionCard>
 
-          {step === "intro" ? (
-            <View style={styles.actionsContainer}>
-              <Pressable
-                style={styles.deleteDangerButton}
-                onPress={() => setStep("confirm")}
+        {step === "intro" ? (
+          <View style={{ gap: tokens.spacing.md }}>
+            <Button
+              label="I want to delete my account"
+              variant="danger"
+              onPress={() => setStep("confirm")}
+            />
+            <Button
+              label="Keep my account"
+              variant="secondary"
+              onPress={() =>
+                router.canGoBack() ? router.back() : router.replace("/settings")
+              }
+            />
+          </View>
+        ) : (
+          <SectionCard>
+            <View style={{ gap: tokens.spacing.lg }}>
+              <Text
+                style={{
+                  color: tokens.colors.textSubtle,
+                  fontSize: tokens.type.body.fontSize,
+                  lineHeight: tokens.type.body.lineHeight,
+                }}
               >
-                <Text style={styles.deleteDangerButtonText}>
-                  I Want to Delete My Account
-                </Text>
-              </Pressable>
-
-              <Pressable
-                style={[
-                  styles.cancelButton,
-                  { backgroundColor: cardBg, borderColor },
-                ]}
-                onPress={() => router.back()}
-              >
-                <Text style={[styles.cancelButtonText, { color: textColor }]}>
-                  Keep My Account
-                </Text>
-              </Pressable>
-            </View>
-          ) : (
-            <View style={[styles.confirmCard, { backgroundColor: cardBg }]}>
-              <Text style={[styles.confirmTitle, { color: textColor }]}>
-                Type "delete" to confirm
-              </Text>
-              <Text style={[styles.confirmSubtitle, { color: textMuted }]}>
-                Please type{" "}
-                <Text style={{ fontWeight: "700", color: textColor }}>
-                  delete
+                Type{" "}
+                <Text style={{ fontWeight: "700", color: tokens.colors.text }}>
+                  {CONFIRM_WORD}
                 </Text>{" "}
-                in the input box below to confirm account deletion.
+                below to confirm.
               </Text>
 
-              <TextInput
+              <Input
+                label="Confirmation"
                 value={typedConfirm}
                 onChangeText={setTypedConfirm}
-                onFocus={() => setFocused(true)}
-                onBlur={() => setFocused(false)}
-                placeholder='Type "delete"'
-                placeholderTextColor={textMuted}
+                placeholder={CONFIRM_WORD}
                 autoCapitalize="none"
-                style={[
-                  styles.textInput,
-                  { color: textColor, backgroundColor: inputBg, borderColor },
-                  focused && { borderColor: "#EF4444", borderWidth: 1.5 },
-                ]}
+                autoCorrect={false}
               />
 
-              <Pressable
-                style={[
-                  styles.deleteDangerButton,
-                  !canDelete && { opacity: 0.5 },
-                ]}
+              <FormError message={error.message} />
+
+              <Button
+                label={
+                  deleteMutation.isPending
+                    ? "Deleting…"
+                    : "Permanently delete account"
+                }
+                variant="danger"
                 disabled={!canDelete || deleteMutation.isPending}
                 onPress={() => deleteMutation.mutate()}
-              >
-                {deleteMutation.isPending ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.deleteDangerButtonText}>
-                    Permanently Delete Account
-                  </Text>
-                )}
-              </Pressable>
+              />
             </View>
-          )}
-        </ScrollView>
-      </View>
+          </SectionCard>
+        )}
+      </ScreenScroll>
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollContent: {
-    paddingHorizontal: 20,
-    gap: 20,
-  },
-  headerRow: {
-    flexDirection: "row",
+  warningBody: {
     alignItems: "center",
-    justifyContent: "space-between",
   },
-  backButton: {
-    width: 38,
-    height: 38,
-    justifyContent: "center",
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "800",
-    letterSpacing: -0.3,
-  },
-  warningCard: {
-    backgroundColor: "#FEE2E2",
-    borderRadius: 20,
-    padding: 22,
-    alignItems: "center",
-    gap: 10,
-    borderWidth: 1,
-    borderColor: "#FCA5A5",
-  },
-  warningIconBox: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "#FFFFFF",
+  warningIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     alignItems: "center",
     justifyContent: "center",
-  },
-  warningTitle: {
-    color: "#991B1B",
-    fontSize: 18,
-    fontWeight: "800",
-  },
-  warningDescription: {
-    color: "#B91C1C",
-    fontSize: 14,
-    textAlign: "center",
-    lineHeight: 20,
-  },
-  actionsContainer: {
-    gap: 12,
-    marginTop: 10,
-  },
-  deleteDangerButton: {
-    backgroundColor: "#EF4444",
-    height: 52,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#EF4444",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  deleteDangerButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  cancelButton: {
-    height: 52,
-    borderRadius: 16,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  cancelButtonText: {
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  confirmCard: {
-    padding: 20,
-    borderRadius: 20,
-    gap: 14,
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-    marginTop: 6,
-  },
-  confirmTitle: {
-    fontSize: 17,
-    fontWeight: "700",
-  },
-  confirmSubtitle: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  textInput: {
-    height: 50,
-    borderRadius: 14,
-    borderWidth: 1,
-    paddingHorizontal: 16,
-    fontSize: 15,
-    marginVertical: 4,
   },
 });

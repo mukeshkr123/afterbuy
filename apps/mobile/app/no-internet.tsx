@@ -1,77 +1,89 @@
 import { Stack, useRouter } from "expo-router";
 import React from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { Button, ScreenHeader, ScreenView } from "@/components";
+import { useOnline } from "@/offline";
 import { useTheme } from "@/theme/ThemeProvider";
 
 export default function NoInternetScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { tokens } = useTheme();
+  const online = useOnline();
 
-  const isDark = tokens.colors.bg !== "#FFFFFF";
-  const bgColor = isDark ? tokens.colors.bg : "#FFFFFF";
-  const textColor = tokens.colors.text ?? "#0F172A";
-  const textMuted = tokens.colors.textMuted ?? "#6B7280";
+  const goBack = () =>
+    router.canGoBack() ? router.back() : router.replace("/(tabs)");
 
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
 
-      <View style={{ flex: 1, backgroundColor: bgColor }}>
+      <ScreenView>
         <View
           style={[
             styles.container,
             {
-              paddingTop: Math.max(insets.top + 8, 20),
-              paddingBottom: Math.max(insets.bottom + 20, 28),
+              paddingHorizontal: tokens.spacing.xl - 4,
+              paddingTop: Math.max(insets.top + tokens.spacing.md, 20),
+              paddingBottom: Math.max(insets.bottom + tokens.spacing.xl, 28),
             },
           ]}
         >
-          {/* Header Bar */}
-          <View style={styles.headerRow}>
-            <Pressable
-              style={styles.backButton}
-              onPress={() => router.back()}
-              hitSlop={12}
+          <ScreenHeader title="No Internet" onBack={goBack} />
+
+          <View style={[styles.centerContent, { gap: tokens.spacing.md }]}>
+            <View
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+              style={[
+                styles.iconCircle,
+                {
+                  backgroundColor: online
+                    ? tokens.colors.successSoft
+                    : tokens.colors.dangerSurface,
+                },
+              ]}
             >
-              <Ionicons name="chevron-back" size={24} color={textColor} />
-            </Pressable>
-
-            <Text style={[styles.headerTitle, { color: textColor }]}>
-              No Internet
-            </Text>
-
-            <View style={{ width: 38 }} />
-          </View>
-
-          {/* Center Content */}
-          <View style={styles.centerContent}>
-            <View style={styles.pedestalCircle}>
-              <Ionicons name="wifi-outline" size={64} color="#EF4444" />
+              <Ionicons
+                name={online ? "wifi" : "wifi-outline"}
+                size={64}
+                color={online ? tokens.colors.success : tokens.colors.danger}
+              />
             </View>
 
-            <Text style={[styles.mainTitle, { color: textColor }]}>
-              You're offline
+            <Text
+              accessibilityRole="header"
+              style={[
+                styles.mainTitle,
+                {
+                  color: tokens.colors.text,
+                  fontSize: tokens.type.title.fontSize,
+                },
+              ]}
+            >
+              {online ? "You're back online" : "You're offline"}
             </Text>
-            <Text style={[styles.subtitle, { color: textMuted }]}>
-              Please check your internet{"\n"}connection and try again.
+            <Text
+              style={[
+                styles.subtitle,
+                {
+                  color: tokens.colors.textMuted,
+                  fontSize: tokens.type.body.fontSize,
+                  lineHeight: tokens.type.body.lineHeight,
+                },
+              ]}
+            >
+              {online
+                ? "Your connection is back. Anything you changed while offline is syncing now."
+                : "AfterBuy keeps working from its saved copy. Changes you make will sync once you reconnect."}
             </Text>
           </View>
 
-          {/* Bottom Action Button */}
-          <Pressable
-            style={({ pressed }) => [
-              styles.actionButton,
-              pressed && { opacity: 0.92, transform: [{ scale: 0.99 }] },
-            ]}
-            onPress={() => router.replace("/(tabs)")}
-          >
-            <Text style={styles.actionButtonText}>Retry</Text>
-          </Pressable>
+          <Button label={online ? "Continue" : "Try again"} onPress={goBack} />
         </View>
-      </View>
+      </ScreenView>
     </>
   );
 }
@@ -79,62 +91,27 @@ export default function NoInternetScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 28,
     justifyContent: "space-between",
-  },
-  headerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  backButton: {
-    width: 38,
-    height: 38,
-    justifyContent: "center",
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "800",
-    letterSpacing: -0.3,
   },
   centerContent: {
+    flex: 1,
     alignItems: "center",
-    gap: 12,
+    justifyContent: "center",
   },
-  pedestalCircle: {
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    backgroundColor: "#FEE2E2",
+  iconCircle: {
+    width: 150,
+    height: 150,
+    borderRadius: 75,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 8,
   },
   mainTitle: {
-    fontSize: 22,
     fontWeight: "800",
     letterSpacing: -0.3,
+    textAlign: "center",
   },
   subtitle: {
-    fontSize: 15,
     textAlign: "center",
-    lineHeight: 22,
-  },
-  actionButton: {
-    backgroundColor: "#4F46E5",
-    height: 52,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#4F46E5",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  actionButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "700",
   },
 });

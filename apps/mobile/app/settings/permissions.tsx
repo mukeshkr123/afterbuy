@@ -1,230 +1,172 @@
-import { Stack, useRouter } from "expo-router";
-import React, { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
+import { Stack } from "expo-router";
+import React, { useCallback, useEffect, useState } from "react";
+import { AppState, Linking, Text, View } from "react-native";
+import * as Notifications from "expo-notifications";
+import * as ImagePicker from "expo-image-picker";
+import {
+  Button,
+  IconTile,
+  ListItem,
+  ScreenHeader,
+  ScreenScroll,
+  SectionCard,
+  StatusPill,
+} from "@/components";
 import { useTheme } from "@/theme/ThemeProvider";
 
+type Grant = "granted" | "denied" | "undetermined";
+
+interface PermissionRow {
+  id: "notifications" | "camera" | "photos";
+  title: string;
+  subtitle: string;
+  icon: "notifications-outline" | "camera-outline" | "images-outline";
+}
+
+const ROWS: readonly PermissionRow[] = [
+  {
+    id: "notifications",
+    title: "Notifications",
+    subtitle: "Return and warranty reminders",
+    icon: "notifications-outline",
+  },
+  {
+    id: "camera",
+    title: "Camera",
+    subtitle: "Photographing bills",
+    icon: "camera-outline",
+  },
+  {
+    id: "photos",
+    title: "Photos",
+    subtitle: "Attaching bills from your library",
+    icon: "images-outline",
+  },
+];
+
+const TONE: Record<Grant, "success" | "danger" | "neutral"> = {
+  granted: "success",
+  denied: "danger",
+  undetermined: "neutral",
+};
+
+const LABEL: Record<Grant, string> = {
+  granted: "Allowed",
+  denied: "Blocked",
+  undetermined: "Not set",
+};
+
+function toGrant(status: string, granted: boolean): Grant {
+  if (granted) return "granted";
+  return status === "undetermined" ? "undetermined" : "denied";
+}
+
 export default function PermissionsScreen() {
-  const router = useRouter();
-  const insets = useSafeAreaInsets();
   const { tokens } = useTheme();
+  const [state, setState] = useState<Record<PermissionRow["id"], Grant>>({
+    notifications: "undetermined",
+    camera: "undetermined",
+    photos: "undetermined",
+  });
 
-  const [allowedMap, setAllowedMap] = useState<Record<string, boolean>>({});
+  // Reads the real OS state rather than a local boolean map — the previous
+  // "Allow" buttons flipped a value that nothing outside this screen saw.
+  const refresh = useCallback(async () => {
+    const [notif, camera, photos] = await Promise.all([
+      Notifications.getPermissionsAsync(),
+      ImagePicker.getCameraPermissionsAsync(),
+      ImagePicker.getMediaLibraryPermissionsAsync(),
+    ]);
+    setState({
+      notifications: toGrant(notif.status, notif.granted),
+      camera: toGrant(camera.status, camera.granted),
+      photos: toGrant(photos.status, photos.granted),
+    });
+  }, []);
 
-  const togglePermission = (id: string) => {
-    setAllowedMap((prev) => ({ ...prev, [id]: !prev[id] }));
+  useEffect(() => {
+    void refresh();
+    // Returning from the OS settings app is the usual way these change.
+    const sub = AppState.addEventListener("change", (next) => {
+      if (next === "active") void refresh();
+    });
+    return () => sub.remove();
+  }, [refresh]);
+
+  const request = async (id: PermissionRow["id"]) => {
+    if (id === "notifications") await Notifications.requestPermissionsAsync();
+    else if (id === "camera") await ImagePicker.requestCameraPermissionsAsync();
+    else await ImagePicker.requestMediaLibraryPermissionsAsync();
+    await refresh();
   };
-
-  const isDark = tokens.colors.bg !== "#FFFFFF";
-  const bgColor = isDark ? tokens.colors.bg : "#FAFAFA";
-  const cardBg = isDark ? tokens.colors.surface : "#FFFFFF";
-  const textColor = tokens.colors.text ?? "#0F172A";
-  const textMuted = tokens.colors.textMuted ?? "#6B7280";
-  const borderColor = isDark ? tokens.colors.border : "#F3F4F6";
-
-  const permissionsList = [
-    {
-      id: "camera",
-      title: "Camera",
-      subtitle: "For scanning bills",
-    },
-    {
-      id: "storage",
-      title: "Storage",
-      subtitle: "For saving invoices",
-    },
-    {
-      id: "notifications",
-      title: "Notifications",
-      subtitle: "For reminders & updates",
-    },
-    {
-      id: "email",
-      title: "Email Access (Optional)",
-      subtitle: "For auto-import (Gmail)",
-    },
-  ];
 
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
 
-      <View style={{ flex: 1, backgroundColor: bgColor }}>
-        <ScrollView
-          contentContainerStyle={[
-            styles.scrollContent,
-            {
-              paddingTop: Math.max(insets.top + 8, 20),
-              paddingBottom: Math.max(insets.bottom + 20, 28),
-            },
-          ]}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Header Row */}
-          <View style={styles.headerRow}>
-            <Pressable
-              style={styles.backButton}
-              onPress={() => router.back()}
-              hitSlop={12}
-            >
-              <Ionicons name="chevron-back" size={24} color={textColor} />
-            </Pressable>
+      <ScreenScroll gap={tokens.spacing.lg + 2}>
+        <ScreenHeader title="Permissions" />
 
-            <View style={{ width: 38 }} />
-          </View>
-
-          {/* Title Header */}
-          <View style={styles.titleContainer}>
-            <Text style={[styles.screenTitle, { color: textColor }]}>
-              Permissions
-            </Text>
-            <Text style={[styles.screenSubtitle, { color: textMuted }]}>
-              We only ask for what's needed.
-            </Text>
-          </View>
-
-          {/* Permissions Group Card */}
-          <View style={[styles.groupCard, { backgroundColor: cardBg }]}>
-            {permissionsList.map((item, idx) => {
-              const isLast = idx === permissionsList.length - 1;
-              const isAllowed = Boolean(allowedMap[item.id]);
-
-              return (
-                <View
-                  key={item.id}
-                  style={[
-                    styles.permissionRow,
-                    !isLast && {
-                      borderBottomColor: borderColor,
-                      borderBottomWidth: 1,
-                    },
-                  ]}
-                >
-                  <View style={styles.permissionMeta}>
-                    <Text
-                      style={[styles.permissionTitle, { color: textColor }]}
-                    >
-                      {item.title}
-                    </Text>
-                    <Text
-                      style={[styles.permissionSubtitle, { color: textMuted }]}
-                    >
-                      {item.subtitle}
-                    </Text>
-                  </View>
-
-                  <Pressable
-                    style={({ pressed }) => [
-                      styles.allowButton,
-                      isAllowed && styles.allowedButton,
-                      pressed && { opacity: 0.8 },
-                    ]}
-                    onPress={() => togglePermission(item.id)}
-                  >
-                    <Text
-                      style={[
-                        styles.allowButtonText,
-                        isAllowed && styles.allowedButtonText,
-                      ]}
-                    >
-                      {isAllowed ? "Allowed ✓" : "Allow >"}
-                    </Text>
-                  </Pressable>
-                </View>
-              );
-            })}
-          </View>
-
-          {/* Footer Note */}
-          <Text style={[styles.footerNoteText, { color: textMuted }]}>
-            You can change permissions anytime in system settings.
+        <View style={{ gap: tokens.spacing.xs }}>
+          <Text
+            accessibilityRole="header"
+            style={{
+              color: tokens.colors.text,
+              fontSize: tokens.type.title.fontSize,
+              fontWeight: "800",
+              letterSpacing: -0.3,
+            }}
+          >
+            Permissions
           </Text>
-        </ScrollView>
-      </View>
+          <Text
+            style={{
+              color: tokens.colors.textMuted,
+              fontSize: tokens.type.body.fontSize,
+              lineHeight: tokens.type.body.lineHeight,
+            }}
+          >
+            We only ask for what AfterBuy actually uses.
+          </Text>
+        </View>
+
+        <SectionCard flush>
+          {ROWS.map((row, idx) => {
+            const grant = state[row.id];
+            return (
+              <ListItem
+                key={row.id}
+                title={row.title}
+                subtitle={row.subtitle}
+                divider={idx < ROWS.length - 1}
+                leading={
+                  <IconTile
+                    icon={row.icon}
+                    tone={grant === "granted" ? "success" : "neutral"}
+                  />
+                }
+                trailing={
+                  <StatusPill label={LABEL[grant]} tone={TONE[grant]} />
+                }
+                // Once blocked, only the OS settings app can re-grant.
+                onPress={
+                  grant === "undetermined"
+                    ? () => void request(row.id)
+                    : grant === "denied"
+                      ? () => void Linking.openSettings()
+                      : undefined
+                }
+              />
+            );
+          })}
+        </SectionCard>
+
+        <Button
+          label="Open system settings"
+          variant="secondary"
+          onPress={() => void Linking.openSettings()}
+        />
+      </ScreenScroll>
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  scrollContent: {
-    paddingHorizontal: 20,
-    gap: 20,
-  },
-  headerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  backButton: {
-    width: 38,
-    height: 38,
-    justifyContent: "center",
-  },
-  titleContainer: {
-    gap: 4,
-    marginTop: 4,
-  },
-  screenTitle: {
-    fontSize: 22,
-    fontWeight: "800",
-    letterSpacing: -0.4,
-  },
-  screenSubtitle: {
-    fontSize: 14,
-  },
-  groupCard: {
-    borderRadius: 20,
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-    overflow: "hidden",
-  },
-  permissionRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 18,
-    paddingHorizontal: 20,
-  },
-  permissionMeta: {
-    gap: 3,
-    flex: 1,
-    paddingRight: 12,
-  },
-  permissionTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  permissionSubtitle: {
-    fontSize: 13,
-  },
-  allowButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    backgroundColor: "#FFFFFF",
-  },
-  allowButtonText: {
-    color: "#4F46E5",
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  allowedButton: {
-    backgroundColor: "#DCFCE7",
-    borderColor: "#DCFCE7",
-  },
-  allowedButtonText: {
-    color: "#16A34A",
-  },
-  footerNoteText: {
-    fontSize: 13,
-    textAlign: "center",
-    marginTop: 10,
-    lineHeight: 18,
-  },
-});

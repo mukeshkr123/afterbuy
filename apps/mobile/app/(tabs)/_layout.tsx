@@ -4,26 +4,31 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/theme/ThemeProvider";
 
 export default function TabsLayout() {
-  const { tokens } = useTheme();
-  const accentColor = tokens.colors.accent ?? "#4F46E5";
+  const { tokens, isDark } = useTheme();
 
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: accentColor,
-        tabBarInactiveTintColor: "#9CA3AF",
+        tabBarActiveTintColor: tokens.colors.accent,
+        tabBarInactiveTintColor: tokens.colors.icon,
         tabBarStyle: {
-          backgroundColor: "#FFFFFF",
-          borderTopColor: "#F3F4F6",
+          backgroundColor: tokens.colors.surface,
+          borderTopColor: tokens.colors.border,
           height: 64,
           paddingBottom: 8,
           paddingTop: 8,
-          elevation: 8,
-          shadowColor: "#000000",
-          shadowOffset: { width: 0, height: -2 },
-          shadowOpacity: 0.05,
-          shadowRadius: 8,
+          // The upward shadow only reads on a light canvas; in dark the border
+          // separates the bar instead.
+          ...(isDark
+            ? { elevation: 0 }
+            : {
+                elevation: 8,
+                shadowColor: "#000000",
+                shadowOffset: { width: 0, height: -2 },
+                shadowOpacity: 0.05,
+                shadowRadius: 8,
+              }),
         },
         tabBarLabelStyle: {
           fontSize: 12,

@@ -1,273 +1,178 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import React from "react";
+import React, { useMemo, useState } from "react";
+import { View } from "react-native";
 import {
-  Image,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
+  Button,
+  EmptyState,
+  IconTile,
+  ListItem,
+  ScreenHeader,
+  ScreenScroll,
+  SectionCard,
+  SkeletonGroup,
+  StatusPill,
+  Tabs,
+} from "@/components";
 import { useApi } from "@/api/ApiProvider";
 import { apiKeys } from "@/api/apiKeys";
-import { getReminders } from "@/api/reminders";
+import { dismissReminder, getReminders } from "@/api/reminders";
+import { listPurchases } from "@/api/purchases";
 import { useTheme } from "@/theme/ThemeProvider";
+import { deadlineState } from "@/lib/purchaseDisplay";
+
+const SCOPES = [
+  { value: "upcoming", label: "Upcoming" },
+  { value: "history", label: "History" },
+] as const;
+
+type Scope = (typeof SCOPES)[number]["value"];
+
+const KIND = {
+  warranty_expiry: {
+    label: "Warranty",
+    icon: "shield-checkmark-outline",
+    tone: "success",
+    prefix: "Expires",
+  },
+  return_deadline: {
+    label: "Return",
+    icon: "sync-outline",
+    tone: "accent",
+    prefix: "Return by",
+  },
+} as const;
 
 export default function RemindersScreen() {
   const api = useApi();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
+  const qc = useQueryClient();
   const { tokens } = useTheme();
+  const [scope, setScope] = useState<Scope>("upcoming");
 
   const list = useQuery({
-    queryKey: apiKeys.reminders("upcoming"),
-    queryFn: () => getReminders(api, "upcoming"),
+    queryKey: apiKeys.reminders(scope),
+    queryFn: () => getReminders(api, scope),
   });
 
-  const isDark = tokens.colors.bg !== "#FFFFFF";
-  const bgColor = isDark ? tokens.colors.bg : "#FAFAFA";
-  const cardBg = isDark ? tokens.colors.surface : "#FFFFFF";
-  const textColor = tokens.colors.text ?? "#0F172A";
-  const textMuted = tokens.colors.textMuted ?? "#6B7280";
-  const borderColor = isDark ? tokens.colors.border : "#E5E7EB";
+  // Reminders carry only a purchaseId. Resolve titles from one page of
+  // purchases rather than inventing product names as the screen used to.
+  const purchases = useQuery({
+    queryKey: apiKeys.purchases.list({ sort: "createdAt", limit: 50 }),
+    queryFn: () => listPurchases(api, { sort: "createdAt", limit: 50 }),
+  });
 
-  // Mockup warranty items matching the design screenshot
-  const mockupWarranties = [
-    {
-      id: "1",
-      title: "iPhone 15",
-      validUntil: "Valid till 05 May 2025",
-      daysLeft: "364 days left",
-      active: true,
-      thumbImage: require("../../assets/iphone_thumb.png"),
-      iconName: null,
+  const titleFor = useMemo(() => {
+    const map = new Map(
+      (purchases.data?.items ?? []).map((p) => [p.id, p.title])
+    );
+    return (purchaseId: string) => map.get(purchaseId) ?? null;
+  }, [purchases.data]);
+
+  const dismiss = useMutation({
+    mutationFn: (id: string) => dismissReminder(api, id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["reminders"] });
     },
-    {
-      id: "2",
-      title: "Sony WH-CH720N",
-      validUntil: "Valid till 04 May 2025",
-      daysLeft: "363 days left",
-      active: true,
-      thumbImage: null,
-      iconName: "headset-outline" as const,
-    },
-    {
-      id: "3",
-      title: "Philips Air Fryer",
-      validUntil: "Valid till 30 Apr 2026",
-      daysLeft: "724 days left",
-      active: true,
-      thumbImage: null,
-      iconName: "restaurant-outline" as const,
-    },
-    {
-      id: "4",
-      title: "Boat Airdopes 141",
-      validUntil: "No active warranty",
-      daysLeft: null,
-      active: false,
-      thumbImage: null,
-      iconName: "headset-outline" as const,
-    },
-  ];
+  });
+
+  const items = list.data?.items ?? [];
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: bgColor }}
-      contentContainerStyle={[
-        styles.scrollContent,
-        {
-          paddingTop: Math.max(insets.top + 8, 20),
-          paddingBottom: Math.max(insets.bottom + 20, 28),
-        },
-      ]}
-      refreshControl={
-        <RefreshControl
-          refreshing={list.isRefetching}
-          onRefresh={() => list.refetch()}
-        />
-      }
-      showsVerticalScrollIndicator={false}
+    <ScreenScroll
+      gap={tokens.spacing.lg + 2}
+      refreshing={list.isRefetching}
+      onRefresh={() => void list.refetch()}
     >
-      {/* Header Bar */}
-      <View style={styles.headerRow}>
-        <Pressable
-          style={styles.backButton}
-          onPress={() =>
-            router.canGoBack() ? router.back() : router.push("/(tabs)")
-          }
-          hitSlop={12}
-        >
-          <Ionicons name="chevron-back" size={24} color={textColor} />
-        </Pressable>
+      <ScreenHeader
+        title="Reminders"
+        showBack={false}
+        action={{
+          icon: "add",
+          label: "Add order",
+          onPress: () => router.push("/purchase/new"),
+        }}
+      />
 
-        <Text style={[styles.headerTitle, { color: textColor }]}>
-          My Warranties
-        </Text>
+      <Tabs
+        tabs={SCOPES.map((s) => ({ key: s.value, label: s.label }))}
+        activeKey={scope}
+        onChange={(key) => setScope(key as Scope)}
+      />
 
-        <Pressable
-          style={styles.addButton}
-          onPress={() => router.push("/purchase/new")}
-          hitSlop={8}
-        >
-          <Ionicons name="add" size={22} color={textColor} />
-        </Pressable>
-      </View>
-
-      {/* Warranties List */}
-      <View style={styles.warrantiesList}>
-        {mockupWarranties.map((item) => (
-          <Pressable
-            key={item.id}
-            style={({ pressed }) => [
-              styles.warrantyCard,
-              { backgroundColor: cardBg },
-              pressed && { opacity: 0.92, transform: [{ scale: 0.99 }] },
-            ]}
-            onPress={() =>
-              router.push({
-                pathname: "/reminder/[id]",
-                params: { id: item.id },
-              })
+      {list.isLoading ? (
+        <SkeletonGroup count={4} gap={tokens.spacing.md} />
+      ) : items.length === 0 ? (
+        <SectionCard>
+          <EmptyState
+            icon={scope === "upcoming" ? "alarm-outline" : "time-outline"}
+            title={
+              scope === "upcoming" ? "Nothing coming up" : "No past reminders"
             }
-          >
-            <View style={styles.cardLeft}>
-              <View
-                style={[styles.productThumb, { backgroundColor: "#F3F4F6" }]}
-              >
-                {item.thumbImage ? (
-                  <Image
-                    source={item.thumbImage}
-                    style={styles.thumbImage}
-                    resizeMode="contain"
-                  />
-                ) : (
-                  <Ionicons name={item.iconName!} size={24} color="#374151" />
-                )}
-              </View>
-              <View style={styles.cardMeta}>
-                <Text style={[styles.productTitle, { color: textColor }]}>
-                  {item.title}
-                </Text>
-                <Text
-                  style={[
-                    styles.validUntilText,
-                    { color: item.active ? textMuted : "#9CA3AF" },
-                  ]}
-                >
-                  {item.validUntil}
-                </Text>
-                {item.daysLeft ? (
-                  <Text style={styles.daysLeftText}>{item.daysLeft}</Text>
-                ) : null}
-              </View>
-            </View>
-          </Pressable>
-        ))}
-      </View>
+            message={
+              scope === "upcoming"
+                ? "Reminders appear here as return windows and warranties approach their end date."
+                : "Reminders you have already received will be listed here."
+            }
+            {...(scope === "upcoming"
+              ? {
+                  action: {
+                    label: "Add an order",
+                    onPress: () => router.push("/purchase/new"),
+                  },
+                }
+              : {})}
+          />
+        </SectionCard>
+      ) : (
+        <SectionCard flush>
+          {items.map((r, idx) => {
+            const kind = KIND[r.kind];
+            const state = deadlineState(r.fireOn, kind.prefix);
+            const title = titleFor(r.purchaseId);
+            return (
+              <ListItem
+                key={r.id}
+                title={title ?? kind.label}
+                subtitle={title ? kind.label : null}
+                detail={state ? `${state.label} · ${state.detail}` : r.fireOn}
+                divider={idx < items.length - 1}
+                leading={<IconTile icon={kind.icon} tone={kind.tone} />}
+                trailing={
+                  state?.urgent ? (
+                    <StatusPill label="Soon" tone="warning" />
+                  ) : state?.expired ? (
+                    <StatusPill label="Passed" tone="neutral" />
+                  ) : undefined
+                }
+                chevron
+                onPress={() =>
+                  router.push({
+                    pathname: "/purchase/[id]",
+                    params: { id: r.purchaseId },
+                  })
+                }
+              />
+            );
+          })}
+        </SectionCard>
+      )}
 
-      {/* Add Product Manually Button */}
-      <Pressable
-        style={({ pressed }) => [
-          styles.addManuallyButton,
-          { borderColor, backgroundColor: cardBg },
-          pressed && { opacity: 0.8 },
-        ]}
-        onPress={() => router.push("/purchase/new")}
-      >
-        <Text style={styles.addManuallyText}>Add Product Manually</Text>
-      </Pressable>
-    </ScrollView>
+      {scope === "upcoming" && items.length > 0 ? (
+        <View>
+          <Button
+            label={
+              dismiss.isPending ? "Dismissing…" : "Dismiss oldest reminder"
+            }
+            variant="secondary"
+            disabled={dismiss.isPending}
+            onPress={() => {
+              const first = items[0];
+              if (first) dismiss.mutate(first.id);
+            }}
+          />
+        </View>
+      ) : null}
+    </ScreenScroll>
   );
 }
-
-const styles = StyleSheet.create({
-  scrollContent: {
-    paddingHorizontal: 20,
-    gap: 18,
-  },
-  headerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  backButton: {
-    width: 38,
-    height: 38,
-    justifyContent: "center",
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "800",
-    letterSpacing: -0.3,
-  },
-  addButton: {
-    width: 38,
-    height: 38,
-    alignItems: "flex-end",
-    justifyContent: "center",
-  },
-  warrantiesList: {
-    gap: 14,
-  },
-  warrantyCard: {
-    padding: 16,
-    borderRadius: 18,
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  cardLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-  },
-  productThumb: {
-    width: 52,
-    height: 52,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 4,
-  },
-  thumbImage: {
-    width: "100%",
-    height: "100%",
-  },
-  cardMeta: {
-    gap: 2,
-  },
-  productTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    letterSpacing: -0.2,
-  },
-  validUntilText: {
-    fontSize: 13,
-  },
-  daysLeftText: {
-    color: "#16A34A",
-    fontSize: 13,
-    fontWeight: "600",
-    marginTop: 2,
-  },
-  addManuallyButton: {
-    height: 48,
-    borderRadius: 14,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 8,
-  },
-  addManuallyText: {
-    color: "#4F46E5",
-    fontSize: 15,
-    fontWeight: "700",
-  },
-});

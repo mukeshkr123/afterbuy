@@ -1,37 +1,52 @@
 import type { ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeProvider";
 
 export interface ListItemProps {
   title: string;
-  subtitle?: string;
+  subtitle?: string | null | undefined;
+  /** Third line, dimmer than `subtitle` — deadlines, counts, timestamps. */
+  detail?: string | null | undefined;
+  /** Leading slot, typically an <IconTile>. */
+  leading?: ReactNode;
   trailing?: ReactNode;
-  onPress?: () => void;
+  /** Show a chevron after `trailing`. Implies the row navigates somewhere. */
+  chevron?: boolean | undefined;
+  /** Suppress the hairline separator on the last row of a group. */
+  divider?: boolean | undefined;
+  onPress?: (() => void) | undefined;
 }
 
 export function ListItem({
   title,
   subtitle,
+  detail,
+  leading,
   trailing,
+  chevron = false,
+  divider = true,
   onPress,
 }: ListItemProps) {
   const { tokens } = useTheme();
-  const Container: typeof Pressable = Pressable;
   return (
-    <Container
+    <Pressable
       onPress={onPress}
       disabled={!onPress}
       accessibilityRole={onPress ? "button" : undefined}
       style={({ pressed }) => [
         styles.row,
         {
+          gap: tokens.spacing.md,
           paddingHorizontal: tokens.spacing.lg,
           paddingVertical: tokens.spacing.md,
+          borderBottomWidth: divider ? StyleSheet.hairlineWidth : 0,
           borderBottomColor: tokens.colors.border,
           opacity: pressed && onPress ? 0.85 : 1,
         },
       ]}
     >
+      {leading}
       <View style={[styles.body, { gap: 2 }]}>
         <Text
           style={{
@@ -45,16 +60,35 @@ export function ListItem({
         {subtitle ? (
           <Text
             style={{
-              color: tokens.colors.textMuted,
+              color: tokens.colors.textSubtle,
               fontSize: tokens.type.bodySmall.fontSize,
             }}
           >
             {subtitle}
           </Text>
         ) : null}
+        {detail ? (
+          <Text
+            style={{
+              color: tokens.colors.textMuted,
+              fontSize: tokens.type.bodySmall.fontSize,
+            }}
+          >
+            {detail}
+          </Text>
+        ) : null}
       </View>
       {trailing}
-    </Container>
+      {chevron ? (
+        <Ionicons
+          name="chevron-forward"
+          size={18}
+          color={tokens.colors.icon}
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+        />
+      ) : null}
+    </Pressable>
   );
 }
 
@@ -62,7 +96,6 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
-    borderBottomWidth: 1,
     minHeight: 56,
   },
   body: { flex: 1, justifyContent: "center" },

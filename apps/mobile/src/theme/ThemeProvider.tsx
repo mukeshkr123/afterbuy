@@ -18,6 +18,12 @@ import {
 
 export interface ThemeContextValue {
   tokens: Tokens;
+  /**
+   * The resolved scheme. Screens must read this rather than comparing a color
+   * token against a literal — `tokens.colors.bg` is `#FBFBFD` in light mode, so
+   * the old `bg !== "#FFFFFF"` idiom was always true.
+   */
+  isDark: boolean;
   reducedMotion: boolean;
   preference: ThemePreference;
   setPreference: (next: ThemePreference) => Promise<void>;
@@ -67,6 +73,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const value = useMemo<ThemeContextValue>(
     () => ({
       tokens: effective === "dark" ? dark : light,
+      isDark: effective === "dark",
       reducedMotion,
       preference,
       setPreference,

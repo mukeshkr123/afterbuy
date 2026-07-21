@@ -1,16 +1,15 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Stack, useRouter } from "expo-router";
-import React, { useState } from "react";
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import React, { useMemo, useState } from "react";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import {
+  Button,
+  EmptyState,
+  ScreenHeader,
+  ScreenScroll,
+  SectionCard,
+} from "@/components";
 import { useApi } from "@/api/ApiProvider";
 import { apiKeys } from "@/api/apiKeys";
 import { getMe } from "@/api/auth";
@@ -21,37 +20,40 @@ const COMMON_TIMEZONES = [
   "Asia/Kolkata",
   "America/New_York",
   "America/Los_Angeles",
+  "America/Chicago",
   "Europe/London",
+  "Europe/Berlin",
   "Europe/Paris",
-  "Asia/Tokyo",
+  "Asia/Dubai",
   "Asia/Singapore",
+  "Asia/Tokyo",
   "Australia/Sydney",
   "UTC",
 ];
+
+function detectTimezone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  } catch {
+    return "UTC";
+  }
+}
 
 export default function TimezoneScreen() {
   const api = useApi();
   const qc = useQueryClient();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const { tokens } = useTheme();
 
   const me = useQuery({ queryKey: apiKeys.me(), queryFn: () => getMe(api) });
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedTz, setSelectedTz] = useState<string>(
-    me.data?.timezone ?? "Asia/Kolkata"
-  );
 
-  const isDark = tokens.colors.bg !== "#FFFFFF";
-  const bgColor = isDark ? tokens.colors.bg : "#FAFAFA";
-  const cardBg = isDark ? tokens.colors.surface : "#FFFFFF";
-  const textColor = tokens.colors.text ?? "#0F172A";
-  const textMuted = tokens.colors.textMuted ?? "#6B7280";
-  const borderColor = isDark ? tokens.colors.border : "#F3F4F6";
-  const inputBg = isDark ? tokens.colors.surface : "#F3F4F6";
+  const detected = detectTimezone();
 
-  const detectedTz =
-    Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Kolkata";
+  // Held as null until the user picks, so the saved value shows as selected
+  // once /me resolves instead of being frozen at the initial render.
+  const [picked, setPicked] = useState<string | null>(null);
+  const selectedTz = picked ?? me.data?.timezone ?? detected;
 
   const saveMutation = useEnqueueMutation<{ timezone: string }, unknown>({
     build: (input) => ({
@@ -74,240 +76,157 @@ export default function TimezoneScreen() {
     },
   });
 
-  const filteredTzs = COMMON_TIMEZONES.filter((tz) =>
-    tz.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // The device zone is always offered, even when it is not in the shortlist.
+  const options = useMemo(() => {
+    const all = COMMON_TIMEZONES.includes(detected)
+      ? COMMON_TIMEZONES
+      : [detected, ...COMMON_TIMEZONES];
+    const q = searchQuery.trim().toLowerCase();
+    return q ? all.filter((tz) => tz.toLowerCase().includes(q)) : all;
+  }, [detected, searchQuery]);
 
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
 
-      <View style={{ flex: 1, backgroundColor: bgColor }}>
-        <ScrollView
-          contentContainerStyle={[
-            styles.scrollContent,
+      <ScreenScroll gap={tokens.spacing.lg + 2}>
+        <ScreenHeader title="Time Zone" />
+
+        <Text
+          style={{
+            color: tokens.colors.textMuted,
+            fontSize: tokens.type.bodySmall.fontSize,
+            lineHeight: tokens.type.bodySmall.lineHeight,
+          }}
+        >
+          Reminders are sent in the morning of this time zone.
+        </Text>
+
+        <View
+          style={[
+            styles.searchBox,
             {
-              paddingTop: Math.max(insets.top + 8, 20),
-              paddingBottom: Math.max(insets.bottom + 20, 28),
+              backgroundColor: tokens.colors.surfaceMuted,
+              borderRadius: tokens.radius.lg,
+              paddingHorizontal: tokens.spacing.md + 2,
+              gap: tokens.spacing.sm + 2,
             },
           ]}
-          showsVerticalScrollIndicator={false}
         >
-          {/* Header Bar */}
-          <View style={styles.headerRow}>
-            <Pressable
-              style={styles.backButton}
-              onPress={() => router.back()}
-              hitSlop={12}
-            >
-              <Ionicons name="chevron-back" size={24} color={textColor} />
-            </Pressable>
-
-            <Text style={[styles.headerTitle, { color: textColor }]}>
-              Timezone
-            </Text>
-
-            <View style={{ width: 38 }} />
-          </View>
-
-          {/* Search Box */}
-          <View style={[styles.searchBox, { backgroundColor: inputBg }]}>
-            <Ionicons name="search-outline" size={20} color="#9CA3AF" />
-            <TextInput
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder="Search timezone..."
-              placeholderTextColor="#9CA3AF"
-              style={[styles.searchInput, { color: textColor }]}
-              autoCapitalize="none"
-            />
-          </View>
-
-          {/* Detected Timezone Quick Card */}
-          <Pressable
-            style={({ pressed }) => [
-              styles.detectedCard,
-              { backgroundColor: cardBg },
-              pressed && { opacity: 0.8 },
+          <Ionicons
+            name="search-outline"
+            size={20}
+            color={tokens.colors.icon}
+          />
+          <TextInput
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Search time zones"
+            placeholderTextColor={tokens.colors.textMuted}
+            accessibilityLabel="Search time zones"
+            autoCapitalize="none"
+            autoCorrect={false}
+            style={[
+              styles.searchInput,
+              {
+                color: tokens.colors.text,
+                fontSize: tokens.type.body.fontSize - 1,
+              },
             ]}
-            onPress={() => setSelectedTz(detectedTz)}
-          >
-            <View style={styles.detectedLeft}>
-              <Ionicons name="location-outline" size={22} color="#4F46E5" />
-              <View>
-                <Text style={[styles.detectedTitle, { color: textColor }]}>
-                  System Timezone
-                </Text>
-                <Text style={[styles.detectedValue, { color: textMuted }]}>
-                  {detectedTz}
-                </Text>
-              </View>
-            </View>
+          />
+        </View>
 
-            {selectedTz === detectedTz ? (
-              <Ionicons name="checkmark-circle" size={22} color="#4F46E5" />
-            ) : null}
-          </Pressable>
-
-          {/* Timezone Options List */}
-          <View style={[styles.groupCard, { backgroundColor: cardBg }]}>
-            {filteredTzs.map((tz, idx) => {
-              const isLast = idx === filteredTzs.length - 1;
+        {options.length === 0 ? (
+          <SectionCard>
+            <EmptyState
+              icon="globe-outline"
+              title="No matching time zones"
+              message="Try a city or region name, for example Kolkata or Europe."
+            />
+          </SectionCard>
+        ) : (
+          <SectionCard flush>
+            {options.map((tz, idx) => {
               const isSelected = selectedTz === tz;
-
+              const isLast = idx === options.length - 1;
               return (
                 <Pressable
                   key={tz}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: isSelected }}
+                  accessibilityLabel={tz.replace(/[_/]/g, " ")}
+                  onPress={() => setPicked(tz)}
                   style={({ pressed }) => [
-                    styles.tzRow,
-                    !isLast && {
-                      borderBottomColor: borderColor,
-                      borderBottomWidth: 1,
+                    styles.row,
+                    {
+                      paddingVertical: tokens.spacing.md + 2,
+                      paddingHorizontal: tokens.spacing.lg,
+                      borderBottomWidth: isLast ? 0 : StyleSheet.hairlineWidth,
+                      borderBottomColor: tokens.colors.border,
                     },
                     pressed && { opacity: 0.8 },
                   ]}
-                  onPress={() => setSelectedTz(tz)}
                 >
-                  <Text
-                    style={[
-                      styles.tzLabel,
-                      { color: isSelected ? "#4F46E5" : textColor },
-                    ]}
-                  >
-                    {tz}
-                  </Text>
-
-                  {isSelected ? (
-                    <Ionicons
-                      name="checkmark-circle"
-                      size={22}
-                      color="#4F46E5"
-                    />
-                  ) : (
-                    <Ionicons
-                      name="ellipse-outline"
-                      size={22}
-                      color="#CBD5E1"
-                    />
-                  )}
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text
+                      style={{
+                        color: isSelected
+                          ? tokens.colors.accent
+                          : tokens.colors.text,
+                        fontSize: tokens.type.body.fontSize,
+                        fontWeight: "600",
+                      }}
+                    >
+                      {tz}
+                    </Text>
+                    {tz === detected ? (
+                      <Text
+                        style={{
+                          color: tokens.colors.textMuted,
+                          fontSize: tokens.type.bodySmall.fontSize,
+                        }}
+                      >
+                        Detected on this device
+                      </Text>
+                    ) : null}
+                  </View>
+                  <Ionicons
+                    name={isSelected ? "checkmark-circle" : "ellipse-outline"}
+                    size={22}
+                    color={
+                      isSelected ? tokens.colors.accent : tokens.colors.border
+                    }
+                  />
                 </Pressable>
               );
             })}
-          </View>
+          </SectionCard>
+        )}
 
-          {/* Save Action Button */}
-          <Pressable
-            style={({ pressed }) => [
-              styles.saveButton,
-              pressed && { opacity: 0.92, transform: [{ scale: 0.99 }] },
-            ]}
-            onPress={() => saveMutation.mutate({ timezone: selectedTz })}
-          >
-            <Text style={styles.saveButtonText}>Save Timezone</Text>
-          </Pressable>
-        </ScrollView>
-      </View>
+        <Button
+          label={saveMutation.isPending ? "Saving…" : "Save time zone"}
+          disabled={saveMutation.isPending}
+          onPress={() => saveMutation.mutate({ timezone: selectedTz })}
+        />
+      </ScreenScroll>
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollContent: {
-    paddingHorizontal: 20,
-    gap: 18,
-  },
-  headerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  backButton: {
-    width: 38,
-    height: 38,
-    justifyContent: "center",
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "800",
-    letterSpacing: -0.3,
-  },
   searchBox: {
     height: 48,
-    borderRadius: 14,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 14,
-    gap: 10,
   },
   searchInput: {
     flex: 1,
-    fontSize: 15,
     height: "100%",
   },
-  detectedCard: {
+  row: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: 16,
-    borderRadius: 18,
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  detectedTestRow: {
-    gap: 2,
-  },
-  detectedLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-  },
-  detectedTitle: {
-    fontSize: 15,
-    fontWeight: "700",
-  },
-  detectedValue: {
-    fontSize: 13,
-    marginTop: 1,
-  },
-  groupCard: {
-    borderRadius: 20,
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-    overflow: "hidden",
-  },
-  tzRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 18,
-    paddingHorizontal: 20,
-  },
-  tzLabel: {
-    fontSize: 15,
-    fontWeight: "600",
-  },
-  saveButton: {
-    backgroundColor: "#4F46E5",
-    height: 52,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#4F46E5",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
-    marginTop: 6,
-  },
-  saveButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "700",
+    minHeight: 56,
   },
 });

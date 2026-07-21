@@ -1,27 +1,67 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import React from "react";
+import React, { useState } from "react";
+import { StyleSheet, Text, View } from "react-native";
+import type { ClaimStatus } from "@acme/shared";
 import {
-  Image,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
+  Button,
+  EmptyState,
+  FormError,
+  IconTile,
+  Money,
+  ScreenHeader,
+  ScreenScroll,
+  SectionCard,
+  Skeleton,
+  StatusPill,
+} from "@/components";
 import { useApi } from "@/api/ApiProvider";
 import { apiKeys } from "@/api/apiKeys";
-import { getClaim } from "@/api/claims";
+import { getClaim, patchClaim } from "@/api/claims";
+import { getPurchase } from "@/api/purchases";
+import { fromCaught, type FormErrorState } from "@/hooks/useApiError";
+import {
+  CLAIM_STATUS_LABEL as STATUS_LABEL,
+  CLAIM_TYPE_LABEL as TYPE_LABEL,
+  nextStatuses,
+  statusTone,
+} from "@/lib/claims";
+import { categoryIcon, formatDate } from "@/lib/purchaseDisplay";
 import { useTheme } from "@/theme/ThemeProvider";
+
+// The lifecycle a healthy claim walks through. `rejected` and `cancelled` are
+// terminal branches, shown in place of the timeline rather than as extra rows.
+const LIFECYCLE: ClaimStatus[] = [
+  "draft",
+  "submitted",
+  "in_progress",
+  "approved",
+  "completed",
+];
+
+function formatDateTime(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const ms = Date.parse(iso);
+  if (Number.isNaN(ms)) return null;
+  return new Date(ms).toLocaleString(undefined, {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
 
 export default function ClaimDetailScreen() {
   const api = useApi();
+  const qc = useQueryClient();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const { tokens } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const [error, setError] = useState<FormErrorState>({
+    message: null,
+    fields: {},
+  });
 
   const claim = useQuery({
     queryKey: apiKeys.claims.detail(id ?? ""),
@@ -29,319 +69,346 @@ export default function ClaimDetailScreen() {
     enabled: Boolean(id),
   });
 
-  const isDark = tokens.colors.bg !== "#FFFFFF";
-  const bgColor = isDark ? tokens.colors.bg : "#FAFAFA";
-  const cardBg = isDark ? tokens.colors.surface : "#FFFFFF";
-  const textColor = tokens.colors.text ?? "#0F172A";
-  const textMuted = tokens.colors.textMuted ?? "#6B7280";
-  const borderColor = isDark ? tokens.colors.border : "#E5E7EB";
+  const purchase = useQuery({
+    queryKey: apiKeys.purchases.detail(claim.data?.purchaseId ?? ""),
+    queryFn: () => getPurchase(api, claim.data?.purchaseId ?? ""),
+    enabled: Boolean(claim.data?.purchaseId),
+  });
 
-  const claimSteps = [
-    {
-      id: "1",
-      title: "Submitted",
-      time: "Today, 10:30 AM",
-      status: "completed",
+  const advance = useMutation({
+    mutationFn: (status: ClaimStatus) => patchClaim(api, id ?? "", { status }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["claims"] });
+      setError({ message: null, fields: {} });
     },
-    { id: "2", title: "Under Review", time: "In progress", status: "active" },
-    { id: "3", title: "Approved", time: "Pending", status: "pending" },
-    { id: "4", title: "Resolved", time: "Pending", status: "pending" },
-  ];
+    onError: (e) => setError(fromCaught(e)),
+  });
+
+  const header = <ScreenHeader title="Claim Details" />;
+
+  if (claim.isLoading) {
+    return (
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <ScreenScroll gap={tokens.spacing.lg + 2}>
+          {header}
+          <Skeleton height={96} />
+          <Skeleton height={200} />
+        </ScreenScroll>
+      </>
+    );
+  }
+
+  const c = claim.data;
+  if (!c) {
+    return (
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <ScreenScroll gap={tokens.spacing.lg + 2}>
+          {header}
+          <SectionCard>
+            <EmptyState
+              icon="alert-circle-outline"
+              title="Claim not available"
+              message="We couldn't load this claim. Check your connection and try again."
+              action={{
+                label: "Try again",
+                onPress: () => void claim.refetch(),
+              }}
+            />
+          </SectionCard>
+        </ScreenScroll>
+      </>
+    );
+  }
+
+  const terminated = c.status === "rejected" || c.status === "cancelled";
+  const reachedIndex = LIFECYCLE.indexOf(c.status);
+  const transitions = nextStatuses(c.status);
 
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
 
-      <View style={{ flex: 1, backgroundColor: bgColor }}>
-        <ScrollView
-          contentContainerStyle={[
-            styles.scrollContent,
-            {
-              paddingTop: Math.max(insets.top + 8, 20),
-              paddingBottom: Math.max(insets.bottom + 20, 28),
-            },
-          ]}
-          showsVerticalScrollIndicator={false}
+      <ScreenScroll gap={tokens.spacing.lg + 2}>
+        {header}
+
+        <SectionCard
+          onPress={
+            purchase.data
+              ? () =>
+                  router.push({
+                    pathname: "/purchase/[id]",
+                    params: { id: c.purchaseId },
+                  })
+              : undefined
+          }
         >
-          {/* Header Bar */}
-          <View style={styles.headerRow}>
-            <Pressable
-              style={styles.backButton}
-              onPress={() => router.back()}
-              hitSlop={12}
-            >
-              <Ionicons name="chevron-back" size={24} color={textColor} />
-            </Pressable>
-
-            <Text style={[styles.headerTitle, { color: textColor }]}>
-              Claim Details
-            </Text>
-
-            <View style={{ width: 38 }} />
-          </View>
-
-          {/* Product Header Card */}
-          <View style={[styles.productCard, { backgroundColor: cardBg }]}>
-            <View style={styles.productLeft}>
-              <View
-                style={[styles.productThumb, { backgroundColor: "#F3F4F6" }]}
+          <View style={[styles.productRow, { gap: tokens.spacing.md + 2 }]}>
+            <IconTile
+              icon={
+                purchase.data
+                  ? categoryIcon(purchase.data.category)
+                  : "cube-outline"
+              }
+              tone="neutral"
+            />
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text
+                style={{
+                  color: tokens.colors.text,
+                  fontSize: tokens.type.body.fontSize,
+                  fontWeight: "700",
+                }}
               >
-                <Image
-                  source={require("../../assets/iphone_thumb.png")}
-                  style={styles.thumbImage}
-                  resizeMode="contain"
+                {purchase.data?.title ?? TYPE_LABEL[c.type]}
+              </Text>
+              <Text
+                style={{
+                  color: tokens.colors.textMuted,
+                  fontSize: tokens.type.bodySmall.fontSize,
+                }}
+              >
+                {purchase.data
+                  ? TYPE_LABEL[c.type]
+                  : (formatDate(c.openedAt.slice(0, 10)) ?? "")}
+              </Text>
+              <View style={{ marginTop: 2 }}>
+                <StatusPill
+                  label={STATUS_LABEL[c.status]}
+                  tone={statusTone(c.status)}
                 />
-              </View>
-              <View style={styles.productMeta}>
-                <Text style={[styles.productTitle, { color: textColor }]}>
-                  iPhone 15 (128GB)
-                </Text>
-                <Text style={[styles.claimIdText, { color: textMuted }]}>
-                  Claim ID: CLM-894125
-                </Text>
-
-                <View style={styles.statusBadge}>
-                  <Text style={styles.statusBadgeText}>Under Review</Text>
-                </View>
               </View>
             </View>
           </View>
+        </SectionCard>
 
-          {/* Claim Timeline Card */}
-          <View style={[styles.timelineCard, { backgroundColor: cardBg }]}>
-            <Text style={[styles.sectionTitle, { color: textColor }]}>
-              Claim Status
-            </Text>
-
-            <View style={styles.timelineList}>
-              {claimSteps.map((step, idx) => {
-                const isLast = idx === claimSteps.length - 1;
-                const isDone = step.status === "completed";
-                const isActive = step.status === "active";
-
+        <SectionCard title="Claim Status">
+          {terminated ? (
+            <View style={{ gap: tokens.spacing.xs }}>
+              <Text
+                style={{
+                  color: tokens.colors.text,
+                  fontSize: tokens.type.body.fontSize,
+                  fontWeight: "700",
+                }}
+              >
+                {STATUS_LABEL[c.status]}
+              </Text>
+              <Text
+                style={{
+                  color: tokens.colors.textMuted,
+                  fontSize: tokens.type.bodySmall.fontSize,
+                }}
+              >
+                {formatDateTime(c.resolvedAt) ??
+                  "This claim is no longer in progress."}
+              </Text>
+            </View>
+          ) : (
+            <View>
+              {LIFECYCLE.map((stage, idx) => {
+                const reached = idx <= reachedIndex;
+                const isCurrent = idx === reachedIndex;
+                const isLast = idx === LIFECYCLE.length - 1;
                 return (
-                  <View key={step.id} style={styles.stepRow}>
+                  <View key={stage} style={styles.stepRow}>
                     <View style={styles.indicatorCol}>
                       <View
                         style={[
-                          styles.dotCircle,
-                          isDone && styles.dotCompleted,
-                          isActive && styles.dotActive,
+                          styles.dot,
+                          {
+                            backgroundColor: reached
+                              ? tokens.colors.accent
+                              : tokens.colors.border,
+                          },
                         ]}
-                      >
-                        {isDone ? (
-                          <Ionicons
-                            name="checkmark"
-                            size={12}
-                            color="#FFFFFF"
-                          />
-                        ) : (
-                          <View
-                            style={[
-                              styles.dotInner,
-                              isActive && { backgroundColor: "#4F46E5" },
-                            ]}
-                          />
-                        )}
-                      </View>
-                      {!isLast && (
+                      />
+                      {!isLast ? (
                         <View
                           style={[
-                            styles.lineConnector,
-                            isDone && { backgroundColor: "#16A34A" },
+                            styles.connector,
+                            {
+                              backgroundColor:
+                                idx < reachedIndex
+                                  ? tokens.colors.accent
+                                  : tokens.colors.border,
+                            },
                           ]}
                         />
-                      )}
+                      ) : null}
                     </View>
-
                     <View
                       style={[
                         styles.stepContent,
-                        !isLast && { paddingBottom: 20 },
+                        !isLast && { paddingBottom: tokens.spacing.lg },
                       ]}
                     >
-                      <Text style={[styles.stepTitle, { color: textColor }]}>
-                        {step.title}
+                      <Text
+                        style={{
+                          color: reached
+                            ? tokens.colors.text
+                            : tokens.colors.textMuted,
+                          fontSize: tokens.type.body.fontSize,
+                          fontWeight: isCurrent ? "700" : "600",
+                        }}
+                      >
+                        {STATUS_LABEL[stage]}
                       </Text>
-                      <Text style={[styles.stepTime, { color: textMuted }]}>
-                        {step.time}
-                      </Text>
+                      {isCurrent ? (
+                        <Text
+                          style={{
+                            color: tokens.colors.textMuted,
+                            fontSize: tokens.type.bodySmall.fontSize,
+                          }}
+                        >
+                          Current stage
+                        </Text>
+                      ) : null}
                     </View>
                   </View>
                 );
               })}
             </View>
-          </View>
+          )}
+        </SectionCard>
 
-          {/* Details Metadata Card */}
-          <View style={[styles.metaCard, { backgroundColor: cardBg }]}>
-            <View
-              style={[
-                styles.metaRow,
-                { borderBottomColor: borderColor, borderBottomWidth: 1 },
-              ]}
-            >
-              <Text style={[styles.metaLabel, { color: textMuted }]}>
-                Claim Type
-              </Text>
-              <Text style={[styles.metaValue, { color: textColor }]}>
-                Warranty Claim
-              </Text>
-            </View>
-
-            <View style={styles.metaRow}>
-              <Text style={[styles.metaLabel, { color: textMuted }]}>
-                Requested Resolution
-              </Text>
-              <Text style={[styles.metaValue, { color: textColor }]}>
-                Replacement
-              </Text>
-            </View>
-          </View>
-
-          {/* Support Action Button */}
-          <Pressable
-            style={({ pressed }) => [
-              styles.supportButton,
-              { borderColor },
-              pressed && { opacity: 0.8 },
-            ]}
-            onPress={() => router.push("/(tabs)/profile")}
-          >
-            <Ionicons
-              name="chatbubble-ellipses-outline"
-              size={20}
-              color="#4F46E5"
+        <SectionCard title="Details">
+          <View style={{ gap: tokens.spacing.md }}>
+            <DetailRow label="Type" value={TYPE_LABEL[c.type]} />
+            <DetailRow
+              label="Opened"
+              value={formatDateTime(c.openedAt) ?? "—"}
             />
-            <Text style={styles.supportButtonText}>Contact Support</Text>
-          </Pressable>
-        </ScrollView>
-      </View>
+            {c.resolvedAt ? (
+              <DetailRow
+                label="Resolved"
+                value={formatDateTime(c.resolvedAt) ?? "—"}
+              />
+            ) : null}
+            {c.reference ? (
+              <DetailRow label="Reference" value={c.reference} />
+            ) : null}
+            {c.refundAmountMinor !== null ? (
+              <View style={styles.detailRow}>
+                <Text
+                  style={{
+                    color: tokens.colors.textMuted,
+                    fontSize: tokens.type.bodySmall.fontSize,
+                  }}
+                >
+                  Refund
+                </Text>
+                <Money
+                  amountMinor={c.refundAmountMinor}
+                  currency={purchase.data?.currency ?? null}
+                  emphasis="strong"
+                  style={{ fontSize: tokens.type.bodySmall.fontSize }}
+                />
+              </View>
+            ) : null}
+          </View>
+        </SectionCard>
+
+        {c.notes ? (
+          <SectionCard title="Notes">
+            <Text
+              style={{
+                color: tokens.colors.textSubtle,
+                fontSize: tokens.type.body.fontSize,
+                lineHeight: tokens.type.body.lineHeight,
+              }}
+            >
+              {c.notes}
+            </Text>
+          </SectionCard>
+        ) : null}
+
+        <FormError message={error.message} />
+
+        {transitions.length > 0 ? (
+          <View style={{ gap: tokens.spacing.sm }}>
+            {transitions.map((status, idx) => (
+              <Button
+                key={status}
+                label={
+                  advance.isPending
+                    ? "Updating…"
+                    : `Mark as ${STATUS_LABEL[status].toLowerCase()}`
+                }
+                variant={
+                  status === "cancelled"
+                    ? "ghost"
+                    : idx === 0
+                      ? "primary"
+                      : "secondary"
+                }
+                disabled={advance.isPending}
+                onPress={() => advance.mutate(status)}
+              />
+            ))}
+          </View>
+        ) : null}
+      </ScreenScroll>
     </>
   );
 }
 
+function DetailRow({ label, value }: { label: string; value: string }) {
+  const { tokens } = useTheme();
+  return (
+    <View style={styles.detailRow}>
+      <Text
+        style={{
+          color: tokens.colors.textMuted,
+          fontSize: tokens.type.bodySmall.fontSize,
+        }}
+      >
+        {label}
+      </Text>
+      <Text
+        style={{
+          color: tokens.colors.text,
+          fontSize: tokens.type.bodySmall.fontSize,
+          fontWeight: "600",
+          flexShrink: 1,
+          textAlign: "right",
+        }}
+      >
+        {value}
+      </Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  scrollContent: {
-    paddingHorizontal: 20,
-    gap: 18,
-  },
-  headerRow: {
+  productRow: {
     flexDirection: "row",
     alignItems: "center",
+  },
+  detailRow: {
+    flexDirection: "row",
     justifyContent: "space-between",
-  },
-  backButton: {
-    width: 38,
-    height: 38,
-    justifyContent: "center",
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "800",
-    letterSpacing: -0.3,
-  },
-  productCard: {
-    padding: 16,
-    borderRadius: 18,
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  productLeft: {
-    flexDirection: "row",
     alignItems: "center",
-    gap: 14,
-  },
-  productThumb: {
-    width: 60,
-    height: 60,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 4,
-  },
-  thumbImage: {
-    width: "100%",
-    height: "100%",
-  },
-  productMeta: {
-    gap: 3,
-  },
-  productTitle: {
-    fontSize: 17,
-    fontWeight: "700",
-  },
-  claimIdText: {
-    fontSize: 13,
-  },
-  statusBadge: {
-    backgroundColor: "#FEF3C7",
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 10,
-    alignSelf: "flex-start",
-    marginTop: 4,
-  },
-  statusBadgeText: {
-    color: "#D97706",
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  timelineCard: {
-    padding: 20,
-    borderRadius: 18,
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
     gap: 16,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  timelineList: {
-    gap: 0,
   },
   stepRow: {
     flexDirection: "row",
-    gap: 14,
+    gap: 16,
   },
   indicatorCol: {
     alignItems: "center",
-    width: 20,
+    width: 16,
   },
-  dotCircle: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: "#E2E8F0",
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 2,
+  dot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    marginTop: 3,
     zIndex: 2,
   },
-  dotCompleted: {
-    backgroundColor: "#16A34A",
-  },
-  dotActive: {
-    backgroundColor: "#EEF2FF",
-    borderWidth: 2,
-    borderColor: "#4F46E5",
-  },
-  dotInner: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "#94A3B8",
-  },
-  lineConnector: {
-    width: 2,
-    backgroundColor: "#E2E8F0",
+  connector: {
+    width: 2.5,
     flex: 1,
     marginTop: -2,
     marginBottom: -2,
@@ -349,51 +416,5 @@ const styles = StyleSheet.create({
   stepContent: {
     flex: 1,
     gap: 2,
-  },
-  stepTitle: {
-    fontSize: 15,
-    fontWeight: "700",
-  },
-  stepTime: {
-    fontSize: 13,
-  },
-  metaCard: {
-    borderRadius: 18,
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-    overflow: "hidden",
-  },
-  metaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 16,
-    paddingHorizontal: 18,
-  },
-  metaLabel: {
-    fontSize: 14,
-  },
-  metaValue: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  supportButton: {
-    height: 48,
-    borderRadius: 14,
-    borderWidth: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    backgroundColor: "#FFFFFF",
-    marginTop: 6,
-  },
-  supportButtonText: {
-    color: "#4F46E5",
-    fontSize: 15,
-    fontWeight: "700",
   },
 });

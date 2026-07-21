@@ -94,20 +94,5 @@ export function restorePurchase(
   }) as Promise<PurchaseDetailResponse>;
 }
 
-// Phase 6.4 stub. The expo-image-picker install is deferred because it
-// requires an `expo prebuild` round-trip that breaks CI; the uploadReceipt
-// signature is in place so the wiring is a one-liner when the picker lands.
-export function uploadReceipt(
-  api: ApiRequest,
-  purchaseId: string,
-  file: { uri: string; name: string; type: string }
-): Promise<PurchaseDetailResponse> {
-  const form = new FormData();
-  form.append("file", file as unknown as Blob);
-  return api({
-    method: "POST",
-    path: `/v1/purchases/${encodeURIComponent(purchaseId)}/receipts`,
-    body: form,
-    schema: purchaseDetailResponseSchema,
-  }) as Promise<PurchaseDetailResponse>;
-}
+// Receipt upload lives in ./receipts.ts — it returns a Receipt, not a
+// Purchase, and needs `bodyKind: "multipart"` to skip JSON serialization.

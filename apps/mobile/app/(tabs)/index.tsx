@@ -1,19 +1,63 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import React from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import {
+  EmptyState,
+  IconTile,
+  ListItem,
+  ScreenScroll,
+  SectionCard,
+  Skeleton,
+  StatusPill,
+} from "@/components";
 import { useApi } from "@/api/ApiProvider";
 import { apiKeys } from "@/api/apiKeys";
 import { getMe } from "@/api/auth";
 import { listPurchases } from "@/api/purchases";
+import { getReminders } from "@/api/reminders";
 import { useTheme } from "@/theme/ThemeProvider";
+import {
+  categoryIcon,
+  deliveryDisplay,
+  formatDate,
+} from "@/lib/purchaseDisplay";
+
+const QUICK_ACTIONS = [
+  {
+    id: "scan",
+    label: "Scan Bill",
+    icon: "scan-outline",
+    tone: "accent",
+    href: "/purchase/new",
+  },
+  {
+    id: "add",
+    label: "Add Order",
+    icon: "add-circle-outline",
+    tone: "accent",
+    href: "/purchase/new",
+  },
+  {
+    id: "claims",
+    label: "My Claims",
+    icon: "shield-checkmark-outline",
+    tone: "success",
+    href: "/claim/new",
+  },
+  {
+    id: "help",
+    label: "Help",
+    icon: "help-circle-outline",
+    tone: "info",
+    href: "/(tabs)/profile",
+  },
+] as const;
 
 export default function HomeScreen() {
   const api = useApi();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const { tokens } = useTheme();
 
   const me = useQuery({ queryKey: apiKeys.me(), queryFn: () => getMe(api) });
@@ -21,381 +65,355 @@ export default function HomeScreen() {
     queryKey: apiKeys.purchases.list({ sort: "createdAt", limit: 5 }),
     queryFn: () => listPurchases(api, { sort: "createdAt", limit: 5 }),
   });
+  const reminders = useQuery({
+    queryKey: apiKeys.reminders("upcoming"),
+    queryFn: () => getReminders(api, "upcoming"),
+  });
 
-  const isDark = tokens.colors.bg !== "#FFFFFF";
-  const bgColor = isDark ? tokens.colors.bg : "#FAFAFA";
-  const cardBg = isDark ? tokens.colors.surface : "#FFFFFF";
-  const textColor = tokens.colors.text ?? "#0F172A";
-  const textMuted = tokens.colors.textMuted ?? "#6B7280";
-  const accentColor = tokens.colors.accent ?? "#4F46E5";
-
-  const firstName =
-    me.data?.email?.split("@")[0]?.replace(/^\w/, (c) => c.toUpperCase()) ??
-    "Rohan";
+  // The greeting is the account's own name when we have one. It previously
+  // fell back to the literal "Rohan", which greeted every user by a stranger's
+  // name.
+  const emailName = me.data?.email?.split("@")[0];
+  const greeting = emailName
+    ? `Hello, ${emailName.charAt(0).toUpperCase()}${emailName.slice(1)}`
+    : "Hello";
 
   const items = recent.data?.items ?? [];
 
-  // Fallback mockup orders matching the design screenshot if user has no purchases yet
-  const displayOrders =
-    items.length > 0
-      ? items.map((item) => ({
-          id: item.id,
-          title: item.title,
-          date: `Delivered on ${item.purchaseDate ?? "10 May"}`,
-          status: "Delivered",
-          iconName: "hardware-chip-outline" as const,
-        }))
-      : [
-          {
-            id: "1",
-            title: "iPhone 15",
-            date: "Delivered on 10 May",
-            status: "Delivered",
-            iconName: "phone-portrait-outline" as const,
-          },
-          {
-            id: "2",
-            title: "Boat Airdopes 141",
-            date: "Delivered on 08 May",
-            status: "Delivered",
-            iconName: "headset-outline" as const,
-          },
-          {
-            id: "3",
-            title: "Sony WH-CH720N",
-            date: "Delivered on 05 May",
-            status: "Delivered",
-            iconName: "headset-outline" as const,
-          },
-        ];
+  // Both counts come from the reminders endpoint, the only server-of-record for
+  // deadlines. Anything else here would be guesswork over a paginated list.
+  const upcoming = reminders.data?.items ?? [];
+  const warrantyAlerts = upcoming.filter((r) => r.kind === "warranty_expiry");
+
+  const countLabel = (n: number, one: string, many: string, none: string) =>
+    reminders.isLoading
+      ? null
+      : n === 0
+        ? none
+        : n === 1
+          ? one
+          : `${n} ${many}`;
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: bgColor }}
-      contentContainerStyle={[
-        styles.scrollContent,
-        {
-          paddingTop: Math.max(insets.top + 12, 24),
-          paddingBottom: Math.max(insets.bottom + 20, 28),
-        },
-      ]}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* Header Row */}
+    <ScreenScroll>
       <View style={styles.headerRow}>
-        <View>
-          <Text style={[styles.greeting, { color: textColor }]}>
-            Hello, {firstName}
+        <View style={styles.greetingBlock}>
+          <Text
+            style={[
+              styles.greeting,
+              {
+                color: tokens.colors.text,
+                fontSize: tokens.type.display.fontSize - 6,
+              },
+            ]}
+          >
+            {greeting}
           </Text>
-          <Text style={[styles.subGreeting, { color: textMuted }]}>
-            Here's your overview
+          <Text
+            style={{
+              color: tokens.colors.textMuted,
+              fontSize: tokens.type.bodySmall.fontSize + 1,
+              marginTop: 2,
+            }}
+          >
+            Here&apos;s your overview
           </Text>
         </View>
 
         <View style={styles.actionButtons}>
-          <Pressable
-            style={({ pressed }) => [
-              styles.iconButton,
-              { backgroundColor: cardBg },
-              pressed && { opacity: 0.8 },
-            ]}
+          <HeaderIconButton
+            icon="notifications-outline"
+            label="Reminders"
             onPress={() => router.push("/(tabs)/reminders")}
-            hitSlop={8}
-          >
-            <Ionicons
-              name="notifications-outline"
-              size={20}
-              color={textColor}
-            />
-          </Pressable>
-
-          <Pressable
-            style={({ pressed }) => [
-              styles.iconButton,
-              { backgroundColor: cardBg },
-              pressed && { opacity: 0.8 },
-            ]}
+          />
+          <HeaderIconButton
+            icon="add"
+            label="Add order"
             onPress={() => router.push("/purchase/new")}
-            hitSlop={8}
-          >
-            <Ionicons name="add" size={22} color={textColor} />
-          </Pressable>
+          />
         </View>
       </View>
 
-      {/* Summary Cards */}
-      <View style={styles.summaryContainer}>
-        {/* Upcoming Reminders Card */}
-        <Pressable
-          style={({ pressed }) => [
-            styles.summaryCard,
-            { backgroundColor: cardBg },
-            pressed && { opacity: 0.92, transform: [{ scale: 0.99 }] },
-          ]}
+      <View style={{ gap: tokens.spacing.md + 2 }}>
+        <SummaryCard
+          icon="alarm-outline"
+          tone="accent"
+          title="Upcoming Reminders"
+          subtitle={countLabel(
+            upcoming.length,
+            "1 due soon",
+            "due soon",
+            "Nothing due"
+          )}
           onPress={() => router.push("/(tabs)/reminders")}
-        >
-          <View style={styles.cardLeft}>
-            <View style={[styles.iconBox, { backgroundColor: "#EEF2FF" }]}>
-              <Ionicons name="alarm-outline" size={22} color="#4F46E5" />
-            </View>
-            <View>
-              <Text style={[styles.cardTitle, { color: textColor }]}>
-                Upcoming Reminders
-              </Text>
-              <Text style={[styles.cardSubtitle, { color: textMuted }]}>
-                2 due this week
-              </Text>
-            </View>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-        </Pressable>
-
-        {/* Active Warranties Card */}
-        <Pressable
-          style={({ pressed }) => [
-            styles.summaryCard,
-            { backgroundColor: cardBg },
-            pressed && { opacity: 0.92, transform: [{ scale: 0.99 }] },
-          ]}
-          onPress={() => router.push("/(tabs)/purchases")}
-        >
-          <View style={styles.cardLeft}>
-            <View style={[styles.iconBox, { backgroundColor: "#F0FDF4" }]}>
-              <Ionicons
-                name="shield-checkmark-outline"
-                size={22}
-                color="#16A34A"
-              />
-            </View>
-            <View>
-              <Text style={[styles.cardTitle, { color: textColor }]}>
-                Active Warranties
-              </Text>
-              <Text style={[styles.cardSubtitle, { color: textMuted }]}>
-                4 products covered
-              </Text>
-            </View>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-        </Pressable>
+        />
+        <SummaryCard
+          icon="shield-checkmark-outline"
+          tone="success"
+          title="Warranty Alerts"
+          subtitle={countLabel(
+            warrantyAlerts.length,
+            "1 expiring soon",
+            "expiring soon",
+            "None expiring"
+          )}
+          onPress={() => router.push("/(tabs)/reminders")}
+        />
       </View>
 
-      {/* Recent Orders Section */}
-      <View style={styles.sectionContainer}>
+      <View style={{ gap: tokens.spacing.md + 2 }}>
         <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: textColor }]}>
+          <Text
+            style={[
+              styles.sectionTitle,
+              {
+                color: tokens.colors.text,
+                fontSize: tokens.type.body.fontSize + 2,
+              },
+            ]}
+          >
             Recent Orders
           </Text>
-          <Pressable onPress={() => router.push("/(tabs)/purchases")}>
-            <Text style={[styles.viewAllText, { color: accentColor }]}>
-              View All
-            </Text>
-          </Pressable>
+          {items.length > 0 ? (
+            <Pressable
+              onPress={() => router.push("/(tabs)/purchases")}
+              accessibilityRole="button"
+              hitSlop={8}
+            >
+              <Text
+                style={{
+                  color: tokens.colors.accent,
+                  fontSize: tokens.type.bodySmall.fontSize,
+                  fontWeight: "700",
+                }}
+              >
+                View All
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
 
-        <View style={styles.ordersList}>
-          {displayOrders.map((order) => (
-            <Pressable
-              key={order.id}
-              style={({ pressed }) => [
-                styles.orderCard,
-                { backgroundColor: cardBg },
-                pressed && { opacity: 0.92, transform: [{ scale: 0.99 }] },
-              ]}
-              onPress={() =>
-                router.push({
-                  pathname: "/purchase/[id]",
-                  params: { id: order.id },
-                })
-              }
-            >
-              <View style={styles.orderLeft}>
-                <View
-                  style={[styles.productThumb, { backgroundColor: "#F3F4F6" }]}
-                >
-                  <Ionicons name={order.iconName} size={24} color="#4B5563" />
-                </View>
-                <View style={styles.orderMeta}>
-                  <Text style={[styles.orderTitle, { color: textColor }]}>
-                    {order.title}
-                  </Text>
-                  <Text style={[styles.orderDate, { color: textMuted }]}>
-                    {order.date}
-                  </Text>
-                </View>
-              </View>
+        {recent.isLoading ? (
+          <View style={{ gap: tokens.spacing.md }}>
+            <Skeleton height={72} />
+            <Skeleton height={72} />
+            <Skeleton height={72} />
+          </View>
+        ) : items.length === 0 ? (
+          <SectionCard>
+            <EmptyState
+              icon="receipt-outline"
+              title="No orders yet"
+              message="Add your first purchase to start tracking returns and warranties."
+              action={{
+                label: "Add an order",
+                onPress: () => router.push("/purchase/new"),
+              }}
+            />
+          </SectionCard>
+        ) : (
+          <SectionCard flush>
+            {items.map((item, idx) => {
+              const status = deliveryDisplay(item.deliveryStatus);
+              const date = formatDate(item.purchaseDate);
+              return (
+                <ListItem
+                  key={item.id}
+                  title={item.title}
+                  subtitle={date ? `Ordered ${date}` : null}
+                  divider={idx < items.length - 1}
+                  leading={
+                    <IconTile
+                      icon={categoryIcon(item.category)}
+                      tone="neutral"
+                    />
+                  }
+                  trailing={
+                    <StatusPill label={status.label} tone={status.tone} />
+                  }
+                  onPress={() =>
+                    router.push({
+                      pathname: "/purchase/[id]",
+                      params: { id: item.id },
+                    })
+                  }
+                />
+              );
+            })}
+          </SectionCard>
+        )}
+      </View>
 
-              <View style={styles.statusBadge}>
-                <Text style={styles.statusText}>{order.status}</Text>
-              </View>
+      <View style={{ gap: tokens.spacing.md + 2 }}>
+        <Text
+          style={[
+            styles.sectionTitle,
+            {
+              color: tokens.colors.text,
+              fontSize: tokens.type.body.fontSize + 2,
+            },
+          ]}
+        >
+          Quick Actions
+        </Text>
+
+        <View style={[styles.actionsGrid, { gap: tokens.spacing.sm + 2 }]}>
+          {QUICK_ACTIONS.map((action) => (
+            <Pressable
+              key={action.id}
+              accessibilityRole="button"
+              accessibilityLabel={action.label}
+              onPress={() => router.push(action.href)}
+              style={({ pressed }) => [
+                styles.actionItem,
+                {
+                  backgroundColor: tokens.colors.surface,
+                  borderRadius: tokens.radius.xl,
+                  borderColor: tokens.colors.border,
+                  paddingVertical: tokens.spacing.lg - 2,
+                  gap: tokens.spacing.sm,
+                  ...tokens.shadow.card,
+                },
+                pressed && { opacity: 0.85 },
+              ]}
+            >
+              <IconTile icon={action.icon} tone={action.tone} />
+              <Text
+                style={{
+                  color: tokens.colors.text,
+                  fontSize: tokens.type.bodySmall.fontSize - 2,
+                  fontWeight: "600",
+                  textAlign: "center",
+                }}
+              >
+                {action.label}
+              </Text>
             </Pressable>
           ))}
         </View>
       </View>
+    </ScreenScroll>
+  );
+}
 
-      {/* Quick Actions Grid */}
-      <View style={styles.sectionContainer}>
-        <Text style={[styles.sectionTitle, { color: textColor }]}>
-          Quick Actions
-        </Text>
+function HeaderIconButton({
+  icon,
+  label,
+  onPress,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress: () => void;
+}) {
+  const { tokens } = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      hitSlop={6}
+      style={({ pressed }) => [
+        styles.iconButton,
+        {
+          backgroundColor: tokens.colors.surface,
+          borderColor: tokens.colors.border,
+          ...tokens.shadow.raised,
+        },
+        pressed && { opacity: 0.8 },
+      ]}
+    >
+      <Ionicons name={icon} size={20} color={tokens.colors.text} />
+    </Pressable>
+  );
+}
 
-        <View style={styles.actionsGrid}>
-          {/* Scan Bill */}
-          <Pressable
-            style={({ pressed }) => [
-              styles.actionItem,
-              { backgroundColor: cardBg },
-              pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
-            ]}
-            onPress={() => router.push("/purchase/new")}
-          >
-            <View
-              style={[styles.actionIconBox, { backgroundColor: "#EEF2FF" }]}
+function SummaryCard({
+  icon,
+  tone,
+  title,
+  subtitle,
+  onPress,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  tone: "accent" | "success";
+  title: string;
+  subtitle: string | null;
+  onPress: () => void;
+}) {
+  const { tokens } = useTheme();
+  return (
+    <SectionCard onPress={onPress}>
+      <View style={styles.summaryRow}>
+        <View style={[styles.summaryLeft, { gap: tokens.spacing.md + 2 }]}>
+          <IconTile icon={icon} tone={tone} />
+          <View style={{ gap: 2, flex: 1 }}>
+            <Text
+              style={{
+                color: tokens.colors.text,
+                fontSize: tokens.type.body.fontSize,
+                fontWeight: "700",
+              }}
             >
-              <Ionicons name="scan-outline" size={22} color="#4F46E5" />
-            </View>
-            <Text style={[styles.actionLabel, { color: textColor }]}>
-              Scan Bill
+              {title}
             </Text>
-          </Pressable>
-
-          {/* Add Order */}
-          <Pressable
-            style={({ pressed }) => [
-              styles.actionItem,
-              { backgroundColor: cardBg },
-              pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
-            ]}
-            onPress={() => router.push("/purchase/new")}
-          >
-            <View
-              style={[styles.actionIconBox, { backgroundColor: "#F5F3FF" }]}
-            >
-              <Ionicons name="add-circle-outline" size={22} color="#6366F1" />
-            </View>
-            <Text style={[styles.actionLabel, { color: textColor }]}>
-              Add Order
-            </Text>
-          </Pressable>
-
-          {/* My Claims */}
-          <Pressable
-            style={({ pressed }) => [
-              styles.actionItem,
-              { backgroundColor: cardBg },
-              pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
-            ]}
-            onPress={() => router.push("/claim/new")}
-          >
-            <View
-              style={[styles.actionIconBox, { backgroundColor: "#EEF2FF" }]}
-            >
-              <Ionicons
-                name="shield-checkmark-outline"
-                size={22}
-                color="#4F46E5"
-              />
-            </View>
-            <Text style={[styles.actionLabel, { color: textColor }]}>
-              My Claims
-            </Text>
-          </Pressable>
-
-          {/* Help */}
-          <Pressable
-            style={({ pressed }) => [
-              styles.actionItem,
-              { backgroundColor: cardBg },
-              pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
-            ]}
-            onPress={() => router.push("/(tabs)/profile")}
-          >
-            <View
-              style={[styles.actionIconBox, { backgroundColor: "#EFF6FF" }]}
-            >
-              <Ionicons name="help-circle-outline" size={22} color="#2563EB" />
-            </View>
-            <Text style={[styles.actionLabel, { color: textColor }]}>Help</Text>
-          </Pressable>
+            {subtitle === null ? (
+              <Skeleton width="50%" height={14} />
+            ) : (
+              <Text
+                style={{
+                  color: tokens.colors.textMuted,
+                  fontSize: tokens.type.bodySmall.fontSize,
+                }}
+              >
+                {subtitle}
+              </Text>
+            )}
+          </View>
         </View>
+        <Ionicons
+          name="chevron-forward"
+          size={20}
+          color={tokens.colors.icon}
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+        />
       </View>
-    </ScrollView>
+    </SectionCard>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollContent: {
-    paddingHorizontal: 20,
-    gap: 24,
-  },
   headerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
+  greetingBlock: { flex: 1 },
   greeting: {
-    fontSize: 26,
     fontWeight: "800",
     letterSpacing: -0.6,
-  },
-  subGreeting: {
-    fontSize: 15,
-    marginTop: 2,
-    fontWeight: "400",
   },
   actionButtons: {
     flexDirection: "row",
     gap: 10,
   },
   iconButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: StyleSheet.hairlineWidth,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
   },
-  summaryContainer: {
-    gap: 14,
-  },
-  summaryCard: {
+  summaryRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: 16,
-    borderRadius: 16,
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
   },
-  cardLeft: {
+  summaryLeft: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 14,
-  },
-  iconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  cardSubtitle: {
-    fontSize: 14,
-    marginTop: 2,
-  },
-  sectionContainer: {
-    gap: 14,
+    flex: 1,
   },
   sectionHeader: {
     flexDirection: "row",
@@ -403,90 +421,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   sectionTitle: {
-    fontSize: 18,
     fontWeight: "800",
     letterSpacing: -0.3,
-  },
-  viewAllText: {
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  ordersList: {
-    gap: 12,
-  },
-  orderCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: 14,
-    borderRadius: 16,
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  orderLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  productThumb: {
-    width: 46,
-    height: 46,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  orderMeta: {
-    gap: 2,
-  },
-  orderTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  orderDate: {
-    fontSize: 13,
-  },
-  statusBadge: {
-    backgroundColor: "#DCFCE7",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusText: {
-    color: "#16A34A",
-    fontSize: 12,
-    fontWeight: "700",
   },
   actionsGrid: {
     flexDirection: "row",
     justifyContent: "space-between",
-    gap: 10,
   },
   actionItem: {
     flex: 1,
     alignItems: "center",
-    paddingVertical: 14,
+    borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 6,
-    borderRadius: 16,
-    gap: 8,
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  actionIconBox: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  actionLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    textAlign: "center",
   },
 });

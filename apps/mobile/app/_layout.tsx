@@ -26,11 +26,24 @@ function PushWiring() {
 }
 
 function ThemedStatusBar() {
-  const { tokens } = useTheme();
   // The root <Stack> lives inside ThemeProvider so we can read the resolved
   // scheme and pick a StatusBar style that matches the header tint.
-  const isDark = tokens.colors.bg !== "#FFFFFF";
+  const { isDark } = useTheme();
   return <StatusBar style={isDark ? "light" : "dark"} />;
+}
+
+function ThemedStack() {
+  const { tokens } = useTheme();
+  // A transparent stack background let the native window color show through,
+  // which stayed light after a theme switch. Paint the canvas explicitly.
+  return (
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: tokens.colors.canvas },
+      }}
+    />
+  );
 }
 
 export default function RootLayout() {
@@ -52,12 +65,7 @@ export default function RootLayout() {
                   <OfflineBanner />
                   <PushRegistration />
                   <PushWiring />
-                  <Stack
-                    screenOptions={{
-                      headerShown: false,
-                      contentStyle: { backgroundColor: "transparent" },
-                    }}
-                  />
+                  <ThemedStack />
                 </OnlineProvider>
               </ThemeProvider>
             </ApiProvider>

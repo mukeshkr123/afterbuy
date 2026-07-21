@@ -1,9 +1,24 @@
 import { useSignIn } from "@clerk/clerk-expo";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, Text } from "react-native";
-import { Button, Card, Input } from "@/components";
+import {
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import {
+  Button,
+  FormError,
+  Input,
+  ScreenHeader,
+  ScreenScroll,
+  SectionCard,
+} from "@/components";
 import { useTheme } from "@/theme/ThemeProvider";
+
+const CODE_LENGTH = 6;
 
 export default function MfaScreen() {
   const { signIn, setActive, isLoaded } = useSignIn();
@@ -40,46 +55,71 @@ export default function MfaScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       style={{ flex: 1 }}
     >
-      <ScrollView
-        contentContainerStyle={{
-          flexGrow: 1,
-          justifyContent: "center",
-          padding: tokens.spacing.lg,
-        }}
-      >
-        <Card style={{ gap: tokens.spacing.md }}>
+      <ScreenScroll gap={tokens.spacing.xl}>
+        <ScreenHeader
+          title=""
+          onBack={() =>
+            router.canGoBack()
+              ? router.back()
+              : router.replace("/(auth)/sign-in")
+          }
+        />
+
+        <View style={{ gap: tokens.spacing.xs }}>
           <Text
-            style={{
-              fontSize: tokens.type.display.fontSize,
-              fontWeight: "700",
-              color: tokens.colors.text,
-            }}
+            accessibilityRole="header"
+            style={[
+              styles.title,
+              {
+                color: tokens.colors.text,
+                fontSize: tokens.type.display.fontSize - 2,
+              },
+            ]}
           >
             Two-step verification
           </Text>
-          <Text style={{ color: tokens.colors.textMuted }}>
-            We sent a 6-digit code to your email address.
+          <Text
+            style={{
+              color: tokens.colors.textMuted,
+              fontSize: tokens.type.body.fontSize,
+              lineHeight: tokens.type.body.lineHeight,
+            }}
+          >
+            We sent a {CODE_LENGTH}-digit code to your email address.
           </Text>
-          <Input
-            label="Verification code"
-            value={code}
-            onChangeText={setCode}
-            keyboardType="number-pad"
-            autoCapitalize="none"
-            placeholder="123456"
-          />
-          {error ? (
-            <Card tone="danger">
-              <Text style={{ color: tokens.colors.danger }}>{error}</Text>
-            </Card>
-          ) : null}
-          <Button
-            label={pending ? "Verifying…" : "Verify"}
-            onPress={onSubmit}
-            disabled={pending || code.length < 6}
-          />
-        </Card>
-      </ScrollView>
+        </View>
+
+        <SectionCard>
+          <View style={{ gap: tokens.spacing.lg }}>
+            <Input
+              label="Verification code"
+              value={code}
+              // Strip non-digits so a pasted "123 456" still submits.
+              onChangeText={(next) =>
+                setCode(next.replace(/\D/g, "").slice(0, CODE_LENGTH))
+              }
+              keyboardType="number-pad"
+              autoCapitalize="none"
+              placeholder="123456"
+              textContentType="oneTimeCode"
+              autoComplete="one-time-code"
+            />
+            <FormError message={error} />
+            <Button
+              label={pending ? "Verifying…" : "Verify"}
+              onPress={() => void onSubmit()}
+              disabled={pending || code.length < CODE_LENGTH}
+            />
+          </View>
+        </SectionCard>
+      </ScreenScroll>
     </KeyboardAvoidingView>
   );
 }
+
+const styles = StyleSheet.create({
+  title: {
+    fontWeight: "800",
+    letterSpacing: -0.8,
+  },
+});
