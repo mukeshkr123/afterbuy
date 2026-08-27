@@ -1,6 +1,5 @@
-import type { ReactNode } from "react";
-import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
-import { useTheme } from "../theme/ThemeProvider";
+import { useEffect, useRef, type ReactNode } from "react";
+import { Alert } from "react-native";
 
 export interface DialogProps {
   visible: boolean;
@@ -27,131 +26,56 @@ export function Dialog({
   destructive,
   children,
 }: DialogProps) {
-  const { tokens } = useTheme();
-  return (
-    <Modal
-      visible={visible}
-      animationType="fade"
-      transparent
-      onRequestClose={onDismiss}
-    >
-      <Pressable
-        style={[styles.backdrop, { backgroundColor: "rgba(0,0,0,0.45)" }]}
-        onPress={onDismiss}
-        accessibilityLabel="Dismiss"
-      >
-        <Pressable
-          onPress={(e) => e.stopPropagation()}
-          style={[
-            styles.card,
+  const openRef = useRef(false);
+  useEffect(() => {
+    if (!visible || openRef.current) return;
+    openRef.current = true;
+    const buttons = [
+      ...(secondaryLabel
+        ? [
             {
-              backgroundColor: tokens.colors.surface,
-              borderRadius: tokens.radius.lg,
-              padding: tokens.spacing.lg,
-              borderColor: tokens.colors.border,
+              text: secondaryLabel,
+              style: "cancel" as const,
+              onPress: () => {
+                openRef.current = false;
+                (onSecondary ?? onDismiss)();
+              },
             },
-          ]}
-        >
-          <Text
-            style={{
-              color: tokens.colors.text,
-              fontSize: tokens.type.title.fontSize,
-              fontWeight: "700",
-            }}
-          >
-            {title}
-          </Text>
-          {description ? (
-            <Text
-              style={{
-                color: tokens.colors.textMuted,
-                fontSize: tokens.type.body.fontSize,
-                marginTop: tokens.spacing.xs,
-              }}
-            >
-              {description}
-            </Text>
-          ) : null}
-          {children}
-          <View
-            style={[
-              styles.actions,
-              { marginTop: tokens.spacing.lg, gap: tokens.spacing.sm },
-            ]}
-          >
-            {secondaryLabel ? (
-              <Pressable
-                onPress={onSecondary ?? onDismiss}
-                style={({ pressed }) => [
-                  styles.actionButton,
-                  {
-                    borderRadius: tokens.radius.md,
-                    paddingVertical: tokens.spacing.sm + 2,
-                    backgroundColor: tokens.colors.surfaceMuted,
-                    opacity: pressed ? 0.85 : 1,
-                  },
-                ]}
-              >
-                <Text
-                  style={{
-                    color: tokens.colors.text,
-                    fontSize: tokens.type.body.fontSize,
-                    fontWeight: "600",
-                  }}
-                >
-                  {secondaryLabel}
-                </Text>
-              </Pressable>
-            ) : null}
-            {primaryLabel ? (
-              <Pressable
-                onPress={onPrimary}
-                style={({ pressed }) => [
-                  styles.actionButton,
-                  {
-                    borderRadius: tokens.radius.md,
-                    paddingVertical: tokens.spacing.sm + 2,
-                    backgroundColor: destructive
-                      ? tokens.colors.danger
-                      : tokens.colors.accent,
-                    opacity: pressed ? 0.85 : 1,
-                  },
-                ]}
-              >
-                <Text
-                  style={{
-                    color: tokens.colors.accentText,
-                    fontSize: tokens.type.body.fontSize,
-                    fontWeight: "600",
-                  }}
-                >
-                  {primaryLabel}
-                </Text>
-              </Pressable>
-            ) : null}
-          </View>
-        </Pressable>
-      </Pressable>
-    </Modal>
-  );
+          ]
+        : []),
+      ...(primaryLabel
+        ? [
+            {
+              text: primaryLabel,
+              style: destructive
+                ? ("destructive" as const)
+                : ("default" as const),
+              onPress: () => {
+                openRef.current = false;
+                onPrimary?.();
+              },
+            },
+          ]
+        : []),
+    ];
+    Alert.alert(title, description, buttons, {
+      cancelable: true,
+      onDismiss: () => {
+        openRef.current = false;
+        onDismiss();
+      },
+    });
+  }, [
+    description,
+    destructive,
+    onDismiss,
+    onPrimary,
+    onSecondary,
+    primaryLabel,
+    secondaryLabel,
+    title,
+    visible,
+  ]);
+  void children;
+  return null;
 }
-
-const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 24,
-  },
-  card: {
-    width: "100%",
-    maxWidth: 420,
-    borderWidth: 1,
-  },
-  actions: { flexDirection: "row", justifyContent: "flex-end" },
-  actionButton: {
-    paddingHorizontal: 16,
-    minWidth: 80,
-    alignItems: "center",
-  },
-});

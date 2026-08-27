@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { StyleSheet, Text, TextInput, View } from "react-native";
+import { Platform, StyleSheet, Text, TextInput, View } from "react-native";
 import type { KeyboardTypeOptions, TextInputProps } from "react-native";
 import { useTheme } from "../theme/ThemeProvider";
 
@@ -51,13 +51,13 @@ export function Input({
   const [focused, setFocused] = useState(false);
   const minHeight = multiline
     ? Math.max(54, (numberOfLines ?? 3) * 22 + 16)
-    : 54;
+    : Platform.select({ ios: 50, android: 56, default: 50 });
 
   const borderColor = error
     ? tokens.colors.danger
     : focused
-      ? tokens.colors.accent
-      : tokens.colors.border;
+      ? tokens.colors.focus
+      : tokens.colors.outline;
 
   return (
     <View style={{ gap: tokens.spacing.xs }}>
@@ -92,6 +92,7 @@ export function Input({
           multiline={multiline}
           numberOfLines={multiline ? numberOfLines : undefined}
           accessibilityLabel={label}
+          accessibilityHint={error ?? hint ?? undefined}
           placeholderTextColor={tokens.colors.textMuted}
           style={[
             styles.input,
@@ -113,8 +114,9 @@ export function Input({
 
       {error ? (
         <Text
+          accessibilityLiveRegion="polite"
           style={{
-            color: tokens.colors.danger,
+            color: tokens.colors.dangerText,
             fontSize: tokens.type.bodySmall.fontSize,
           }}
         >
@@ -150,7 +152,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: 4,
     height: "100%",
-    width: 44,
+    width: 48,
     alignItems: "center",
     justifyContent: "center",
   },

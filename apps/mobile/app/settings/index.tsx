@@ -1,13 +1,13 @@
-import { Stack, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import React from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import Constants from "expo-constants";
 import {
   IconTile,
   ListItem,
-  ScreenHeader,
   ScreenScroll,
   SectionCard,
+  Tabs,
 } from "@/components";
 import { useTheme } from "@/theme/ThemeProvider";
 import type { ThemePreference } from "@/lib/settings";
@@ -27,11 +27,7 @@ export default function SettingsScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ headerShown: false }} />
-
-      <ScreenScroll gap={tokens.spacing.xl - 4}>
-        <ScreenHeader title="Settings" />
-
+      <ScreenScroll gap={tokens.spacing.xl - 4} safeTop={false}>
         <View style={{ gap: tokens.spacing.md - 2 }}>
           <SectionLabel>Appearance</SectionLabel>
           <SectionCard>
@@ -46,42 +42,14 @@ export default function SettingsScreen() {
               </Text>
               {/* A three-way choice, not a switch — "system" is a real stored
                   preference that a boolean toggle silently discarded. */}
-              <View style={[styles.segmented, { gap: tokens.spacing.sm }]}>
-                {THEMES.map((t) => {
-                  const active = preference === t.value;
-                  return (
-                    <Pressable
-                      key={t.value}
-                      accessibilityRole="radio"
-                      accessibilityState={{ selected: active }}
-                      accessibilityLabel={`${t.label} theme`}
-                      onPress={() => void setPreference(t.value)}
-                      style={({ pressed }) => [
-                        styles.segment,
-                        {
-                          backgroundColor: active
-                            ? tokens.colors.accent
-                            : tokens.colors.surfaceMuted,
-                          borderRadius: tokens.radius.md,
-                        },
-                        pressed && { opacity: 0.85 },
-                      ]}
-                    >
-                      <Text
-                        style={{
-                          color: active
-                            ? tokens.colors.accentText
-                            : tokens.colors.text,
-                          fontSize: tokens.type.bodySmall.fontSize,
-                          fontWeight: "600",
-                        }}
-                      >
-                        {t.label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
+              <Tabs
+                tabs={THEMES.map((theme) => ({
+                  key: theme.value,
+                  label: theme.label,
+                }))}
+                activeKey={preference}
+                onChange={(next) => void setPreference(next as ThemePreference)}
+              />
             </View>
           </SectionCard>
         </View>
@@ -158,15 +126,3 @@ function SectionLabel({ children }: { children: string }) {
     </Text>
   );
 }
-
-const styles = StyleSheet.create({
-  segmented: {
-    flexDirection: "row",
-  },
-  segment: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: 44,
-  },
-});

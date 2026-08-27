@@ -2,7 +2,7 @@ import { useClerk } from "@clerk/clerk-expo";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Stack, useRouter } from "expo-router";
 import React, { useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Linking, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import {
   Button,
@@ -16,14 +16,19 @@ import { useApi } from "@/api/ApiProvider";
 import { deleteMe } from "@/api/auth";
 import { fromCaught, type FormErrorState } from "@/hooks/useApiError";
 import { useTheme } from "@/theme/ThemeProvider";
+import { unregisterCurrentDevice } from "@/notifications/PushRegistration";
+import { useAuth } from "@/auth/useAuth";
 
 const CONFIRM_WORD = "delete";
+const SUPPORT_EMAIL =
+  process.env["EXPO_PUBLIC_SUPPORT_EMAIL"] ?? "support@afterbuy.app";
 
 export default function DeleteAccountScreen() {
   const api = useApi();
   const qc = useQueryClient();
   const router = useRouter();
   const { signOut } = useClerk();
+  const { isSignedIn } = useAuth();
   const { tokens } = useTheme();
 
   const [step, setStep] = useState<"intro" | "confirm">("intro");
@@ -37,6 +42,12 @@ export default function DeleteAccountScreen() {
     mutationFn: () => deleteMe(api),
     onSuccess: async () => {
       try {
+        await unregisterCurrentDevice(api);
+      } catch {
+        // The server may have already revoked this account; local cleanup
+        // still happens inside unregisterCurrentDevice.
+      }
+      try {
         await signOut();
       } catch {
         // Best-effort: the server-side account is already gone.
@@ -49,6 +60,41 @@ export default function DeleteAccountScreen() {
   });
 
   const canDelete = typedConfirm.trim().toLowerCase() === CONFIRM_WORD;
+
+  if (!isSignedIn) {
+    return (
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <ScreenScroll gap={tokens.spacing.lg + 2}>
+          <ScreenHeader title="Delete Account" />
+          <SectionCard>
+            <View style={{ gap: tokens.spacing.md }}>
+              <Text
+                style={{
+                  color: tokens.colors.textSubtle,
+                  fontSize: tokens.type.body.fontSize,
+                  lineHeight: tokens.type.body.lineHeight,
+                }}
+              >
+                If you cannot access your AfterBuy account, email{" "}
+                {SUPPORT_EMAIL} from the address on the account and ask for
+                permanent deletion. Deletion removes purchases, receipts,
+                reminders, claims, and account data.
+              </Text>
+              <Button
+                label="Email deletion request"
+                onPress={() =>
+                  void Linking.openURL(
+                    `mailto:${SUPPORT_EMAIL}?subject=AfterBuy%20account%20deletion%20request`
+                  )
+                }
+              />
+            </View>
+          </SectionCard>
+        </ScreenScroll>
+      </>
+    );
+  }
 
   return (
     <>

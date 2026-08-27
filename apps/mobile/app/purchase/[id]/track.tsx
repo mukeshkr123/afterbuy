@@ -1,12 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import { Stack, useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { PurchaseDeliveryStatus } from "@acme/shared";
 import {
   EmptyState,
-  ScreenHeader,
   ScreenScroll,
   SectionCard,
   Skeleton,
@@ -19,7 +18,7 @@ import { useTheme } from "@/theme/ThemeProvider";
 import { deliveryDisplay, formatDate } from "@/lib/purchaseDisplay";
 
 // The API records a single delivery state, not a carrier event feed. The
-// timeline therefore shows which stage the order has reached — it does not
+// timeline therefore shows which stage the purchase has reached — it does not
 // invent per-step timestamps as this screen previously did.
 const STAGES: ReadonlyArray<{
   status: Exclude<PurchaseDeliveryStatus, "cancelled">;
@@ -28,7 +27,7 @@ const STAGES: ReadonlyArray<{
 }> = [
   {
     status: "ordered",
-    title: "Order placed",
+    title: "Purchase recorded",
     description: "You recorded this purchase.",
   },
   {
@@ -59,9 +58,7 @@ export default function TrackOrderScreen() {
   if (detail.isLoading) {
     return (
       <>
-        <Stack.Screen options={{ headerShown: false }} />
-        <ScreenScroll gap={tokens.spacing.lg + 2}>
-          <ScreenHeader title="Track Order" />
+        <ScreenScroll gap={tokens.spacing.lg + 2} safeTop={false}>
           <Skeleton height={88} />
           <Skeleton height={220} />
         </ScreenScroll>
@@ -72,14 +69,12 @@ export default function TrackOrderScreen() {
   if (!p) {
     return (
       <>
-        <Stack.Screen options={{ headerShown: false }} />
-        <ScreenScroll gap={tokens.spacing.lg + 2}>
-          <ScreenHeader title="Track Order" />
+        <ScreenScroll gap={tokens.spacing.lg + 2} safeTop={false}>
           <SectionCard>
             <EmptyState
               icon="alert-circle-outline"
-              title="Order not available"
-              message="We couldn't load this order. Check your connection and try again."
+              title="Purchase not available"
+              message="We couldn't load this purchase. Check your connection and try again."
               action={{
                 label: "Try again",
                 onPress: () => void detail.refetch(),
@@ -100,11 +95,7 @@ export default function TrackOrderScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ headerShown: false }} />
-
-      <ScreenScroll gap={tokens.spacing.lg + 2}>
-        <ScreenHeader title="Track Order" />
-
+      <ScreenScroll gap={tokens.spacing.lg + 2} safeTop={false}>
         <SectionCard>
           <View style={{ gap: 6 }}>
             <View style={[styles.titleRow, { gap: tokens.spacing.md }]}>
@@ -128,7 +119,7 @@ export default function TrackOrderScreen() {
                   fontSize: tokens.type.bodySmall.fontSize,
                 }}
               >
-                Order ID:{" "}
+                Purchase reference:{" "}
                 <Text style={{ color: tokens.colors.text }}>
                   {p.orderNumber}
                 </Text>
@@ -141,7 +132,7 @@ export default function TrackOrderScreen() {
                   fontSize: tokens.type.bodySmall.fontSize,
                 }}
               >
-                Ordered on {orderedOn}
+                Purchased on {orderedOn}
               </Text>
             ) : null}
           </View>
@@ -151,8 +142,8 @@ export default function TrackOrderScreen() {
           {cancelled ? (
             <EmptyState
               icon="close-circle-outline"
-              title="Order cancelled"
-              message="This order was cancelled, so there is nothing left to track."
+              title="Purchase cancelled"
+              message="This purchase was cancelled, so there is nothing left to track."
             />
           ) : (
             <View>
@@ -261,7 +252,7 @@ export default function TrackOrderScreen() {
                 lineHeight: tokens.type.body.lineHeight,
               }}
             >
-              No tracking number recorded. Add one by editing this order.
+              No tracking number recorded. Add one by editing this purchase.
             </Text>
           )}
         </SectionCard>

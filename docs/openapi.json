@@ -724,8 +724,22 @@
           }
         ],
         "responses": {
-          "204": {
-            "description": "Account soft-deleted."
+          "202": {
+            "description": "Account deletion job recorded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": ["deletion_pending"]
+                    }
+                  },
+                  "required": ["status"]
+                }
+              }
+            }
           },
           "401": {
             "description": "Unauthenticated.",
@@ -3984,6 +3998,199 @@
       }
     },
     "/v1/claims/{id}": {
+      "get": {
+        "tags": ["Claims"],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The claim detail.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "userId": {
+                      "type": "string"
+                    },
+                    "purchaseId": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": ["return", "refund", "warranty"]
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "draft",
+                        "submitted",
+                        "in_progress",
+                        "approved",
+                        "rejected",
+                        "completed",
+                        "cancelled"
+                      ]
+                    },
+                    "openedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "resolvedAt": {
+                      "type": "string",
+                      "nullable": true,
+                      "format": "date-time"
+                    },
+                    "refundAmountMinor": {
+                      "type": "integer",
+                      "nullable": true,
+                      "minimum": 0
+                    },
+                    "reference": {
+                      "type": "string",
+                      "nullable": true,
+                      "maxLength": 200
+                    },
+                    "notes": {
+                      "type": "string",
+                      "nullable": true,
+                      "maxLength": 5000
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "updatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "userId",
+                    "purchaseId",
+                    "type",
+                    "status",
+                    "openedAt",
+                    "resolvedAt",
+                    "refundAmountMinor",
+                    "reference",
+                    "notes",
+                    "createdAt",
+                    "updatedAt"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "unauthenticated",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "validation_failed",
+                            "rate_limited",
+                            "internal",
+                            "unavailable",
+                            "auth_not_configured"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "fields": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": ["code", "message"]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error", "requestId"]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Claim not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "unauthenticated",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "validation_failed",
+                            "rate_limited",
+                            "internal",
+                            "unavailable",
+                            "auth_not_configured"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "fields": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": ["code", "message"]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error", "requestId"]
+                }
+              }
+            }
+          }
+        }
+      },
       "patch": {
         "tags": ["Claims"],
         "security": [

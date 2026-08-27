@@ -5,6 +5,9 @@ import {
   reminders,
   purchases,
   devices,
+  claims,
+  users,
+  accountDeletionJobs,
 } from "@acme/db";
 import { retryPolicy } from "@acme/shared";
 import type { Env } from "./env";
@@ -56,6 +59,13 @@ export async function handleQueueBatch(
           const userId = (payload as any).userId;
           if (userId) {
             await handlePurgeReceipts(env, userId);
+          }
+        } else if ("type" in payload && payload.type === "account.delete") {
+          const jobId = (payload as any).jobId;
+          const userId = (payload as any).userId;
+          const clerkUserId = (payload as any).clerkUserId;
+          if (jobId && userId) {
+            await handleAccountDeletion(env, jobId, userId, clerkUserId);
           }
         } else if ("type" in payload && payload.type === "reminder.send") {
           const reminderId = (payload as any).reminderId;
@@ -120,6 +130,62 @@ async function handlePurgeReceipts(env: Env, userId: string): Promise<void> {
 
   // 2. Delete rows from D1 database
   await db.delete(receipts).where(eq(receipts.userId, userId));
+}
+
+async function handleAccountDeletion(
+  env: Env,
+  jobId: string,
+  userId: string,
+  clerkUserId: string
+): Promise<void> {
+  const db = createDbClient(env.DB);
+  const now = new Date().toISOString();
+
+  await db
+    .update(accountDeletionJobs)
+    .set({ status: "processing", updatedAt: now })
+    .where(eq(accountDeletionJobs.id, jobId));
+
+  try {
+    await handlePurgeReceipts(env, userId);
+
+    await db.delete(claims).where(eq(claims.userId, userId));
+    await db.delete(reminders).where(eq(reminders.userId, userId));
+    await db.delete(purchases).where(eq(purchases.userId, userId));
+    await db.delete(devices).where(eq(devices.userId, userId));
+    if (clerkUserId) {
+      await env.APP_KV.delete(`user:by-clerk-id:${clerkUserId}`);
+    }
+
+    if (env.CLERK_SECRET_KEY && clerkUserId) {
+      try {
+        await fetch(`https://api.clerk.com/v1/users/${clerkUserId}`, {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${env.CLERK_SECRET_KEY}`,
+          },
+        });
+      } catch (clerkErr) {
+        console.error("Failed to delete Clerk user identity:", clerkErr);
+      }
+    }
+
+    await db.delete(users).where(eq(users.id, userId));
+    await db
+      .delete(accountDeletionJobs)
+      .where(eq(accountDeletionJobs.id, jobId));
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    await db
+      .update(accountDeletionJobs)
+      .set({
+        status: "failed",
+        lastError: errorMsg,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(accountDeletionJobs.id, jobId));
+    throw err;
+  }
 }
 
 async function handleSendReminder(

@@ -12,7 +12,7 @@ import { useCallback, useMemo } from "react";
 import { uuidv4 } from "../lib/uuid";
 import { outbox, type OutboxEntry } from "./outbox";
 import { useApi } from "../api/ApiProvider";
-import type { ApiRequest } from "../api/client";
+import { NetworkError, type ApiRequest } from "../api/client";
 
 export interface EnqueueMutationInput<TBody> {
   method: "POST" | "PATCH" | "PUT" | "DELETE";
@@ -70,10 +70,21 @@ export function useEnqueueMutation<TInput, TResult>(opts: {
           payload.optimisticPatch.updater(prev)
         );
       }
+      const idempotencyKey = uuidv4();
       try {
+        if (outbox.isOnline()) {
+          return await directCall<TResult>(
+            api,
+            payload.method,
+            payload.endpoint,
+            payload.body,
+            idempotencyKey
+          );
+        }
+
         const entry = await outbox.enqueue({
           id: uuidv4(),
-          idempotencyKey: uuidv4(),
+          idempotencyKey,
           endpoint: payload.endpoint,
           method: payload.method,
           body: payload.body,
@@ -81,22 +92,21 @@ export function useEnqueueMutation<TInput, TResult>(opts: {
           onCommit: payload.onCommit,
           label: payload.label,
         });
-        // If the entry was already replayed (online + fast request), the
-        // outbox has pruned it from disk; we still need to surface the
-        // server response to the caller. The outbox doesn't expose the
-        // response after pruning, so we do an in-line direct call to
-        // get the typed response back. The outbox entry above will be
-        // deduped by idempotency-key on the server.
-        return await directCall<TResult>(
-          api,
-          payload.method,
-          payload.endpoint,
-          payload.body,
-          // Reuse the same idempotency key — the server has already cached
-          // the response (or will, when the outbox replay lands).
-          entry.idempotencyKey
-        );
+        return entry as TResult;
       } catch (e) {
+        if (e instanceof NetworkError) {
+          const entry = await outbox.enqueue({
+            id: uuidv4(),
+            idempotencyKey,
+            endpoint: payload.endpoint,
+            method: payload.method,
+            body: payload.body,
+            optimisticPatch: payload.optimisticPatch,
+            onCommit: payload.onCommit,
+            label: payload.label,
+          });
+          return entry as TResult;
+        }
         // Roll back optimistic patches on failure.
         for (const [key, prev] of previousValues) {
           const queryKey = JSON.parse(key) as readonly unknown[];

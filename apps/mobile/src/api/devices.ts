@@ -5,7 +5,6 @@ export const deviceSchema = z.object({
   id: z.string(),
   expoPushToken: z.string(),
   platform: z.enum(["ios", "android"]),
-  appVersion: z.string(),
   createdAt: z.string(),
   lastSeenAt: z.string(),
 });
@@ -16,7 +15,6 @@ export function registerDevice(
   body: {
     expoPushToken: string;
     platform: "ios" | "android";
-    appVersion: string;
   }
 ): Promise<Device> {
   return api({

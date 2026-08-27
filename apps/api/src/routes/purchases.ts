@@ -237,7 +237,26 @@ export async function handleListPurchases(ctx: AuthedContext) {
 
   const limit = query.limit;
   const sql = `
-    SELECT * FROM purchases
+    SELECT
+      id,
+      user_id AS userId,
+      title,
+      merchant,
+      category,
+      purchase_date AS purchaseDate,
+      amount_minor AS amountMinor,
+      currency,
+      order_number AS orderNumber,
+      notes,
+      delivery_status AS deliveryStatus,
+      tracking_number AS trackingNumber,
+      carrier,
+      warranty_expires_at AS warrantyExpiresAt,
+      return_deadline_at AS returnDeadlineAt,
+      created_at AS createdAt,
+      updated_at AS updatedAt,
+      deleted_at AS deletedAt
+    FROM purchases
     WHERE ${whereSql}
     ${orderSql}
     LIMIT ?`;
@@ -486,11 +505,24 @@ export async function handleRestorePurchase(ctx: AuthedContext) {
 
   await onPurchaseMutated(ctx.env, db, restored.id);
 
+  const restoredReceipts = await db
+    .select()
+    .from(receipts)
+    .where(eq(receipts.purchaseId, restored.id));
+  const restoredClaims = await db
+    .select()
+    .from(claims)
+    .where(eq(claims.purchaseId, restored.id));
+  const restoredReminders = await db
+    .select()
+    .from(reminders)
+    .where(eq(reminders.purchaseId, restored.id));
+
   const body = purchaseDetailResponseSchema.parse({
     ...rowToPurchase(restored),
-    receipts: [],
-    claims: [],
-    reminders: [],
+    receipts: restoredReceipts,
+    claims: restoredClaims.map(rowToClaim),
+    reminders: restoredReminders.map(rowToReminder),
   });
   return ctx.json(body, 200);
 }
@@ -527,7 +559,7 @@ function rowToCursor(
   const kind = cursorKindForSort(sort);
   if (kind === "created") return { kind, c: row.createdAt, i: row.id };
   if (kind === "date") return { kind, d: row.purchaseDate, i: row.id };
-  return { kind: "amount", a: row.amountMinor ?? 0, i: row.id };
+  return { kind: "amount", a: row.amountMinor ?? -1, i: row.id };
 }
 
 function cursorKindForSort(
@@ -583,7 +615,7 @@ function buildPurchasePageWhere(args: BuildArgs): {
 
   let orderCol: string;
   if (sort === "purchaseDate") orderCol = "purchase_date";
-  else if (sort === "amount") orderCol = "amount_minor";
+  else if (sort === "amount") orderCol = "COALESCE(amount_minor, -1)";
   else orderCol = "created_at";
 
   if (cursor) {
@@ -594,8 +626,10 @@ function buildPurchasePageWhere(args: BuildArgs): {
       conditions.push("(purchase_date < ? OR (purchase_date = ? AND id < ?))");
       bindArgs.push(cursor.d, cursor.d, cursor.i);
     } else {
-      const amountKey = cursor.a ?? 0;
-      conditions.push("(amount_minor < ? OR (amount_minor = ? AND id < ?))");
+      const amountKey = cursor.a ?? -1;
+      conditions.push(
+        "(COALESCE(amount_minor, -1) < ? OR (COALESCE(amount_minor, -1) = ? AND id < ?))"
+      );
       bindArgs.push(amountKey, amountKey, cursor.i);
     }
   }

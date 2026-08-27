@@ -21,7 +21,10 @@ describe("receipts API", () => {
 
     // 1. Upload receipt
     const formData = new FormData();
-    const mockFile = new File(["fake-jpeg-data"], "receipt.jpg", {
+    const jpegBytes = new Uint8Array([
+      0xff, 0xd8, 0xff, 0xe0, 0x41, 0x66, 0x74, 0x65, 0x72, 0x42, 0x75, 0x79,
+    ]);
+    const mockFile = new File([jpegBytes], "receipt.jpg", {
       type: "image/jpeg",
     });
     formData.append("file", mockFile);
@@ -38,7 +41,7 @@ describe("receipts API", () => {
     const receipt = await resUpload.json();
     expect(receipt.id).toBeTypeOf("string");
     expect(receipt.contentType).toBe("image/jpeg");
-    expect(receipt.sizeBytes).toBe(14); // length of 'fake-jpeg-data'
+    expect(receipt.sizeBytes).toBe(jpegBytes.byteLength);
 
     // 2. Get signed redirect URL
     const resGet = await requestApp(`/v1/receipts/${receipt.id}`, "GET");
@@ -59,7 +62,10 @@ describe("receipts API", () => {
       "GET"
     );
     expect(resView.status).toBe(200);
-    expect(await resView.text()).toBe("fake-jpeg-data");
+    expect(resView.headers.get("Content-Type")).toBe("image/jpeg");
+    expect(
+      Array.from(new Uint8Array(await resView.arrayBuffer())).slice(0, 3)
+    ).toEqual([0xff, 0xd8, 0xff]);
 
     // 4. Delete receipt
     const resDel = await requestApp(`/v1/receipts/${receipt.id}`, "DELETE");
@@ -71,6 +77,22 @@ describe("receipts API", () => {
     const formData = new FormData();
     const mockFile = new File(["fake-pdf-data"], "document.pdf", {
       type: "application/pdf",
+    });
+    formData.append("file", mockFile);
+
+    const resUpload = await requestApp(
+      `/v1/purchases/${purchaseId}/receipts`,
+      "POST",
+      formData
+    );
+    expect(resUpload.status).toBe(422);
+  });
+
+  test("returns 422 when declared MIME type does not match file bytes", async () => {
+    const purchaseId = await createTestPurchase();
+    const formData = new FormData();
+    const mockFile = new File(["not-an-image"], "receipt.jpg", {
+      type: "image/jpeg",
     });
     formData.append("file", mockFile);
 

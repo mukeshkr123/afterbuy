@@ -10,16 +10,24 @@ export function StatusPill({ label, tone = "neutral" }: StatusPillProps) {
   const { tokens } = useTheme();
   const backgroundColor =
     tone === "success"
-      ? tokens.colors.success
+      ? tokens.colors.successSoft
       : tone === "warning"
-        ? tokens.colors.warning
+        ? tokens.colors.warningSoft
         : tone === "danger"
-          ? tokens.colors.danger
+          ? tokens.colors.dangerSurface
           : tone === "accent"
-            ? tokens.colors.accent
+            ? tokens.colors.accentSoft
             : tokens.colors.surfaceMuted;
   const color =
-    tone === "neutral" ? tokens.colors.text : tokens.colors.accentText;
+    tone === "success"
+      ? tokens.colors.successText
+      : tone === "warning"
+        ? tokens.colors.warningText
+        : tone === "danger"
+          ? tokens.colors.dangerText
+          : tone === "accent"
+            ? tokens.colors.primary
+            : tokens.colors.text;
   return (
     <View
       style={[
@@ -35,8 +43,9 @@ export function StatusPill({ label, tone = "neutral" }: StatusPillProps) {
       <Text
         style={{
           color,
-          fontSize: tokens.type.bodySmall.fontSize,
-          fontWeight: "600",
+          fontSize: tokens.type.caption.fontSize,
+          lineHeight: tokens.type.caption.lineHeight,
+          fontWeight: "700",
         }}
       >
         {label}

@@ -348,8 +348,8 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   adornmentPress: {
-    width: 44,
-    height: 44,
+    width: 48,
+    height: 48,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -364,7 +364,7 @@ const styles = StyleSheet.create({
     fontWeight: "400",
   },
   footerLinkTouch: {
-    minHeight: 44,
+    minHeight: 48,
     justifyContent: "center",
   },
   footerLink: {

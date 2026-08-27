@@ -7,7 +7,8 @@
 // sub-app so that `c.get("user")` is populated.
 
 import type { MiddlewareHandler } from "hono";
-import type { Env } from "./env";
+import { createDbClient, idempotencyKeys } from "@acme/db";
+import { and, eq } from "drizzle-orm";
 import type { AuthedEnv } from "./auth";
 import { apiError } from "./errors";
 
@@ -17,13 +18,6 @@ const UUIDISH =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const WRITE_METHODS = new Set(["POST", "PATCH", "PUT", "DELETE"]);
-
-interface CachedEntry {
-  hash: string;
-  status: number;
-  headers: Record<string, string>;
-  body: string;
-}
 
 export const idempotencyMiddleware: MiddlewareHandler<AuthedEnv> = async (
   c,
@@ -54,72 +48,95 @@ export const idempotencyMiddleware: MiddlewareHandler<AuthedEnv> = async (
 
   const user = c.get("user");
   if (!user) {
-    // Should not happen — authMiddleware runs first and rejects
-    // unauthenticated requests with 401.
     return apiError(c, 401, "unauthenticated", "Missing authenticated user");
   }
 
-  const body = await c.req.raw.clone().text();
-  const hash = await sha256Hex(
-    `${c.req.method}\n${new URL(c.req.url).pathname}\n${body}`
-  );
-  const cacheKey = `idem:${user.id}:${key}`;
+  const db = createDbClient(c.env.DB);
+  const path = new URL(c.req.url).pathname;
+  const requestHash = await sha256Hex(await c.req.raw.clone().arrayBuffer());
 
-  const cached = await c.env.APP_KV?.get(cacheKey);
-  if (cached) {
-    try {
-      const entry = JSON.parse(cached) as CachedEntry;
-      if (entry.hash !== hash) {
-        return apiError(
-          c,
-          409,
-          "conflict",
-          "Idempotency-Key reused with a different request"
-        );
-      }
-      return new Response(entry.body, {
-        status: entry.status,
-        headers: entry.headers,
-      });
-    } catch {
-      // Bad cache entry — treat as miss.
+  // Check D1 for persisted idempotency key
+  const existingRecord = await db
+    .select()
+    .from(idempotencyKeys)
+    .where(
+      and(eq(idempotencyKeys.key, key), eq(idempotencyKeys.userId, user.id))
+    )
+    .get();
+
+  if (existingRecord) {
+    if (
+      existingRecord.path !== path ||
+      existingRecord.requestHash !== requestHash
+    ) {
+      return apiError(
+        c,
+        409,
+        "conflict",
+        "Idempotency-Key reused with a different request"
+      );
     }
+    if (existingRecord.status === "completed" && existingRecord.responseCode) {
+      return new Response(existingRecord.responseBody ?? "", {
+        status: existingRecord.responseCode,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    if (existingRecord.status === "processing") {
+      return apiError(
+        c,
+        409,
+        "conflict",
+        "A request with this Idempotency-Key is currently processing"
+      );
+    }
+  }
+
+  // Insert processing reservation into D1
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + TTL_SECONDS * 1000).toISOString();
+
+  try {
+    await db.insert(idempotencyKeys).values({
+      key,
+      userId: user.id,
+      path,
+      requestHash,
+      status: "processing",
+      createdAt: now.toISOString(),
+      expiresAt,
+    });
+  } catch {
+    // If insertion failed, another concurrent request grabbed the key
+    return apiError(
+      c,
+      409,
+      "conflict",
+      "Idempotency-Key reused with a different request"
+    );
   }
 
   await next();
 
-  // After the handler runs, capture the response and persist it. Failures
-  // here are logged but never fail the original response.
   try {
     const res = c.res as Response;
-    const buf = await res.clone().text();
-    const headers: Record<string, string> = {};
-    res.headers.forEach((value, name) => {
-      headers[name] = value;
-    });
-    await c.env.APP_KV?.put(
-      cacheKey,
-      JSON.stringify({
-        hash,
-        status: res.status,
-        headers,
-        body: buf,
-      } satisfies CachedEntry),
-      { expirationTtl: TTL_SECONDS }
-    );
+    const bodyText = await res.clone().text();
+    await db
+      .update(idempotencyKeys)
+      .set({
+        status: "completed",
+        responseCode: res.status,
+        responseBody: bodyText,
+      })
+      .where(eq(idempotencyKeys.key, key));
   } catch {
-    // Ignore cache write failures.
+    // Ignore updates failure
   }
 };
 
-async function sha256Hex(input: string): Promise<string> {
-  const bytes = new TextEncoder().encode(input);
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
+async function sha256Hex(input: ArrayBuffer): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", input);
   return Array.from(new Uint8Array(digest))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
 }
-
-// Avoid an unused-env warning when the type-checker can't see KV through
-// the authed-env intersection.
-export type IdempotencyEnv = Env;

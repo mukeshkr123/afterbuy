@@ -40,9 +40,17 @@ function ThemedStack() {
     <Stack
       screenOptions={{
         headerShown: false,
+        headerStyle: { backgroundColor: tokens.colors.surface },
+        headerTintColor: tokens.colors.text,
+        headerShadowVisible: false,
         contentStyle: { backgroundColor: tokens.colors.canvas },
       }}
-    />
+    >
+      <Stack.Screen
+        name="claims"
+        options={{ headerShown: true, title: "Claims" }}
+      />
+    </Stack>
   );
 }
 

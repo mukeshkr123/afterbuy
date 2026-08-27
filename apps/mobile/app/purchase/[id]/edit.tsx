@@ -1,13 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
-import {
-  EmptyState,
-  ScreenHeader,
-  ScreenScroll,
-  SectionCard,
-  Skeleton,
-} from "@/components";
+import { EmptyState, ScreenScroll, SectionCard, Skeleton } from "@/components";
 import { PurchaseForm } from "@/components/PurchaseForm";
 import { useApi } from "@/api/ApiProvider";
 import { apiKeys } from "@/api/apiKeys";
@@ -43,10 +37,7 @@ export default function EditPurchaseScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ headerShown: false }} />
-      <ScreenScroll gap={tokens.spacing.lg + 2}>
-        <ScreenHeader title="Edit Order" />
-
+      <ScreenScroll gap={tokens.spacing.lg + 2} safeTop={false}>
         {detail.isLoading ? (
           // This screen used to render `null` while loading, so it looked
           // like a blank page rather than a page that was still arriving.
@@ -59,8 +50,8 @@ export default function EditPurchaseScreen() {
           <SectionCard>
             <EmptyState
               icon="alert-circle-outline"
-              title="Order not available"
-              message="We couldn't load this order. Check your connection and try again."
+              title="Purchase not available"
+              message="We couldn't load this purchase. Check your connection and try again."
               action={{
                 label: "Try again",
                 onPress: () => void detail.refetch(),
@@ -68,7 +59,7 @@ export default function EditPurchaseScreen() {
             />
           </SectionCard>
         ) : (
-          <SectionCard title="Order details">
+          <SectionCard title="Purchase details">
             <PurchaseForm
               embedded
               initial={{

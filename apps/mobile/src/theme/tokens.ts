@@ -1,4 +1,4 @@
-// Design tokens for the Acme mobile app.
+// Design tokens for the AfterBuy mobile experience.
 //
 // Color strategy: "Restrained" — tinted neutrals + a single accent at ≤10%
 // of the surface area. The accent hue (indigo) lives in OKLCH space; the
@@ -28,13 +28,22 @@ export interface Tokens {
     /** Page background behind cards. Slightly cooler than `surface`. */
     canvas: string;
     bg: string;
+    /** Semantic surface levels. */
     surface: string;
+    surfaceRaised: string;
     surfaceMuted: string;
+    primary: string;
+    onPrimary: string;
     text: string;
+    textStrong: string;
     /** Body detail text: dimmer than `text`, darker than `textMuted`. */
     textSubtle: string;
     textMuted: string;
     border: string;
+    outline: string;
+    focus: string;
+    disabled: string;
+    disabledText: string;
     /** Decorative glyphs — chevrons, placeholder icons. Not for text. */
     icon: string;
     accent: string;
@@ -50,7 +59,10 @@ export interface Tokens {
     /** Label color on a `successSoft` fill. */
     successText: string;
     warning: string;
+    warningText: string;
+    infoText: string;
     danger: string;
+    dangerText: string;
     dangerSurface: string;
   };
   readonly spacing: {
@@ -74,10 +86,20 @@ export interface Tokens {
     none: ShadowStyle;
   };
   readonly type: {
-    body: { fontSize: number; lineHeight: number };
-    bodySmall: { fontSize: number; lineHeight: number };
+    largeTitle: { fontSize: number; lineHeight: number };
     title: { fontSize: number; lineHeight: number };
+    headline: { fontSize: number; lineHeight: number };
+    body: { fontSize: number; lineHeight: number };
+    subheadline: { fontSize: number; lineHeight: number };
+    caption: { fontSize: number; lineHeight: number };
+    /** Backwards-compatible aliases while screens migrate to named roles. */
+    bodySmall: { fontSize: number; lineHeight: number };
     display: { fontSize: number; lineHeight: number };
+  };
+  readonly target: {
+    ios: number;
+    android: number;
+    web: number;
   };
   readonly elevation: {
     0: number;
@@ -118,11 +140,17 @@ const SHADOW = {
 const NO_SHADOW = { card: {}, raised: {}, none: {} } as const;
 
 const TYPE = {
-  body: { fontSize: 16, lineHeight: 22 },
-  bodySmall: { fontSize: 14, lineHeight: 20 },
-  title: { fontSize: 22, lineHeight: 28 },
-  display: { fontSize: 32, lineHeight: 38 },
+  largeTitle: { fontSize: 34, lineHeight: 42 },
+  title: { fontSize: 22, lineHeight: 30 },
+  headline: { fontSize: 17, lineHeight: 24 },
+  body: { fontSize: 17, lineHeight: 25 },
+  subheadline: { fontSize: 15, lineHeight: 22 },
+  caption: { fontSize: 13, lineHeight: 18 },
+  bodySmall: { fontSize: 15, lineHeight: 22 },
+  display: { fontSize: 34, lineHeight: 42 },
 } as const;
+
+const TARGET = { ios: 44, android: 48, web: 44 } as const;
 
 const ELEVATION = { 0: 0, 1: 2, 2: 8 } as const;
 
@@ -138,30 +166,42 @@ export const light: Tokens = {
     canvas: "#FAFAFA",
     bg: "#FBFBFD",
     surface: "#FFFFFF",
+    surfaceRaised: "#FFFFFF",
     surfaceMuted: "#F1F1F4",
+    primary: "#4F46E5",
+    onPrimary: "#FFFFFF",
     text: "#0B0B10",
+    textStrong: "#0B0B10",
     textSubtle: "#4B5563",
-    textMuted: "#5A5A66",
+    textMuted: "#52525E",
     border: "#E4E4EA",
-    icon: "#9CA3AF",
+    outline: "#737380",
+    focus: "#4338CA",
+    disabled: "#E5E7EB",
+    disabledText: "#59606B",
+    icon: "#5F6470",
     accent: "#4F46E5",
     accentText: "#FFFFFF",
     accentSoft: "#EEF2FF",
-    successSoft: "#DCFCE7",
-    warningSoft: "#FEF3C7",
-    infoSoft: "#EFF6FF",
+    successSoft: "#E7F6EC",
+    warningSoft: "#FFF4D6",
+    infoSoft: "#EAF2FF",
     neutralSoft: "#F3F4F6",
     info: "#2563EB",
-    success: "#16A34A",
-    successText: "#16A34A",
-    warning: "#D97706",
+    success: "#166534",
+    successText: "#166534",
+    warning: "#7C4A03",
+    warningText: "#7C4A03",
+    infoText: "#1E3A8A",
     danger: "#DC2626",
-    dangerSurface: "#FEE2E2",
+    dangerText: "#991B1B",
+    dangerSurface: "#FDEBEC",
   },
   spacing: SPACING,
   radius: RADIUS,
   shadow: SHADOW,
   type: TYPE,
+  target: TARGET,
   elevation: ELEVATION,
   motion: MOTION,
 };
@@ -174,24 +214,35 @@ export const dark: Tokens = {
     canvas: "#0B0B10",
     bg: "#0B0B10",
     surface: "#14141B",
+    surfaceRaised: "#1A1A22",
     surfaceMuted: "#1C1C25",
+    primary: "#A5B4FC",
+    onPrimary: "#15123A",
     text: "#F5F5F7",
+    textStrong: "#FFFFFF",
     textSubtle: "#B4B4C0",
-    textMuted: "#9999A6",
-    border: "#26262F",
-    icon: "#6B6B78",
+    textMuted: "#B4B4C0",
+    border: "#34343F",
+    outline: "#8A8A98",
+    focus: "#A5B4FC",
+    disabled: "#30303A",
+    disabledText: "#A0A0AC",
+    icon: "#B4B4C0",
     accent: "#818CF8",
     accentText: "#0B0B10",
     accentSoft: "#1E1B4B",
-    successSoft: "#052E1B",
-    warningSoft: "#3B2A05",
-    infoSoft: "#0C2136",
+    successSoft: "#123524",
+    warningSoft: "#3A2B0C",
+    infoSoft: "#142B46",
     neutralSoft: "#1C1C25",
     info: "#60A5FA",
-    success: "#4ADE80",
-    successText: "#4ADE80",
-    warning: "#FBBF24",
+    success: "#86EFAC",
+    successText: "#86EFAC",
+    warning: "#FDE68A",
+    warningText: "#FDE68A",
+    infoText: "#BFDBFE",
     danger: "#F87171",
+    dangerText: "#FCA5A5",
     dangerSurface: "#3F1D1D",
   },
 };

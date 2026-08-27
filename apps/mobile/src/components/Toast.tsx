@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
 import { useTheme } from "../theme/ThemeProvider";
+import { announce } from "../lib/accessibility";
 
 export interface ToastProps {
   message: string | null;
@@ -15,7 +16,7 @@ export function Toast({
   onDismiss,
   durationMs = 3000,
 }: ToastProps) {
-  const { tokens } = useTheme();
+  const { tokens, reducedMotion } = useTheme();
   const opacity = useRef(new Animated.Value(0)).current;
   const [visible, setVisible] = useState(false);
 
@@ -29,15 +30,16 @@ export function Toast({
       return;
     }
     setVisible(true);
+    announce(message);
     Animated.timing(opacity, {
       toValue: 1,
-      duration: tokens.motion.durationFast,
+      duration: reducedMotion ? 0 : tokens.motion.durationFast,
       useNativeDriver: true,
     }).start();
     const timer = setTimeout(() => {
       Animated.timing(opacity, {
         toValue: 0,
-        duration: tokens.motion.durationFast,
+        duration: reducedMotion ? 0 : tokens.motion.durationFast,
         useNativeDriver: true,
       }).start(() => {
         setVisible(false);
@@ -45,7 +47,14 @@ export function Toast({
       });
     }, durationMs);
     return () => clearTimeout(timer);
-  }, [message, durationMs, onDismiss, opacity, tokens.motion.durationFast]);
+  }, [
+    message,
+    durationMs,
+    onDismiss,
+    opacity,
+    reducedMotion,
+    tokens.motion.durationFast,
+  ]);
 
   if (!visible) return null;
 

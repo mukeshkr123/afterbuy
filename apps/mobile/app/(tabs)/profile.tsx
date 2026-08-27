@@ -11,6 +11,8 @@ import {
   SectionCard,
 } from "@/components";
 import { useTheme } from "@/theme/ThemeProvider";
+import { useApi } from "@/api/ApiProvider";
+import { unregisterCurrentDevice } from "@/notifications/PushRegistration";
 
 // Only destinations that exist. The screen previously listed "Connected
 // Accounts", "Address Book", "Payment Methods" and "Notification Preferences",
@@ -19,9 +21,20 @@ const MENU: ReadonlyArray<{
   id: string;
   title: string;
   subtitle: string;
-  icon: "settings-outline" | "notifications-outline" | "time-outline";
+  icon:
+    | "settings-outline"
+    | "notifications-outline"
+    | "time-outline"
+    | "shield-checkmark-outline";
   href: Href;
 }> = [
+  {
+    id: "claims",
+    title: "Claims",
+    subtitle: "Returns, refunds, and warranty claims",
+    icon: "shield-checkmark-outline",
+    href: "/claims" as Href,
+  },
   {
     id: "settings",
     title: "Account Settings",
@@ -48,6 +61,7 @@ const MENU: ReadonlyArray<{
 export default function ProfileScreen() {
   const { signOut } = useClerk();
   const { user } = useUser();
+  const api = useApi();
   const router = useRouter();
   const { tokens } = useTheme();
   const [confirmSignOut, setConfirmSignOut] = useState(false);
@@ -149,11 +163,18 @@ export default function ProfileScreen() {
       <Dialog
         visible={confirmSignOut}
         title="Sign out?"
-        description="Your orders stay saved to your account. You'll need to sign in again to see them."
+        description="Your purchases stay saved to your account. You'll need to sign in again to see them."
         primaryLabel="Sign out"
         onPrimary={() => {
           setConfirmSignOut(false);
-          void signOut();
+          void (async () => {
+            try {
+              await unregisterCurrentDevice(api);
+            } catch {
+              // Signing out must still work if the API is unavailable.
+            }
+            await signOut();
+          })();
         }}
         secondaryLabel="Cancel"
         onDismiss={() => setConfirmSignOut(false)}

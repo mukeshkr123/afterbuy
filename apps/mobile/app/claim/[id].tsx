@@ -1,15 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import type { ClaimStatus } from "@acme/shared";
+import type { Claim, ClaimStatus } from "@acme/shared";
 import {
   Button,
   EmptyState,
   FormError,
   IconTile,
   Money,
-  ScreenHeader,
   ScreenScroll,
   SectionCard,
   Skeleton,
@@ -84,41 +83,31 @@ export default function ClaimDetailScreen() {
     onError: (e) => setError(fromCaught(e)),
   });
 
-  const header = <ScreenHeader title="Claim Details" />;
-
   if (claim.isLoading) {
     return (
-      <>
-        <Stack.Screen options={{ headerShown: false }} />
-        <ScreenScroll gap={tokens.spacing.lg + 2}>
-          {header}
-          <Skeleton height={96} />
-          <Skeleton height={200} />
-        </ScreenScroll>
-      </>
+      <ScreenScroll gap={tokens.spacing.lg + 2} safeTop={false}>
+        <Skeleton height={96} />
+        <Skeleton height={200} />
+      </ScreenScroll>
     );
   }
 
-  const c = claim.data;
+  const c: Claim | undefined = claim.data;
   if (!c) {
     return (
-      <>
-        <Stack.Screen options={{ headerShown: false }} />
-        <ScreenScroll gap={tokens.spacing.lg + 2}>
-          {header}
-          <SectionCard>
-            <EmptyState
-              icon="alert-circle-outline"
-              title="Claim not available"
-              message="We couldn't load this claim. Check your connection and try again."
-              action={{
-                label: "Try again",
-                onPress: () => void claim.refetch(),
-              }}
-            />
-          </SectionCard>
-        </ScreenScroll>
-      </>
+      <ScreenScroll gap={tokens.spacing.lg + 2} safeTop={false}>
+        <SectionCard>
+          <EmptyState
+            icon="alert-circle-outline"
+            title="Claim not available"
+            message="We couldn't load this claim. Check your connection and try again."
+            action={{
+              label: "Try again",
+              onPress: () => void claim.refetch(),
+            }}
+          />
+        </SectionCard>
+      </ScreenScroll>
     );
   }
 
@@ -128,11 +117,7 @@ export default function ClaimDetailScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ headerShown: false }} />
-
-      <ScreenScroll gap={tokens.spacing.lg + 2}>
-        {header}
-
+      <ScreenScroll gap={tokens.spacing.lg + 2} safeTop={false}>
         <SectionCard
           onPress={
             purchase.data
@@ -161,7 +146,7 @@ export default function ClaimDetailScreen() {
                   fontWeight: "700",
                 }}
               >
-                {purchase.data?.title ?? TYPE_LABEL[c.type]}
+                {purchase.data?.title ?? TYPE_LABEL[c.type] ?? c.type}
               </Text>
               <Text
                 style={{
@@ -170,12 +155,12 @@ export default function ClaimDetailScreen() {
                 }}
               >
                 {purchase.data
-                  ? TYPE_LABEL[c.type]
+                  ? (TYPE_LABEL[c.type] ?? c.type)
                   : (formatDate(c.openedAt.slice(0, 10)) ?? "")}
               </Text>
               <View style={{ marginTop: 2 }}>
                 <StatusPill
-                  label={STATUS_LABEL[c.status]}
+                  label={STATUS_LABEL[c.status] ?? c.status}
                   tone={statusTone(c.status)}
                 />
               </View>
@@ -275,7 +260,7 @@ export default function ClaimDetailScreen() {
 
         <SectionCard title="Details">
           <View style={{ gap: tokens.spacing.md }}>
-            <DetailRow label="Type" value={TYPE_LABEL[c.type]} />
+            <DetailRow label="Type" value={TYPE_LABEL[c.type] ?? c.type} />
             <DetailRow
               label="Opened"
               value={formatDateTime(c.openedAt) ?? "—"}
@@ -334,7 +319,9 @@ export default function ClaimDetailScreen() {
                 label={
                   advance.isPending
                     ? "Updating…"
-                    : `Mark as ${STATUS_LABEL[status].toLowerCase()}`
+                    : `Mark as ${(
+                        STATUS_LABEL[status] ?? status
+                      ).toLowerCase()}`
                 }
                 variant={
                   status === "cancelled"

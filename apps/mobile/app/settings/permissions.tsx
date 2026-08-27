@@ -1,4 +1,3 @@
-import { Stack } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import { AppState, Linking, Text, View } from "react-native";
 import * as Notifications from "expo-notifications";
@@ -7,7 +6,6 @@ import {
   Button,
   IconTile,
   ListItem,
-  ScreenHeader,
   ScreenScroll,
   SectionCard,
   StatusPill,
@@ -33,13 +31,13 @@ const ROWS: readonly PermissionRow[] = [
   {
     id: "camera",
     title: "Camera",
-    subtitle: "Photographing bills",
+    subtitle: "Photographing receipts",
     icon: "camera-outline",
   },
   {
     id: "photos",
     title: "Photos",
-    subtitle: "Attaching bills from your library",
+    subtitle: "Attaching receipts from your library",
     icon: "images-outline",
   },
 ];
@@ -102,11 +100,7 @@ export default function PermissionsScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ headerShown: false }} />
-
-      <ScreenScroll gap={tokens.spacing.lg + 2}>
-        <ScreenHeader title="Permissions" />
-
+      <ScreenScroll gap={tokens.spacing.lg + 2} safeTop={false}>
         <View style={{ gap: tokens.spacing.xs }}>
           <Text
             accessibilityRole="header"

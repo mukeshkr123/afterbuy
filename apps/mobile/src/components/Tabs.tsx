@@ -1,4 +1,5 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import SegmentedControl from "@expo/ui/community/segmented-control";
+import { Platform, View } from "react-native";
 import { useTheme } from "../theme/ThemeProvider";
 
 export interface TabDescriptor {
@@ -15,52 +16,23 @@ export interface TabsProps {
 export function Tabs({ tabs, activeKey, onChange }: TabsProps) {
   const { tokens } = useTheme();
   return (
-    <View
-      style={[
-        styles.row,
-        {
-          borderBottomColor: tokens.colors.border,
-          paddingHorizontal: tokens.spacing.md,
-        },
-      ]}
-    >
-      {tabs.map((t) => {
-        const active = t.key === activeKey;
-        return (
-          <Pressable
-            key={t.key}
-            onPress={() => onChange(t.key)}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: active }}
-            style={({ pressed }) => [
-              styles.tab,
-              {
-                paddingVertical: tokens.spacing.md,
-                borderBottomWidth: 2,
-                borderBottomColor: active
-                  ? tokens.colors.accent
-                  : "transparent",
-                opacity: pressed ? 0.85 : 1,
-              },
-            ]}
-          >
-            <Text
-              style={{
-                color: active ? tokens.colors.text : tokens.colors.textMuted,
-                fontSize: tokens.type.body.fontSize,
-                fontWeight: active ? "700" : "500",
-              }}
-            >
-              {t.label}
-            </Text>
-          </Pressable>
-        );
-      })}
+    <View accessibilityRole="tablist">
+      <SegmentedControl
+        values={tabs.map((tab) => tab.label)}
+        selectedIndex={Math.max(
+          0,
+          tabs.findIndex((tab) => tab.key === activeKey)
+        )}
+        onValueChange={(label) => {
+          const selected = tabs.find((tab) => tab.label === label);
+          if (selected) onChange(selected.key);
+        }}
+        appearance={tokens.name}
+        tintColor={tokens.colors.primary}
+        style={{
+          minHeight: Platform.select({ ios: 44, android: 48, default: 44 }),
+        }}
+      />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  row: { flexDirection: "row", borderBottomWidth: 1 },
-  tab: { marginRight: 16 },
-});

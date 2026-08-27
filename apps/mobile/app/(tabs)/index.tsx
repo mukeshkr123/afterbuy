@@ -1,14 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
-import { useRouter } from "expo-router";
-import React from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { useRouter, type Href } from "expo-router";
+import React, { useMemo } from "react";
+import { Pressable, StyleSheet, View } from "react-native";
 import {
+  AppIcon,
+  AppText,
+  Button,
   EmptyState,
   IconTile,
   ListItem,
   ScreenScroll,
-  SectionCard,
   Skeleton,
   StatusPill,
 } from "@/components";
@@ -18,48 +19,33 @@ import { getMe } from "@/api/auth";
 import { listPurchases } from "@/api/purchases";
 import { getReminders } from "@/api/reminders";
 import { useTheme } from "@/theme/ThemeProvider";
+import type { PurchaseListResponse, Reminder } from "@acme/shared";
 import {
   categoryIcon,
+  deadlineState,
   deliveryDisplay,
   formatDate,
 } from "@/lib/purchaseDisplay";
 
-const QUICK_ACTIONS = [
-  {
-    id: "scan",
-    label: "Scan Bill",
-    icon: "scan-outline",
-    tone: "accent",
-    href: "/purchase/new",
-  },
-  {
-    id: "add",
-    label: "Add Order",
-    icon: "add-circle-outline",
-    tone: "accent",
-    href: "/purchase/new",
-  },
-  {
-    id: "claims",
-    label: "My Claims",
+const REMINDER_KIND = {
+  warranty_expiry: {
+    title: "Warranty ending",
     icon: "shield-checkmark-outline",
     tone: "success",
-    href: "/claim/new",
+    prefix: "Expires",
   },
-  {
-    id: "help",
-    label: "Help",
-    icon: "help-circle-outline",
-    tone: "info",
-    href: "/(tabs)/profile",
+  return_deadline: {
+    title: "Return window",
+    icon: "sync-outline",
+    tone: "accent",
+    prefix: "Return by",
   },
-] as const;
+} as const;
 
 export default function HomeScreen() {
   const api = useApi();
   const router = useRouter();
   const { tokens } = useTheme();
-
   const me = useQuery({ queryKey: apiKeys.me(), queryFn: () => getMe(api) });
   const recent = useQuery({
     queryKey: apiKeys.purchases.list({ sort: "createdAt", limit: 5 }),
@@ -69,239 +55,216 @@ export default function HomeScreen() {
     queryKey: apiKeys.reminders("upcoming"),
     queryFn: () => getReminders(api, "upcoming"),
   });
-
-  // The greeting is the account's own name when we have one. It previously
-  // fell back to the literal "Rohan", which greeted every user by a stranger's
-  // name.
   const emailName = me.data?.email?.split("@")[0];
-  const greeting = emailName
-    ? `Hello, ${emailName.charAt(0).toUpperCase()}${emailName.slice(1)}`
-    : "Hello";
-
-  const items = recent.data?.items ?? [];
-
-  // Both counts come from the reminders endpoint, the only server-of-record for
-  // deadlines. Anything else here would be guesswork over a paginated list.
-  const upcoming = reminders.data?.items ?? [];
-  const warrantyAlerts = upcoming.filter((r) => r.kind === "warranty_expiry");
-
-  const countLabel = (n: number, one: string, many: string, none: string) =>
-    reminders.isLoading
-      ? null
-      : n === 0
-        ? none
-        : n === 1
-          ? one
-          : `${n} ${many}`;
+  const name = emailName
+    ? `${emailName.charAt(0).toUpperCase()}${emailName.slice(1)}`
+    : null;
+  const purchases: PurchaseListResponse["items"] = recent.data?.items ?? [];
+  const attention = useMemo<Reminder[]>(
+    () =>
+      [...(reminders.data?.items ?? [])]
+        .sort((a, b) => a.fireOn.localeCompare(b.fireOn))
+        .slice(0, 3),
+    [reminders.data]
+  );
+  const purchaseTitle = useMemo(
+    () => new Map(purchases.map((purchase) => [purchase.id, purchase.title])),
+    [purchases]
+  );
 
   return (
-    <ScreenScroll>
-      <View style={styles.headerRow}>
-        <View style={styles.greetingBlock}>
-          <Text
-            style={[
-              styles.greeting,
-              {
-                color: tokens.colors.text,
-                fontSize: tokens.type.display.fontSize - 6,
-              },
-            ]}
-          >
-            {greeting}
-          </Text>
-          <Text
-            style={{
-              color: tokens.colors.textMuted,
-              fontSize: tokens.type.bodySmall.fontSize + 1,
-              marginTop: 2,
-            }}
-          >
-            Here&apos;s your overview
-          </Text>
-        </View>
+    <ScreenScroll gap={tokens.spacing.xl}>
+      <View style={{ gap: tokens.spacing.xs }}>
+        <AppText role="largeTitle">
+          {name ? `Good to see you, ${name}` : "Welcome back"}
+        </AppText>
+        <AppText role="body" tone="subtle">
+          Keep the proof. Never miss the date.
+        </AppText>
+      </View>
 
-        <View style={styles.actionButtons}>
-          <HeaderIconButton
-            icon="notifications-outline"
-            label="Reminders"
-            onPress={() => router.push("/(tabs)/reminders")}
+      <View style={{ gap: tokens.spacing.sm }}>
+        <Button
+          label="Add purchase"
+          onPress={() => router.push("/purchase/new")}
+        />
+        <View style={[styles.secondaryActions, { gap: tokens.spacing.sm }]}>
+          <SecondaryAction
+            icon="camera"
+            label="Scan receipt"
+            onPress={() =>
+              router.push({
+                pathname: "/purchase/new",
+                params: { capture: "camera" },
+              })
+            }
           />
-          <HeaderIconButton
-            icon="add"
-            label="Add order"
-            onPress={() => router.push("/purchase/new")}
+          <SecondaryAction
+            icon="claims"
+            label="View claims"
+            onPress={() => router.push("/claims" as Href)}
           />
         </View>
       </View>
 
-      <View style={{ gap: tokens.spacing.md + 2 }}>
-        <SummaryCard
-          icon="alarm-outline"
-          tone="accent"
-          title="Upcoming Reminders"
-          subtitle={countLabel(
-            upcoming.length,
-            "1 due soon",
-            "due soon",
-            "Nothing due"
-          )}
-          onPress={() => router.push("/(tabs)/reminders")}
-        />
-        <SummaryCard
-          icon="shield-checkmark-outline"
-          tone="success"
-          title="Warranty Alerts"
-          subtitle={countLabel(
-            warrantyAlerts.length,
-            "1 expiring soon",
-            "expiring soon",
-            "None expiring"
-          )}
-          onPress={() => router.push("/(tabs)/reminders")}
-        />
-      </View>
-
-      <View style={{ gap: tokens.spacing.md + 2 }}>
-        <View style={styles.sectionHeader}>
-          <Text
-            style={[
-              styles.sectionTitle,
-              {
-                color: tokens.colors.text,
-                fontSize: tokens.type.body.fontSize + 2,
-              },
-            ]}
-          >
-            Recent Orders
-          </Text>
-          {items.length > 0 ? (
-            <Pressable
-              onPress={() => router.push("/(tabs)/purchases")}
-              accessibilityRole="button"
-              hitSlop={8}
-            >
-              <Text
-                style={{
-                  color: tokens.colors.accent,
-                  fontSize: tokens.type.bodySmall.fontSize,
-                  fontWeight: "700",
-                }}
-              >
-                View All
-              </Text>
-            </Pressable>
-          ) : null}
+      <SectionHeading
+        title="Needs attention"
+        actionLabel={attention.length ? "All reminders" : undefined}
+        onAction={() => router.push("/(tabs)/reminders")}
+      />
+      {reminders.isLoading ? (
+        <View style={{ gap: tokens.spacing.sm }}>
+          <Skeleton height={72} />
+          <Skeleton height={72} />
         </View>
-
-        {recent.isLoading ? (
-          <View style={{ gap: tokens.spacing.md }}>
-            <Skeleton height={72} />
-            <Skeleton height={72} />
-            <Skeleton height={72} />
-          </View>
-        ) : items.length === 0 ? (
-          <SectionCard>
-            <EmptyState
-              icon="receipt-outline"
-              title="No orders yet"
-              message="Add your first purchase to start tracking returns and warranties."
-              action={{
-                label: "Add an order",
-                onPress: () => router.push("/purchase/new"),
-              }}
-            />
-          </SectionCard>
-        ) : (
-          <SectionCard flush>
-            {items.map((item, idx) => {
-              const status = deliveryDisplay(item.deliveryStatus);
-              const date = formatDate(item.purchaseDate);
-              return (
-                <ListItem
-                  key={item.id}
-                  title={item.title}
-                  subtitle={date ? `Ordered ${date}` : null}
-                  divider={idx < items.length - 1}
-                  leading={
-                    <IconTile
-                      icon={categoryIcon(item.category)}
-                      tone="neutral"
-                    />
-                  }
-                  trailing={
-                    <StatusPill label={status.label} tone={status.tone} />
-                  }
-                  onPress={() =>
-                    router.push({
-                      pathname: "/purchase/[id]",
-                      params: { id: item.id },
-                    })
-                  }
-                />
-              );
-            })}
-          </SectionCard>
-        )}
-      </View>
-
-      <View style={{ gap: tokens.spacing.md + 2 }}>
-        <Text
+      ) : attention.length === 0 ? (
+        <View
           style={[
-            styles.sectionTitle,
+            styles.quietState,
             {
-              color: tokens.colors.text,
-              fontSize: tokens.type.body.fontSize + 2,
+              backgroundColor: tokens.colors.successSoft,
+              borderRadius: tokens.radius.md,
             },
           ]}
         >
-          Quick Actions
-        </Text>
-
-        <View style={[styles.actionsGrid, { gap: tokens.spacing.sm + 2 }]}>
-          {QUICK_ACTIONS.map((action) => (
-            <Pressable
-              key={action.id}
-              accessibilityRole="button"
-              accessibilityLabel={action.label}
-              onPress={() => router.push(action.href)}
-              style={({ pressed }) => [
-                styles.actionItem,
-                {
-                  backgroundColor: tokens.colors.surface,
-                  borderRadius: tokens.radius.xl,
-                  borderColor: tokens.colors.border,
-                  paddingVertical: tokens.spacing.lg - 2,
-                  gap: tokens.spacing.sm,
-                  ...tokens.shadow.card,
-                },
-                pressed && { opacity: 0.85 },
-              ]}
-            >
-              <IconTile icon={action.icon} tone={action.tone} />
-              <Text
-                style={{
-                  color: tokens.colors.text,
-                  fontSize: tokens.type.bodySmall.fontSize - 2,
-                  fontWeight: "600",
-                  textAlign: "center",
-                }}
-              >
-                {action.label}
-              </Text>
-            </Pressable>
-          ))}
+          <AppIcon name="check" size={24} color={tokens.colors.successText} />
+          <View style={{ flex: 1 }}>
+            <AppText role="headline">You’re all caught up</AppText>
+            <AppText role="subheadline" tone="subtle">
+              No return or warranty dates are close.
+            </AppText>
+          </View>
         </View>
-      </View>
+      ) : (
+        <View>
+          {attention.map((reminder, index) => {
+            const kind = REMINDER_KIND[reminder.kind];
+            const state = deadlineState(reminder.fireOn, kind.prefix);
+            return (
+              <ListItem
+                key={reminder.id}
+                title={purchaseTitle.get(reminder.purchaseId) ?? kind.title}
+                subtitle={kind.title}
+                detail={
+                  state ? `${state.label} · ${state.detail}` : reminder.fireOn
+                }
+                divider={index < attention.length - 1}
+                leading={<IconTile icon={kind.icon} tone={kind.tone} />}
+                trailing={
+                  state?.urgent ? (
+                    <StatusPill label="Soon" tone="warning" />
+                  ) : undefined
+                }
+                onPress={() =>
+                  router.push({
+                    pathname: "/purchase/[id]",
+                    params: { id: reminder.purchaseId },
+                  })
+                }
+              />
+            );
+          })}
+        </View>
+      )}
+
+      <SectionHeading
+        title="Recent purchases"
+        actionLabel={purchases.length ? "View all" : undefined}
+        onAction={() => router.push("/(tabs)/purchases")}
+      />
+      {recent.isLoading ? (
+        <View style={{ gap: tokens.spacing.sm }}>
+          <Skeleton height={72} />
+          <Skeleton height={72} />
+          <Skeleton height={72} />
+        </View>
+      ) : purchases.length === 0 ? (
+        <EmptyState
+          icon="receipt-outline"
+          title="Your purchases will live here"
+          message="Add one with or without a receipt, then fill in protection details when you have them."
+          action={{
+            label: "Add a purchase",
+            onPress: () => router.push("/purchase/new"),
+          }}
+        />
+      ) : (
+        <View>
+          {purchases.map((purchase, index) => {
+            const status = deliveryDisplay(purchase.deliveryStatus);
+            const date = formatDate(purchase.purchaseDate);
+            return (
+              <ListItem
+                key={purchase.id}
+                title={purchase.title}
+                subtitle={[purchase.merchant, date ? `Purchased ${date}` : null]
+                  .filter(Boolean)
+                  .join(" • ")}
+                divider={index < purchases.length - 1}
+                leading={
+                  <IconTile
+                    icon={categoryIcon(purchase.category)}
+                    tone="neutral"
+                  />
+                }
+                trailing={
+                  <StatusPill label={status.label} tone={status.tone} />
+                }
+                onPress={() =>
+                  router.push({
+                    pathname: "/purchase/[id]",
+                    params: { id: purchase.id },
+                  })
+                }
+              />
+            );
+          })}
+        </View>
+      )}
     </ScreenScroll>
   );
 }
 
-function HeaderIconButton({
+function SectionHeading({
+  title,
+  actionLabel,
+  onAction,
+}: {
+  title: string;
+  actionLabel?: string | undefined;
+  onAction: () => void;
+}) {
+  const { tokens } = useTheme();
+  return (
+    <View style={styles.sectionHeading}>
+      <AppText role="title">{title}</AppText>
+      {actionLabel ? (
+        <Pressable
+          onPress={onAction}
+          accessibilityRole="button"
+          style={({ pressed }) => ({
+            minHeight: 48,
+            justifyContent: "center",
+            opacity: pressed ? 0.7 : 1,
+          })}
+        >
+          <AppText role="subheadline" tone="accent" weight="700">
+            {actionLabel}
+          </AppText>
+        </Pressable>
+      ) : (
+        <View style={{ height: tokens.spacing.xs }} />
+      )}
+    </View>
+  );
+}
+
+function SecondaryAction({
   icon,
   label,
   onPress,
 }: {
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: "camera" | "claims";
   label: string;
   onPress: () => void;
 }) {
@@ -310,128 +273,46 @@ function HeaderIconButton({
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={label}
-      hitSlop={6}
       style={({ pressed }) => [
-        styles.iconButton,
+        styles.secondaryAction,
         {
-          backgroundColor: tokens.colors.surface,
-          borderColor: tokens.colors.border,
-          ...tokens.shadow.raised,
+          borderColor: tokens.colors.outline,
+          borderRadius: tokens.radius.md,
+          opacity: pressed ? 0.78 : 1,
         },
-        pressed && { opacity: 0.8 },
       ]}
     >
-      <Ionicons name={icon} size={20} color={tokens.colors.text} />
+      <AppIcon name={icon} size={20} color={tokens.colors.primary} />
+      <AppText role="subheadline" weight="700">
+        {label}
+      </AppText>
     </Pressable>
   );
 }
 
-function SummaryCard({
-  icon,
-  tone,
-  title,
-  subtitle,
-  onPress,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  tone: "accent" | "success";
-  title: string;
-  subtitle: string | null;
-  onPress: () => void;
-}) {
-  const { tokens } = useTheme();
-  return (
-    <SectionCard onPress={onPress}>
-      <View style={styles.summaryRow}>
-        <View style={[styles.summaryLeft, { gap: tokens.spacing.md + 2 }]}>
-          <IconTile icon={icon} tone={tone} />
-          <View style={{ gap: 2, flex: 1 }}>
-            <Text
-              style={{
-                color: tokens.colors.text,
-                fontSize: tokens.type.body.fontSize,
-                fontWeight: "700",
-              }}
-            >
-              {title}
-            </Text>
-            {subtitle === null ? (
-              <Skeleton width="50%" height={14} />
-            ) : (
-              <Text
-                style={{
-                  color: tokens.colors.textMuted,
-                  fontSize: tokens.type.bodySmall.fontSize,
-                }}
-              >
-                {subtitle}
-              </Text>
-            )}
-          </View>
-        </View>
-        <Ionicons
-          name="chevron-forward"
-          size={20}
-          color={tokens.colors.icon}
-          accessibilityElementsHidden
-          importantForAccessibility="no-hide-descendants"
-        />
-      </View>
-    </SectionCard>
-  );
-}
-
 const styles = StyleSheet.create({
-  headerRow: {
+  secondaryActions: { flexDirection: "row" },
+  secondaryAction: {
+    flex: 1,
+    minHeight: 48,
+    borderWidth: 1,
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  greetingBlock: { flex: 1 },
-  greeting: {
-    fontWeight: "800",
-    letterSpacing: -0.6,
-  },
-  actionButtons: {
-    flexDirection: "row",
-    gap: 10,
-  },
-  iconButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: StyleSheet.hairlineWidth,
     alignItems: "center",
     justifyContent: "center",
+    gap: 8,
+    paddingHorizontal: 12,
   },
-  summaryRow: {
+  sectionHeading: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
-  summaryLeft: {
+  quietState: {
+    minHeight: 76,
     flexDirection: "row",
     alignItems: "center",
-    flex: 1,
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  sectionTitle: {
-    fontWeight: "800",
-    letterSpacing: -0.3,
-  },
-  actionsGrid: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  actionItem: {
-    flex: 1,
-    alignItems: "center",
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 6,
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
 });

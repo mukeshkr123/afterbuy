@@ -2,12 +2,7 @@ import { env } from "cloudflare:test";
 import { createApp } from "../src/app";
 import type { Env } from "../src/env";
 
-import sql0 from "../../../packages/db/drizzle/0000_initial.sql?raw";
-import sql1 from "../../../packages/db/drizzle/0001_fearless_professor_monster.sql?raw";
-import sql2 from "../../../packages/db/drizzle/0002_zippy_quicksilver.sql?raw";
-import sql3 from "../../../packages/db/drizzle/0003_fair_peter_parker.sql?raw";
-import sql4 from "../../../packages/db/drizzle/0004_sloppy_ghost_rider.sql?raw";
-import sql5 from "../../../packages/db/drizzle/0005_tough_the_anarchist.sql?raw";
+import sqlLaunchBaseline from "../../../packages/db/drizzle/0000_launch_baseline.sql?raw";
 
 let initPromise: Promise<void> | null = null;
 
@@ -34,7 +29,7 @@ function makeIdempotent(sql: string): string {
 export function initTestDb(): Promise<void> {
   if (!initPromise) {
     initPromise = (async () => {
-      const migrations = [sql0, sql1, sql2, sql3, sql4, sql5];
+      const migrations = [sqlLaunchBaseline];
       for (const sql of migrations) {
         const statements = sql.split("--> statement-breakpoint");
         for (const stmt of statements) {

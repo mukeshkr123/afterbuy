@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import {
+  AppText,
   Button,
   Dialog,
   EmptyState,
@@ -10,7 +11,6 @@ import {
   IconTile,
   ListItem,
   Money,
-  ScreenHeader,
   ScreenScroll,
   SectionCard,
   Skeleton,
@@ -29,6 +29,7 @@ import {
   deliveryDisplay,
   formatDate,
 } from "@/lib/purchaseDisplay";
+import type { PurchaseDetailResponse } from "@acme/shared";
 
 export default function PurchaseDetailScreen() {
   const api = useApi();
@@ -75,33 +76,40 @@ export default function PurchaseDetailScreen() {
     onError: (e) => setError(fromCaught(e)),
   });
 
-  const p = detail.data;
+  const p: PurchaseDetailResponse | undefined = detail.data;
 
-  const header = (
-    <ScreenHeader
-      title="Order Details"
-      action={
-        p
-          ? {
-              icon: "create-outline",
-              label: "Edit order",
-              onPress: () =>
-                router.push({
-                  pathname: "/purchase/[id]/edit",
-                  params: { id: id ?? "" },
-                }),
-            }
-          : undefined
-      }
-    />
-  );
+  const headerOptions = {
+    headerShown: true,
+    title: p?.title ?? "Purchase",
+    headerRight: () =>
+      p ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Edit purchase"
+          onPress={() =>
+            router.push({
+              pathname: "/purchase/[id]/edit",
+              params: { id: id ?? "" },
+            })
+          }
+          style={({ pressed }) => ({
+            minHeight: 48,
+            justifyContent: "center",
+            opacity: pressed ? 0.7 : 1,
+          })}
+        >
+          <AppText role="subheadline" tone="accent" weight="700">
+            Edit
+          </AppText>
+        </Pressable>
+      ) : null,
+  } as const;
 
   if (detail.isLoading) {
     return (
       <>
-        <Stack.Screen options={{ headerShown: false }} />
-        <ScreenScroll gap={tokens.spacing.lg + 2}>
-          {header}
+        <Stack.Screen options={headerOptions} />
+        <ScreenScroll gap={tokens.spacing.lg + 2} safeTop={false}>
           <Skeleton height={104} />
           <Skeleton height={96} />
           <Skeleton height={160} />
@@ -113,17 +121,16 @@ export default function PurchaseDetailScreen() {
   if (!p) {
     return (
       <>
-        <Stack.Screen options={{ headerShown: false }} />
-        <ScreenScroll gap={tokens.spacing.lg + 2}>
-          {header}
+        <Stack.Screen options={headerOptions} />
+        <ScreenScroll gap={tokens.spacing.lg + 2} safeTop={false}>
           <SectionCard>
             <EmptyState
               icon="alert-circle-outline"
-              title="Order not available"
+              title="Purchase not available"
               message={
                 detail.isError
-                  ? "We couldn't load this order. Check your connection and try again."
-                  : "This order no longer exists."
+                  ? "We couldn't load this purchase. Check your connection and try again."
+                  : "This purchase no longer exists."
               }
               action={{
                 label: "Try again",
@@ -141,14 +148,22 @@ export default function PurchaseDetailScreen() {
   const warranty = deadlineState(p.warrantyExpiresAt, "Valid till");
   const returnWindow = deadlineState(p.returnDeadlineAt, "Eligible till");
   const receiptCount = p.receipts.length;
+  const nextDeadline = [
+    p.returnDeadlineAt && returnWindow
+      ? { date: p.returnDeadlineAt, title: "Return window", ...returnWindow }
+      : null,
+    p.warrantyExpiresAt && warranty
+      ? { date: p.warrantyExpiresAt, title: "Warranty", ...warranty }
+      : null,
+  ]
+    .filter((item): item is NonNullable<typeof item> => Boolean(item))
+    .filter((item) => !item.expired)
+    .sort((a, b) => a.date.localeCompare(b.date))[0];
 
   return (
     <>
-      <Stack.Screen options={{ headerShown: false }} />
-
-      <ScreenScroll gap={tokens.spacing.lg + 2}>
-        {header}
-
+      <Stack.Screen options={headerOptions} />
+      <ScreenScroll gap={tokens.spacing.lg + 2} safeTop={false}>
         <SectionCard>
           <View style={[styles.productRow, { gap: tokens.spacing.lg }]}>
             <IconTile
@@ -182,8 +197,31 @@ export default function PurchaseDetailScreen() {
           </View>
         </SectionCard>
 
-        {/* Merchant / order metadata. Every row is omitted when the server has
-            no value — this block used to invent an order number. */}
+        {nextDeadline ? (
+          <View
+            style={[
+              styles.deadline,
+              {
+                backgroundColor: nextDeadline.urgent
+                  ? tokens.colors.warningSoft
+                  : tokens.colors.accentSoft,
+                borderRadius: tokens.radius.md,
+              },
+            ]}
+          >
+            <AppText role="caption" tone="subtle" weight="700">
+              Next deadline
+            </AppText>
+            <AppText role="headline">
+              {nextDeadline.title} · {nextDeadline.label}
+            </AppText>
+            <AppText role="subheadline" tone="subtle">
+              {nextDeadline.detail}
+            </AppText>
+          </View>
+        ) : null}
+
+        {/* Purchase metadata. Every row is omitted when the server has no value. */}
         {p.merchant || p.orderNumber || purchasedOn || p.trackingNumber ? (
           <SectionCard
             onPress={
@@ -216,7 +254,7 @@ export default function PurchaseDetailScreen() {
                       fontSize: tokens.type.bodySmall.fontSize,
                     }}
                   >
-                    Order ID:{" "}
+                    Purchase reference:{" "}
                     <Text style={{ color: tokens.colors.text }}>
                       {p.orderNumber}
                     </Text>
@@ -229,7 +267,7 @@ export default function PurchaseDetailScreen() {
                       fontSize: tokens.type.bodySmall.fontSize,
                     }}
                   >
-                    Ordered on {purchasedOn}
+                    Purchased on {purchasedOn}
                   </Text>
                 ) : null}
                 {p.trackingNumber ? (
@@ -304,7 +342,7 @@ export default function PurchaseDetailScreen() {
 
         <SectionCard flush>
           <ListItem
-            title="Bill & Documents"
+            title="Receipts"
             subtitle={
               receiptCount === 0
                 ? "No receipt attached"
@@ -350,7 +388,7 @@ export default function PurchaseDetailScreen() {
         <FormError message={error.message} />
 
         <Button
-          label="Delete Order"
+          label="Delete Purchase"
           variant="ghost"
           onPress={() => setConfirmDelete(true)}
         />
@@ -395,5 +433,10 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontWeight: "700",
+  },
+  deadline: {
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 2,
   },
 });

@@ -192,3 +192,85 @@ export const devices = sqliteTable(
 
 export type DeviceRow = typeof devices.$inferSelect;
 export type NewDeviceRow = typeof devices.$inferInsert;
+
+export const idempotencyKeys = sqliteTable(
+  "idempotency_keys",
+  {
+    key: text("key").primaryKey(),
+    userId: text("user_id").notNull(),
+    path: text("path").notNull(),
+    requestHash: text("request_hash").notNull(),
+    status: text("status", { enum: ["processing", "completed"] }).notNull(),
+    responseCode: integer("response_code"),
+    responseBody: text("response_body"),
+    createdAt: text("created_at").notNull(),
+    expiresAt: text("expires_at").notNull(),
+  },
+  (table) => ({
+    userKeyIdx: index("idempotency_keys_user_id_key_idx").on(
+      table.userId,
+      table.key
+    ),
+    expiresIdx: index("idempotency_keys_expires_at_idx").on(table.expiresAt),
+  })
+);
+
+export type IdempotencyKeyRow = typeof idempotencyKeys.$inferSelect;
+export type NewIdempotencyKeyRow = typeof idempotencyKeys.$inferInsert;
+
+export const reminderDeliveries = sqliteTable(
+  "reminder_deliveries",
+  {
+    id: text("id").primaryKey(),
+    reminderId: text("reminder_id")
+      .notNull()
+      .references(() => reminders.id),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id),
+    scheduledForDate: text("scheduled_for_date").notNull(),
+    status: text("status", { enum: ["pending", "sent", "failed"] })
+      .notNull()
+      .default("pending"),
+    errorReason: text("error_reason"),
+    sentAt: text("sent_at"),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => ({
+    reminderScheduledIdx: index(
+      "reminder_deliveries_reminder_scheduled_idx"
+    ).on(table.reminderId, table.scheduledForDate),
+    userStatusIdx: index("reminder_deliveries_user_status_idx").on(
+      table.userId,
+      table.status
+    ),
+  })
+);
+
+export type ReminderDeliveryRow = typeof reminderDeliveries.$inferSelect;
+export type NewReminderDeliveryRow = typeof reminderDeliveries.$inferInsert;
+
+export const accountDeletionJobs = sqliteTable(
+  "account_deletion_jobs",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id").notNull(),
+    clerkUserId: text("clerk_user_id").notNull(),
+    status: text("status", {
+      enum: ["pending", "processing", "completed", "failed"],
+    })
+      .notNull()
+      .default("pending"),
+    attempts: integer("attempts").notNull().default(0),
+    lastError: text("last_error"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => ({
+    userIdx: index("account_deletion_jobs_user_id_idx").on(table.userId),
+    statusIdx: index("account_deletion_jobs_status_idx").on(table.status),
+  })
+);
+
+export type AccountDeletionJobRow = typeof accountDeletionJobs.$inferSelect;
+export type NewAccountDeletionJobRow = typeof accountDeletionJobs.$inferInsert;

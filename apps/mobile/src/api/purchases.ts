@@ -8,6 +8,7 @@ import {
   type PurchaseListResponse,
   type UpdatePurchaseRequest,
 } from "@acme/shared";
+import { z } from "zod";
 import type { ApiRequest } from "./client";
 
 export interface ListPurchasesQuery {
@@ -79,7 +80,7 @@ export async function deletePurchase(
   await api({
     method: "DELETE",
     path: `/v1/purchases/${encodeURIComponent(id)}`,
-    schema: purchaseDetailResponseSchema.passthrough(),
+    schema: z.void(),
   });
 }
 

@@ -1,26 +1,35 @@
-import { useInfiniteQuery } from "@tanstack/react-query";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import {
   PURCHASE_CATEGORIES,
   PURCHASE_DELIVERY_STATUSES,
   type PurchaseCategory,
   type PurchaseDeliveryStatus,
 } from "@acme/shared";
+import { useInfiniteQuery } from "@tanstack/react-query";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import React, { useMemo, useState } from "react";
 import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  TextInput,
+  View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  AppIcon,
+  AppText,
   Button,
   EmptyState,
   IconTile,
   ListItem,
   Money,
-  ScreenHeader,
-  ScreenScroll,
-  SectionCard,
+  SelectionField,
   Sheet,
   SkeletonGroup,
   StatusPill,
+  useAdaptiveLayout,
 } from "@/components";
 import { useApi } from "@/api/ApiProvider";
 import { apiKeys } from "@/api/apiKeys";
@@ -41,11 +50,11 @@ export default function PurchasesScreen() {
   const api = useApi();
   const router = useRouter();
   const { tokens } = useTheme();
-
+  const insets = useSafeAreaInsets();
+  const { contentWidth } = useAdaptiveLayout();
   const searchParams = useLocalSearchParams<{ q?: string }>();
   const [qInput, setQInput] = useState(searchParams.q ?? "");
   const debouncedQ = useDebouncedValue(qInput, 300);
-
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [category, setCategory] = useState<CategoryFilter>("all");
   const [status, setStatus] = useState<StatusFilter>("all");
@@ -59,7 +68,6 @@ export default function PurchasesScreen() {
     category: category === "all" ? undefined : category,
     deliveryStatus: status === "all" ? undefined : status,
   };
-
   const list = useInfiniteQuery({
     queryKey: apiKeys.purchases.list(params),
     queryFn: ({ pageParam }) =>
@@ -67,312 +75,282 @@ export default function PurchasesScreen() {
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => last.nextCursor ?? undefined,
   });
-
-  // The server already applies `q`, `category` and `deliveryStatus`. Filtering
-  // again on the client would silently hide rows from later pages.
   const items = useMemo(
-    () => list.data?.pages.flatMap((p) => p.items) ?? [],
+    () => list.data?.pages.flatMap((page) => page.items) ?? [],
     [list.data]
   );
-
   const searching = Boolean(debouncedQ) || activeFilters > 0;
+
+  const clearFilters = () => {
+    setQInput("");
+    setCategory("all");
+    setStatus("all");
+  };
 
   return (
     <>
-      <ScreenScroll
-        gap={tokens.spacing.lg + 2}
-        refreshing={list.isRefetching}
-        onRefresh={() => void list.refetch()}
-      >
-        <ScreenHeader
-          title="All Orders"
-          // A tab root has nothing to go back to.
-          showBack={false}
-          action={{
-            icon: "add",
-            label: "Add order",
-            onPress: () => router.push("/purchase/new"),
+      <View style={{ flex: 1, backgroundColor: tokens.colors.canvas }}>
+        <FlatList
+          data={items}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={{
+            width: "100%",
+            maxWidth: contentWidth,
+            alignSelf: "center",
+            paddingBottom: Math.max(insets.bottom + 88, 112),
+            flexGrow: items.length === 0 ? 1 : undefined,
           }}
-        />
-
-        <View style={[styles.controlsRow, { gap: tokens.spacing.md }]}>
-          <View
-            style={[
-              styles.searchBox,
-              {
-                backgroundColor: tokens.colors.surfaceMuted,
-                borderRadius: tokens.radius.lg,
-                paddingHorizontal: tokens.spacing.md + 2,
-                gap: tokens.spacing.sm + 2,
-              },
-            ]}
-          >
-            <Ionicons
-              name="search-outline"
-              size={20}
-              color={tokens.colors.icon}
+          refreshControl={
+            <RefreshControl
+              refreshing={list.isRefetching && !list.isFetchingNextPage}
+              onRefresh={() => void list.refetch()}
+              tintColor={tokens.colors.primary}
             />
-            <TextInput
-              value={qInput}
-              onChangeText={setQInput}
-              placeholder="Search orders"
-              placeholderTextColor={tokens.colors.textMuted}
-              accessibilityLabel="Search orders"
-              autoCapitalize="none"
-              style={[
-                styles.searchInput,
-                {
-                  color: tokens.colors.text,
-                  fontSize: tokens.type.body.fontSize - 1,
-                },
-              ]}
-            />
-          </View>
-
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={
-              activeFilters > 0
-                ? `Filter, ${activeFilters} active`
-                : "Filter orders"
+          }
+          onEndReachedThreshold={0.45}
+          onEndReached={() => {
+            if (list.hasNextPage && !list.isFetchingNextPage) {
+              void list.fetchNextPage();
             }
-            onPress={() => setFiltersOpen(true)}
-            style={({ pressed }) => [
-              styles.filterButton,
-              {
-                backgroundColor:
-                  activeFilters > 0
-                    ? tokens.colors.accentSoft
-                    : tokens.colors.surfaceMuted,
-                borderRadius: tokens.radius.lg,
-                paddingHorizontal: tokens.spacing.lg,
-                gap: tokens.spacing.xs + 2,
-              },
-              pressed && { opacity: 0.8 },
-            ]}
-          >
-            <Ionicons
-              name="funnel-outline"
-              size={18}
-              color={
-                activeFilters > 0 ? tokens.colors.accent : tokens.colors.text
-              }
-            />
-            <Text
+          }}
+          stickyHeaderIndices={[0]}
+          ListHeaderComponent={
+            <View
               style={{
-                color:
-                  activeFilters > 0 ? tokens.colors.accent : tokens.colors.text,
-                fontSize: tokens.type.bodySmall.fontSize,
-                fontWeight: "600",
+                backgroundColor: tokens.colors.canvas,
+                paddingTop: Math.max(insets.top + tokens.spacing.md, 24),
+                paddingHorizontal: tokens.spacing.xl - 4,
+                paddingBottom: tokens.spacing.md,
+                gap: tokens.spacing.lg,
               }}
             >
-              {activeFilters > 0 ? `Filter (${activeFilters})` : "Filter"}
-            </Text>
-          </Pressable>
-        </View>
+              <View style={styles.titleRow}>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <AppText role="largeTitle">Purchases</AppText>
+                  <AppText role="subheadline" tone="subtle">
+                    Receipts, returns, warranties, all in one place.
+                  </AppText>
+                </View>
+                <Pressable
+                  onPress={() => router.push("/purchase/new")}
+                  accessibilityRole="button"
+                  accessibilityLabel="Add purchase"
+                  style={({ pressed }) => [
+                    styles.addButton,
+                    {
+                      backgroundColor: tokens.colors.primary,
+                      opacity: pressed ? 0.82 : 1,
+                    },
+                  ]}
+                >
+                  <AppIcon
+                    name="add"
+                    size={24}
+                    color={tokens.colors.onPrimary}
+                  />
+                </Pressable>
+              </View>
 
-        {list.isLoading ? (
-          <SkeletonGroup count={5} gap={tokens.spacing.md} />
-        ) : items.length === 0 ? (
-          <SectionCard>
-            <EmptyState
-              icon={searching ? "search-outline" : "receipt-outline"}
-              title={searching ? "No matching orders" : "No orders yet"}
-              message={
-                searching
-                  ? "Try a different search term, or clear your filters."
-                  : "Add your first purchase to start tracking returns and warranties."
-              }
-              action={
-                searching
-                  ? {
-                      label: "Clear filters",
-                      onPress: () => {
-                        setQInput("");
-                        setCategory("all");
-                        setStatus("all");
-                      },
+              <View style={[styles.controlsRow, { gap: tokens.spacing.sm }]}>
+                <View
+                  style={[
+                    styles.searchBox,
+                    {
+                      backgroundColor: tokens.colors.surfaceMuted,
+                      borderRadius: tokens.radius.md,
+                      paddingHorizontal: tokens.spacing.md,
+                      gap: tokens.spacing.sm,
+                    },
+                  ]}
+                >
+                  <AppIcon name="search" size={20} color={tokens.colors.icon} />
+                  <TextInput
+                    value={qInput}
+                    onChangeText={setQInput}
+                    placeholder="Search purchases"
+                    placeholderTextColor={tokens.colors.textMuted}
+                    accessibilityLabel="Search purchases"
+                    autoCapitalize="none"
+                    returnKeyType="search"
+                    style={{
+                      flex: 1,
+                      height: "100%",
+                      color: tokens.colors.text,
+                      fontSize: tokens.type.body.fontSize,
+                    }}
+                  />
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    activeFilters
+                      ? `Filters, ${activeFilters} active`
+                      : "Filter purchases"
+                  }
+                  onPress={() => setFiltersOpen(true)}
+                  style={({ pressed }) => [
+                    styles.filterButton,
+                    {
+                      backgroundColor:
+                        activeFilters > 0
+                          ? tokens.colors.accentSoft
+                          : tokens.colors.surfaceMuted,
+                      borderRadius: tokens.radius.md,
+                      opacity: pressed ? 0.82 : 1,
+                    },
+                  ]}
+                >
+                  <AppIcon
+                    name="filter"
+                    size={21}
+                    color={
+                      activeFilters > 0
+                        ? tokens.colors.primary
+                        : tokens.colors.text
                     }
-                  : {
-                      label: "Add an order",
-                      onPress: () => router.push("/purchase/new"),
-                    }
-              }
-            />
-          </SectionCard>
-        ) : (
-          <SectionCard flush>
-            {items.map((item, idx) => {
-              const badge = deliveryDisplay(item.deliveryStatus);
-              const date = formatDate(item.purchaseDate);
-              return (
-                <ListItem
-                  key={item.id}
-                  title={item.title}
-                  subtitle={
-                    [item.merchant, date].filter(Boolean).join(" • ") || null
+                  />
+                  {activeFilters > 0 ? (
+                    <AppText role="caption" tone="accent" weight="700">
+                      {activeFilters}
+                    </AppText>
+                  ) : null}
+                </Pressable>
+              </View>
+            </View>
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyWrap}>
+              {list.isLoading ? (
+                <SkeletonGroup count={6} gap={tokens.spacing.sm} />
+              ) : (
+                <EmptyState
+                  icon={searching ? "search-outline" : "receipt-outline"}
+                  title={
+                    searching ? "No matching purchases" : "No purchases yet"
                   }
-                  divider={idx < items.length - 1}
-                  leading={
-                    <IconTile
-                      icon={categoryIcon(item.category)}
-                      tone="neutral"
-                    />
+                  message={
+                    searching
+                      ? "Try another search or clear the active filters."
+                      : "Add a purchase to keep its receipt, return window, and warranty together."
                   }
-                  trailing={
-                    <View style={styles.trailing}>
-                      <StatusPill label={badge.label} tone={badge.tone} />
-                      <Money
-                        amountMinor={item.amountMinor}
-                        currency={item.currency}
-                        emphasis="strong"
-                        style={{ fontSize: tokens.type.bodySmall.fontSize }}
-                      />
-                    </View>
-                  }
-                  onPress={() =>
-                    router.push({
-                      pathname: "/purchase/[id]",
-                      params: { id: item.id },
-                    })
-                  }
+                  action={{
+                    label: searching ? "Clear filters" : "Add a purchase",
+                    onPress: searching
+                      ? clearFilters
+                      : () => router.push("/purchase/new"),
+                  }}
                 />
-              );
-            })}
-          </SectionCard>
-        )}
-
-        {list.hasNextPage ? (
-          <Button
-            label={list.isFetchingNextPage ? "Loading…" : "Load more"}
-            variant="secondary"
-            disabled={list.isFetchingNextPage}
-            onPress={() => void list.fetchNextPage()}
-          />
-        ) : null}
-      </ScreenScroll>
+              )}
+            </View>
+          }
+          ItemSeparatorComponent={() => (
+            <View
+              style={{
+                height: StyleSheet.hairlineWidth,
+                marginLeft: 76,
+                backgroundColor: tokens.colors.border,
+              }}
+            />
+          )}
+          renderItem={({ item }) => {
+            const badge = deliveryDisplay(item.deliveryStatus);
+            const date = formatDate(item.purchaseDate);
+            return (
+              <ListItem
+                title={item.title}
+                subtitle={
+                  [item.merchant, date].filter(Boolean).join(" • ") || null
+                }
+                divider={false}
+                leading={
+                  <IconTile icon={categoryIcon(item.category)} tone="neutral" />
+                }
+                trailing={
+                  <View style={styles.trailing}>
+                    <StatusPill label={badge.label} tone={badge.tone} />
+                    <Money
+                      amountMinor={item.amountMinor}
+                      currency={item.currency}
+                      emphasis="strong"
+                      style={{ fontSize: tokens.type.caption.fontSize }}
+                    />
+                  </View>
+                }
+                onPress={() =>
+                  router.push({
+                    pathname: "/purchase/[id]",
+                    params: { id: item.id },
+                  })
+                }
+              />
+            );
+          }}
+          ListFooterComponent={
+            list.isFetchingNextPage ? (
+              <ActivityIndicator
+                color={tokens.colors.primary}
+                style={{ padding: tokens.spacing.xl }}
+                accessibilityLabel="Loading more purchases"
+              />
+            ) : null
+          }
+        />
+      </View>
 
       <Sheet visible={filtersOpen} onRequestClose={() => setFiltersOpen(false)}>
         <View style={{ gap: tokens.spacing.lg }}>
-          <Text
-            style={{
-              color: tokens.colors.text,
-              fontSize: tokens.type.title.fontSize,
-              fontWeight: "700",
-            }}
-          >
-            Filter orders
-          </Text>
-
-          <FilterGroup
+          <AppText role="title">Filter purchases</AppText>
+          <SelectionField
             label="Category"
             value={category}
             options={[
               { value: "all" as const, label: "All categories" },
-              ...PURCHASE_CATEGORIES.map((c) => ({
-                value: c,
-                label: categoryLabel(c),
+              ...PURCHASE_CATEGORIES.map((value) => ({
+                value,
+                label: categoryLabel(value),
               })),
             ]}
             onChange={setCategory}
           />
-
-          <FilterGroup
+          <SelectionField
             label="Delivery status"
             value={status}
             options={[
               { value: "all" as const, label: "Any status" },
-              ...PURCHASE_DELIVERY_STATUSES.map((s) => ({
-                value: s,
-                label: deliveryDisplay(s).label,
+              ...PURCHASE_DELIVERY_STATUSES.map((value) => ({
+                value,
+                label: deliveryDisplay(value).label,
               })),
             ]}
             onChange={setStatus}
           />
-
-          <View style={{ gap: tokens.spacing.sm }}>
-            <Button label="Done" onPress={() => setFiltersOpen(false)} />
-            {activeFilters > 0 ? (
-              <Button
-                label="Clear filters"
-                variant="ghost"
-                onPress={() => {
-                  setCategory("all");
-                  setStatus("all");
-                }}
-              />
-            ) : null}
-          </View>
+          <Button label="Done" onPress={() => setFiltersOpen(false)} />
+          {activeFilters > 0 ? (
+            <Button
+              label="Clear filters"
+              variant="ghost"
+              onPress={clearFilters}
+            />
+          ) : null}
         </View>
       </Sheet>
     </>
   );
 }
 
-function FilterGroup<T extends string>({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string;
-  value: T;
-  options: ReadonlyArray<{ value: T; label: string }>;
-  onChange: (next: T) => void;
-}) {
-  const { tokens } = useTheme();
-  return (
-    <View style={{ gap: tokens.spacing.sm }}>
-      <Text
-        style={{
-          color: tokens.colors.textMuted,
-          fontSize: tokens.type.bodySmall.fontSize,
-          fontWeight: "600",
-        }}
-      >
-        {label}
-      </Text>
-      <View style={[styles.chipWrap, { gap: tokens.spacing.sm }]}>
-        {options.map((o) => {
-          const selected = o.value === value;
-          return (
-            <Pressable
-              key={o.value}
-              accessibilityRole="button"
-              accessibilityState={{ selected }}
-              onPress={() => onChange(o.value)}
-              style={({ pressed }) => [
-                styles.chip,
-                {
-                  backgroundColor: selected
-                    ? tokens.colors.accent
-                    : tokens.colors.surfaceMuted,
-                  borderRadius: tokens.radius.pill,
-                  paddingHorizontal: tokens.spacing.md + 2,
-                },
-                pressed && { opacity: 0.8 },
-              ]}
-            >
-              <Text
-                style={{
-                  color: selected
-                    ? tokens.colors.accentText
-                    : tokens.colors.text,
-                  fontSize: tokens.type.bodySmall.fontSize,
-                  fontWeight: "600",
-                }}
-              >
-                {o.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+  },
+  addButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   controlsRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -383,25 +361,23 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
-  searchInput: {
-    flex: 1,
-    height: "100%",
-  },
   filterButton: {
+    minWidth: 48,
     height: 48,
+    paddingHorizontal: 12,
     flexDirection: "row",
+    gap: 4,
     alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyWrap: {
+    flex: 1,
+    justifyContent: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 40,
   },
   trailing: {
     alignItems: "flex-end",
-    gap: 4,
-  },
-  chipWrap: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-  },
-  chip: {
-    minHeight: 36,
-    justifyContent: "center",
+    gap: 5,
   },
 });

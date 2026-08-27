@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import type { ClaimType } from "@acme/shared";
+import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import type { ClaimType, PurchaseListResponse } from "@acme/shared";
 import {
   Button,
   EmptyState,
@@ -10,10 +11,10 @@ import {
   IconTile,
   Input,
   ListItem,
-  ScreenHeader,
   ScreenScroll,
   SectionCard,
   SkeletonGroup,
+  useAdaptiveLayout,
 } from "@/components";
 import { useApi } from "@/api/ApiProvider";
 import { apiKeys } from "@/api/apiKeys";
@@ -59,7 +60,7 @@ export default function NewClaimScreen() {
 
   const mutation = useMutation({
     mutationFn: () => {
-      if (!purchaseId) throw new Error("Choose an order first.");
+      if (!purchaseId) throw new Error("Choose a purchase first.");
       return createClaim(api, {
         purchaseId,
         type,
@@ -80,10 +81,7 @@ export default function NewClaimScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ headerShown: false }} />
-      <ScreenScroll gap={tokens.spacing.lg + 2}>
-        <ScreenHeader title="File a Claim" />
-
+      <ScreenScroll gap={tokens.spacing.lg + 2} safeTop={false}>
         <SectionCard>
           {purchase.isLoading ? (
             <SkeletonGroup count={2} />
@@ -122,7 +120,7 @@ export default function NewClaimScreen() {
             </View>
           ) : (
             <Text style={{ color: tokens.colors.textMuted }}>
-              Could not load that order.
+              Could not load that purchase.
             </Text>
           )}
         </SectionCard>
@@ -208,78 +206,95 @@ export default function NewClaimScreen() {
 
 /**
  * Reached when the screen is opened without a purchaseId — a claim always
- * belongs to an order, so ask which one.
+ * belongs to a purchase, so ask which one.
  */
 function ChooseOrder() {
   const api = useApi();
   const router = useRouter();
   const { tokens } = useTheme();
+  const insets = useSafeAreaInsets();
+  const { contentWidth } = useAdaptiveLayout();
 
   const list = useQuery({
     queryKey: apiKeys.purchases.list({ sort: "createdAt", limit: 50 }),
     queryFn: () => listPurchases(api, { sort: "createdAt", limit: 50 }),
   });
 
-  const items = list.data?.items ?? [];
+  const items: PurchaseListResponse["items"] = list.data?.items ?? [];
 
   return (
-    <>
-      <Stack.Screen options={{ headerShown: false }} />
-      <ScreenScroll gap={tokens.spacing.lg + 2}>
-        <ScreenHeader title="File a Claim" />
-
-        <Text
-          style={{
-            color: tokens.colors.textMuted,
-            fontSize: tokens.type.body.fontSize,
-            lineHeight: tokens.type.body.lineHeight,
-          }}
-        >
-          Which order is this claim about?
-        </Text>
-
-        {list.isLoading ? (
-          <SkeletonGroup count={5} gap={tokens.spacing.md} />
-        ) : items.length === 0 ? (
-          <SectionCard>
-            <EmptyState
-              icon="receipt-outline"
-              title="No orders yet"
-              message="Add a purchase before filing a claim against it."
-              action={{
-                label: "Add an order",
-                onPress: () => router.push("/purchase/new"),
-              }}
-            />
-          </SectionCard>
-        ) : (
-          <SectionCard flush>
-            {items.map((item, idx) => (
-              <ListItem
-                key={item.id}
-                title={item.title}
-                subtitle={
-                  [item.merchant, formatDate(item.purchaseDate)]
-                    .filter(Boolean)
-                    .join(" • ") || null
-                }
-                divider={idx < items.length - 1}
-                leading={
-                  <IconTile icon={categoryIcon(item.category)} tone="neutral" />
-                }
-                chevron
-                onPress={() =>
-                  router.replace({
-                    pathname: "/claim/new",
-                    params: { purchaseId: item.id },
-                  })
-                }
+    <View style={{ flex: 1, backgroundColor: tokens.colors.canvas }}>
+      <FlatList
+        data={items}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={{
+          width: "100%",
+          maxWidth: contentWidth,
+          alignSelf: "center",
+          paddingBottom: Math.max(insets.bottom + 24, 32),
+          flexGrow: items.length === 0 ? 1 : undefined,
+        }}
+        ListHeaderComponent={
+          <Text
+            style={{
+              color: tokens.colors.textMuted,
+              fontSize: tokens.type.body.fontSize,
+              lineHeight: tokens.type.body.lineHeight,
+              padding: tokens.spacing.xl,
+            }}
+          >
+            Which purchase is this claim about?
+          </Text>
+        }
+        ListEmptyComponent={
+          <View style={{ padding: tokens.spacing.xl }}>
+            {list.isLoading ? (
+              <SkeletonGroup count={5} gap={tokens.spacing.md} />
+            ) : (
+              <EmptyState
+                icon="receipt-outline"
+                title="No purchases yet"
+                message="Add a purchase before filing a claim against it."
+                action={{
+                  label: "Add a purchase",
+                  onPress: () => router.push("/purchase/new"),
+                }}
               />
-            ))}
-          </SectionCard>
+            )}
+          </View>
+        }
+        ItemSeparatorComponent={() => (
+          <View
+            style={{
+              height: StyleSheet.hairlineWidth,
+              marginLeft: 76,
+              backgroundColor: tokens.colors.border,
+            }}
+          />
         )}
-      </ScreenScroll>
-    </>
+        renderItem={({ item }) => (
+          <ListItem
+            title={item.title}
+            subtitle={
+              [item.merchant, formatDate(item.purchaseDate)]
+                .filter(Boolean)
+                .join(" • ") || null
+            }
+            divider={false}
+            leading={
+              <IconTile icon={categoryIcon(item.category)} tone="neutral" />
+            }
+            chevron
+            onPress={() =>
+              router.replace({
+                pathname: "/claim/new",
+                params: { purchaseId: item.id },
+              })
+            }
+          />
+        )}
+      />
+    </View>
   );
 }
 

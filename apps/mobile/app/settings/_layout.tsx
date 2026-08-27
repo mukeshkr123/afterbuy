@@ -8,8 +8,16 @@ export default function SettingsLayout() {
       screenOptions={{
         headerStyle: { backgroundColor: tokens.colors.surface },
         headerTintColor: tokens.colors.text,
-        contentStyle: { backgroundColor: tokens.colors.bg },
+        headerShadowVisible: false,
+        headerBackTitle: "Settings",
+        headerTitleStyle: { fontWeight: "700" },
+        contentStyle: { backgroundColor: tokens.colors.canvas },
       }}
-    />
+    >
+      <Stack.Screen name="index" options={{ title: "Settings" }} />
+      <Stack.Screen name="lead-days" options={{ title: "Reminder Timing" }} />
+      <Stack.Screen name="timezone" options={{ title: "Time Zone" }} />
+      <Stack.Screen name="permissions" options={{ title: "Permissions" }} />
+    </Stack>
   );
 }

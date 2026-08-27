@@ -3,12 +3,16 @@ import { StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/theme/ThemeProvider";
 
-export function OnboardingHubIllustration() {
+export function OnboardingHubIllustration({
+  compact = false,
+}: {
+  compact?: boolean;
+}) {
   const { tokens, isDark } = useTheme();
   const isLight = !isDark;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, compact && styles.compact]}>
       {/* Subtle lavender ambient shape */}
       <View
         style={[
@@ -201,6 +205,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     position: "relative",
+  },
+  compact: {
+    transform: [{ scale: 0.72 }],
   },
   ambientGlow: {
     position: "absolute",

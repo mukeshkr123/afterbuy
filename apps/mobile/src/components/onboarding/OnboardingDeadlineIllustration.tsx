@@ -3,12 +3,16 @@ import { StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/theme/ThemeProvider";
 
-export function OnboardingDeadlineIllustration() {
+export function OnboardingDeadlineIllustration({
+  compact = false,
+}: {
+  compact?: boolean;
+}) {
   const { tokens, isDark } = useTheme();
   const isLight = !isDark;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, compact && styles.compact]}>
       {/* Subtle ambient glow */}
       <View
         style={[
@@ -115,7 +119,7 @@ export function OnboardingDeadlineIllustration() {
                 <Text
                   style={[styles.stepDate, { color: tokens.colors.textMuted }]}
                 >
-                  Oct 28 · Amazon Order #1049
+                  Oct 28 · Amazon purchase #1049
                 </Text>
               </View>
             </View>
@@ -195,6 +199,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     position: "relative",
+  },
+  compact: {
+    transform: [{ scale: 0.72 }],
   },
   ambientGlow: {
     position: "absolute",

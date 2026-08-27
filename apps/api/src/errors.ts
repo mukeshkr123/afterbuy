@@ -3,7 +3,7 @@ import { apiErrorResponseSchema, type ApiErrorCode } from "@acme/shared";
 import { getRequestId } from "./logging";
 
 export type ApiErrorStatus =
-  400 | 401 | 403 | 404 | 409 | 422 | 429 | 500 | 503;
+  400 | 401 | 403 | 404 | 409 | 410 | 422 | 429 | 500 | 503;
 
 export interface ApiErrorOptions {
   fields?: Record<string, string>;

@@ -1,10 +1,8 @@
-import { useEffect, useState, type ReactNode } from "react";
-import { Modal, Pressable, StyleSheet, View } from "react-native";
+import { BottomSheet, Host, RNHostView } from "@expo/ui";
+import type { ReactNode } from "react";
+import { KeyboardAvoidingView, Platform, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "../theme/ThemeProvider";
-
-// Lightweight bottom sheet: a Modal that slides in from the bottom. Used for
-// pickers and short option lists. Drag-to-dismiss is left to the next phase;
-// Phase 5 ships the static shape so screens can be built against it.
 
 export interface SheetProps {
   visible: boolean;
@@ -14,52 +12,33 @@ export interface SheetProps {
 
 export function Sheet({ visible, onRequestClose, children }: SheetProps) {
   const { tokens } = useTheme();
-  const [mounted, setMounted] = useState(visible);
-
-  useEffect(() => {
-    if (visible) setMounted(true);
-  }, [visible]);
+  const insets = useSafeAreaInsets();
 
   return (
-    <Modal
-      visible={visible}
-      animationType="fade"
-      transparent
-      onRequestClose={onRequestClose}
-      onShow={() => setMounted(true)}
+    <Host
+      matchContents
+      colorScheme={tokens.name}
+      seedColor={tokens.colors.primary}
     >
-      <Pressable
-        style={[styles.backdrop, { backgroundColor: "rgba(0,0,0,0.4)" }]}
-        onPress={onRequestClose}
-        accessibilityLabel="Dismiss"
+      <BottomSheet
+        isPresented={visible}
+        onDismiss={onRequestClose}
+        snapPoints={["half", "full"]}
       >
-        <Pressable
-          onPress={(e) => e.stopPropagation()}
-          style={[
-            styles.sheet,
-            {
+        <RNHostView matchContents>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            style={{
               backgroundColor: tokens.colors.surface,
-              borderTopLeftRadius: tokens.radius.lg,
-              borderTopRightRadius: tokens.radius.lg,
-              padding: tokens.spacing.lg,
-              borderColor: tokens.colors.border,
-            },
-          ]}
-        >
-          {mounted ? children : null}
-        </Pressable>
-      </Pressable>
-    </Modal>
+              paddingHorizontal: tokens.spacing.xl,
+              paddingTop: tokens.spacing.md,
+              paddingBottom: Math.max(insets.bottom, tokens.spacing.xl),
+            }}
+          >
+            <View accessibilityViewIsModal>{children}</View>
+          </KeyboardAvoidingView>
+        </RNHostView>
+      </BottomSheet>
+    </Host>
   );
 }
-
-const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    justifyContent: "flex-end",
-  },
-  sheet: {
-    borderTopWidth: 1,
-    minHeight: 120,
-  },
-});

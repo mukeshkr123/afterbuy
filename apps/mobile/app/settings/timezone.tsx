@@ -1,15 +1,17 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Stack, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import {
-  Button,
-  EmptyState,
-  ScreenHeader,
-  ScreenScroll,
-  SectionCard,
-} from "@/components";
+  FlatList,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Button, EmptyState, useAdaptiveLayout } from "@/components";
 import { useApi } from "@/api/ApiProvider";
 import { apiKeys } from "@/api/apiKeys";
 import { getMe } from "@/api/auth";
@@ -44,6 +46,8 @@ export default function TimezoneScreen() {
   const qc = useQueryClient();
   const router = useRouter();
   const { tokens } = useTheme();
+  const insets = useSafeAreaInsets();
+  const { contentWidth } = useAdaptiveLayout();
 
   const me = useQuery({ queryKey: apiKeys.me(), queryFn: () => getMe(api) });
   const [searchQuery, setSearchQuery] = useState("");
@@ -86,130 +90,149 @@ export default function TimezoneScreen() {
   }, [detected, searchQuery]);
 
   return (
-    <>
-      <Stack.Screen options={{ headerShown: false }} />
-
-      <ScreenScroll gap={tokens.spacing.lg + 2}>
-        <ScreenHeader title="Time Zone" />
-
-        <Text
-          style={{
-            color: tokens.colors.textMuted,
-            fontSize: tokens.type.bodySmall.fontSize,
-            lineHeight: tokens.type.bodySmall.lineHeight,
-          }}
-        >
-          Reminders are sent in the morning of this time zone.
-        </Text>
-
-        <View
-          style={[
-            styles.searchBox,
-            {
-              backgroundColor: tokens.colors.surfaceMuted,
-              borderRadius: tokens.radius.lg,
-              paddingHorizontal: tokens.spacing.md + 2,
-              gap: tokens.spacing.sm + 2,
-            },
-          ]}
-        >
-          <Ionicons
-            name="search-outline"
-            size={20}
-            color={tokens.colors.icon}
+    <View style={{ flex: 1, backgroundColor: tokens.colors.canvas }}>
+      <FlatList
+        data={options}
+        keyExtractor={(item) => item}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{
+          width: "100%",
+          maxWidth: contentWidth,
+          alignSelf: "center",
+          paddingBottom: Math.max(insets.bottom + 24, 32),
+          flexGrow: options.length === 0 ? 1 : undefined,
+        }}
+        ListHeaderComponent={
+          <View
+            style={{
+              padding: tokens.spacing.xl,
+              gap: tokens.spacing.lg,
+              backgroundColor: tokens.colors.canvas,
+            }}
+          >
+            <Text
+              style={{
+                color: tokens.colors.textMuted,
+                fontSize: tokens.type.bodySmall.fontSize,
+                lineHeight: tokens.type.bodySmall.lineHeight,
+              }}
+            >
+              Reminders are sent in the morning of this time zone.
+            </Text>
+            <View
+              style={[
+                styles.searchBox,
+                {
+                  backgroundColor: tokens.colors.surfaceMuted,
+                  borderRadius: tokens.radius.md,
+                  paddingHorizontal: tokens.spacing.md,
+                  gap: tokens.spacing.sm,
+                },
+              ]}
+            >
+              <Ionicons
+                name="search-outline"
+                size={20}
+                color={tokens.colors.icon}
+              />
+              <TextInput
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder="Search time zones"
+                placeholderTextColor={tokens.colors.textMuted}
+                accessibilityLabel="Search time zones"
+                autoCapitalize="none"
+                autoCorrect={false}
+                style={[
+                  styles.searchInput,
+                  {
+                    color: tokens.colors.text,
+                    fontSize: tokens.type.body.fontSize,
+                  },
+                ]}
+              />
+            </View>
+          </View>
+        }
+        stickyHeaderIndices={[0]}
+        ListEmptyComponent={
+          <EmptyState
+            icon="globe-outline"
+            title="No matching time zones"
+            message="Try a city or region name, for example Kolkata or Europe."
           />
-          <TextInput
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholder="Search time zones"
-            placeholderTextColor={tokens.colors.textMuted}
-            accessibilityLabel="Search time zones"
-            autoCapitalize="none"
-            autoCorrect={false}
-            style={[
-              styles.searchInput,
-              {
-                color: tokens.colors.text,
-                fontSize: tokens.type.body.fontSize - 1,
-              },
-            ]}
+        }
+        ItemSeparatorComponent={() => (
+          <View
+            style={{
+              height: StyleSheet.hairlineWidth,
+              marginLeft: tokens.spacing.lg,
+              backgroundColor: tokens.colors.border,
+            }}
           />
-        </View>
-
-        {options.length === 0 ? (
-          <SectionCard>
-            <EmptyState
-              icon="globe-outline"
-              title="No matching time zones"
-              message="Try a city or region name, for example Kolkata or Europe."
-            />
-          </SectionCard>
-        ) : (
-          <SectionCard flush>
-            {options.map((tz, idx) => {
-              const isSelected = selectedTz === tz;
-              const isLast = idx === options.length - 1;
-              return (
-                <Pressable
-                  key={tz}
-                  accessibilityRole="radio"
-                  accessibilityState={{ selected: isSelected }}
-                  accessibilityLabel={tz.replace(/[_/]/g, " ")}
-                  onPress={() => setPicked(tz)}
-                  style={({ pressed }) => [
-                    styles.row,
-                    {
-                      paddingVertical: tokens.spacing.md + 2,
-                      paddingHorizontal: tokens.spacing.lg,
-                      borderBottomWidth: isLast ? 0 : StyleSheet.hairlineWidth,
-                      borderBottomColor: tokens.colors.border,
-                    },
-                    pressed && { opacity: 0.8 },
-                  ]}
-                >
-                  <View style={{ flex: 1, gap: 2 }}>
-                    <Text
-                      style={{
-                        color: isSelected
-                          ? tokens.colors.accent
-                          : tokens.colors.text,
-                        fontSize: tokens.type.body.fontSize,
-                        fontWeight: "600",
-                      }}
-                    >
-                      {tz}
-                    </Text>
-                    {tz === detected ? (
-                      <Text
-                        style={{
-                          color: tokens.colors.textMuted,
-                          fontSize: tokens.type.bodySmall.fontSize,
-                        }}
-                      >
-                        Detected on this device
-                      </Text>
-                    ) : null}
-                  </View>
-                  <Ionicons
-                    name={isSelected ? "checkmark-circle" : "ellipse-outline"}
-                    size={22}
-                    color={
-                      isSelected ? tokens.colors.accent : tokens.colors.border
-                    }
-                  />
-                </Pressable>
-              );
-            })}
-          </SectionCard>
         )}
-
-        <Button
-          label={saveMutation.isPending ? "Saving…" : "Save time zone"}
-          disabled={saveMutation.isPending}
-          onPress={() => saveMutation.mutate({ timezone: selectedTz })}
-        />
-      </ScreenScroll>
-    </>
+        renderItem={({ item: tz }) => {
+          const isSelected = selectedTz === tz;
+          return (
+            <Pressable
+              accessibilityRole="radio"
+              accessibilityState={{ selected: isSelected }}
+              accessibilityLabel={tz.replace(/[_/]/g, " ")}
+              onPress={() => setPicked(tz)}
+              style={({ pressed }) => [
+                styles.row,
+                {
+                  paddingVertical: tokens.spacing.md,
+                  paddingHorizontal: tokens.spacing.lg,
+                },
+                pressed && { opacity: 0.8 },
+              ]}
+            >
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text
+                  style={{
+                    color: isSelected
+                      ? tokens.colors.primary
+                      : tokens.colors.text,
+                    fontSize: tokens.type.body.fontSize,
+                    fontWeight: "600",
+                  }}
+                >
+                  {tz}
+                </Text>
+                {tz === detected ? (
+                  <Text
+                    style={{
+                      color: tokens.colors.textMuted,
+                      fontSize: tokens.type.bodySmall.fontSize,
+                    }}
+                  >
+                    Detected on this device
+                  </Text>
+                ) : null}
+              </View>
+              <Ionicons
+                name={isSelected ? "checkmark-circle" : "ellipse-outline"}
+                size={22}
+                color={
+                  isSelected ? tokens.colors.primary : tokens.colors.outline
+                }
+              />
+            </Pressable>
+          );
+        }}
+        ListFooterComponent={
+          <View style={{ padding: tokens.spacing.xl }}>
+            <Button
+              label={saveMutation.isPending ? "Saving…" : "Save time zone"}
+              disabled={saveMutation.isPending}
+              busy={saveMutation.isPending}
+              onPress={() => saveMutation.mutate({ timezone: selectedTz })}
+            />
+          </View>
+        }
+      />
+    </View>
   );
 }
 

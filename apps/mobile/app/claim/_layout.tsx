@@ -8,8 +8,14 @@ export default function ClaimLayout() {
       screenOptions={{
         headerStyle: { backgroundColor: tokens.colors.surface },
         headerTintColor: tokens.colors.text,
-        contentStyle: { backgroundColor: tokens.colors.bg },
+        headerShadowVisible: false,
+        headerBackTitle: "Claims",
+        headerTitleStyle: { fontWeight: "700" },
+        contentStyle: { backgroundColor: tokens.colors.canvas },
       }}
-    />
+    >
+      <Stack.Screen name="new" options={{ title: "File a Claim" }} />
+      <Stack.Screen name="[id]" options={{ title: "Claim" }} />
+    </Stack>
   );
 }

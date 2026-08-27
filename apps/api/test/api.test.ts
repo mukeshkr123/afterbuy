@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import { createApp } from "../src/app";
 import type { Env } from "../src/env";
 import { checkRateLimit } from "../src/rate-limit";
+import { requestApp } from "./test-helpers";
 
 function env(overrides: Partial<Env> = {}): Env {
   return {
@@ -116,5 +117,40 @@ describe("api", () => {
     expect(res.status).toBe(503);
     const body = await res.json();
     expect(body.error.code).toBe("auth_not_configured");
+  });
+
+  test("replays identical idempotent writes and rejects key reuse for different bodies", async () => {
+    const key = "11111111-1111-4111-8111-111111111111";
+    const body = {
+      title: "Idempotent Purchase",
+      merchant: "AfterBuy",
+      category: "electronics",
+      purchaseDate: "2026-08-02",
+      amountMinor: 1299,
+      currency: "USD",
+    };
+
+    const first = await requestApp("/v1/purchases", "POST", body, {
+      "Idempotency-Key": key,
+    });
+    expect(first.status).toBe(201);
+    const firstJson = await first.json();
+
+    const replay = await requestApp("/v1/purchases", "POST", body, {
+      "Idempotency-Key": key,
+    });
+    expect(replay.status).toBe(201);
+    await expect(replay.json()).resolves.toMatchObject({ id: firstJson.id });
+
+    const conflict = await requestApp(
+      "/v1/purchases",
+      "POST",
+      { ...body, title: "Different Purchase" },
+      { "Idempotency-Key": key }
+    );
+    expect(conflict.status).toBe(409);
+    await expect(conflict.json()).resolves.toMatchObject({
+      error: { code: "conflict" },
+    });
   });
 });

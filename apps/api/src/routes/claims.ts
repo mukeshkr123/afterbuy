@@ -1,5 +1,5 @@
 import { createRoute, z } from "@hono/zod-openapi";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull, lt } from "drizzle-orm";
 import {
   apiErrorResponseSchema,
   claimSchema,
@@ -29,6 +29,30 @@ const claimsListResponseSchema = z.object({
 });
 
 // ---- Routes ---------------------------------------------------------------
+
+export const claimsGetRoute = createRoute({
+  method: "get",
+  path: "/v1/claims/{id}",
+  tags: [TAG],
+  security: [{ bearerAuth: [] }],
+  request: {
+    params: idParamSchema,
+  },
+  responses: {
+    200: {
+      description: "The claim detail.",
+      content: { "application/json": { schema: claimSchema } },
+    },
+    401: {
+      description: "Unauthenticated.",
+      content: { "application/json": { schema: apiErrorResponseSchema } },
+    },
+    404: {
+      description: "Claim not found.",
+      content: { "application/json": { schema: apiErrorResponseSchema } },
+    },
+  },
+});
 
 export const claimsListRoute = createRoute({
   method: "get",
@@ -126,6 +150,27 @@ export const claimsPatchRoute = createRoute({
 
 // ---- Handlers -------------------------------------------------------------
 
+export async function handleGetClaim(ctx: AuthedContext) {
+  const id = ctx.req.param("id");
+  if (!id) {
+    return apiError(ctx, 404, "not_found", "Claim not found");
+  }
+  const user = ctx.get("user");
+  const db = createDbClient(ctx.env.DB);
+
+  const row = await db
+    .select()
+    .from(claims)
+    .where(and(eq(claims.id, id), eq(claims.userId, user.id)))
+    .get();
+
+  if (!row) {
+    return apiError(ctx, 404, "not_found", "Claim not found");
+  }
+
+  return ctx.json(rowToClaim(row), 200);
+}
+
 export async function handleListClaims(ctx: AuthedContext) {
   const user = ctx.get("user");
   const url = new URL(ctx.req.url);
@@ -154,12 +199,13 @@ export async function handleListClaims(ctx: AuthedContext) {
   if (purchaseId) conditions.push(eq(claims.purchaseId, purchaseId));
   if (type) conditions.push(eq(claims.type, type));
   if (status) conditions.push(eq(claims.status, status));
-  if (cursor) conditions.push(eq(claims.id, cursor)); // Simple keyset pagination for now, or just limit/offset
+  if (cursor) conditions.push(lt(claims.id, cursor));
 
   const rows = await db
     .select()
     .from(claims)
     .where(and(...conditions))
+    .orderBy(desc(claims.id))
     .limit(pageSize + 1);
 
   const hasMore = rows.length > pageSize;

@@ -1,17 +1,11 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Stack, useRouter } from "expo-router";
-import React, { useState } from "react";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import React, { useEffect, useRef, useState } from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import type { CreatePurchaseRequest } from "@acme/shared";
-import {
-  FormError,
-  IconTile,
-  ScreenHeader,
-  ScreenScroll,
-  SectionCard,
-} from "@/components";
+import { FormError, IconTile, ScreenScroll, SectionCard } from "@/components";
 import { PurchaseForm } from "@/components/PurchaseForm";
 import { useApi } from "@/api/ApiProvider";
 import { createPurchase } from "@/api/purchases";
@@ -23,6 +17,8 @@ export default function NewPurchaseScreen() {
   const router = useRouter();
   const qc = useQueryClient();
   const { tokens } = useTheme();
+  const { capture } = useLocalSearchParams<{ capture?: string }>();
+  const didAutoCapture = useRef(false);
 
   // A receipt can only be uploaded against an existing purchase, so the chosen
   // image is held here and sent immediately after the purchase is created.
@@ -39,8 +35,8 @@ export default function NewPurchaseScreen() {
       if (!permission.granted) {
         throw new Error(
           source === "camera"
-            ? "Camera access is off. Enable it in Settings to photograph a bill."
-            : "Photo access is off. Enable it in Settings to attach a bill."
+            ? "Camera access is off. Enable it in Settings to photograph a receipt."
+            : "Photo access is off. Enable it in Settings to attach a receipt."
         );
       }
       const options: ImagePicker.ImagePickerOptions = {
@@ -68,6 +64,13 @@ export default function NewPurchaseScreen() {
       setPickerError(e instanceof Error ? e.message : "Could not open picker."),
   });
 
+  useEffect(() => {
+    if (capture === "camera" && !didAutoCapture.current) {
+      didAutoCapture.current = true;
+      pick.mutate("camera");
+    }
+  }, [capture, pick]);
+
   const handleSubmit = async (data: CreatePurchaseRequest) => {
     const created = await createPurchase(api, data);
 
@@ -78,7 +81,7 @@ export default function NewPurchaseScreen() {
         await uploadReceipt(api, created.id, receipt);
       } catch {
         setPickerError(
-          "Order saved, but the bill image did not upload. Add it from the order's Bill & Documents."
+          "Purchase saved, but the receipt did not upload. You can retry from Receipts."
         );
       }
     }
@@ -93,11 +96,8 @@ export default function NewPurchaseScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ headerShown: false }} />
-      <ScreenScroll gap={tokens.spacing.lg + 2}>
-        <ScreenHeader title="Add Order" />
-
-        <SectionCard title="Bill">
+      <ScreenScroll gap={tokens.spacing.lg + 2} safeTop={false}>
+        <SectionCard title="Receipt">
           {receipt ? (
             <View style={[styles.receiptRow, { gap: tokens.spacing.md }]}>
               <Image
@@ -110,7 +110,7 @@ export default function NewPurchaseScreen() {
                   },
                 ]}
                 resizeMode="cover"
-                accessibilityLabel="Selected bill image"
+                accessibilityLabel="Selected receipt image"
               />
               <View style={{ flex: 1, gap: 2 }}>
                 <Text
@@ -135,7 +135,7 @@ export default function NewPurchaseScreen() {
               <Pressable
                 onPress={() => setReceipt(null)}
                 accessibilityRole="button"
-                accessibilityLabel="Remove bill image"
+                accessibilityLabel="Remove receipt image"
                 hitSlop={10}
                 style={({ pressed }) => [
                   styles.removeButton,
@@ -153,7 +153,7 @@ export default function NewPurchaseScreen() {
             <View style={[styles.pickRow, { gap: tokens.spacing.md }]}>
               <PickButton
                 icon="camera-outline"
-                label="Photograph bill"
+                label="Photograph receipt"
                 disabled={pick.isPending}
                 onPress={() => pick.mutate("camera")}
               />
@@ -170,11 +170,11 @@ export default function NewPurchaseScreen() {
           </View>
         </SectionCard>
 
-        <SectionCard title="Order details">
+        <SectionCard title="Purchase details">
           <PurchaseForm
             embedded
             onSubmit={handleSubmit}
-            submitLabel="Save order"
+            submitLabel="Save purchase"
           />
         </SectionCard>
       </ScreenScroll>
@@ -237,8 +237,8 @@ const styles = StyleSheet.create({
     height: 56,
   },
   removeButton: {
-    width: 44,
-    height: 44,
+    width: 48,
+    height: 48,
     alignItems: "flex-end",
     justifyContent: "center",
   },
@@ -249,6 +249,6 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     paddingHorizontal: 8,
-    minHeight: 44,
+    minHeight: 48,
   },
 });

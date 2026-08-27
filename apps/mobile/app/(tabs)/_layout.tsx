@@ -1,22 +1,29 @@
 import { Tabs } from "expo-router";
 import React from "react";
-import { Ionicons } from "@expo/vector-icons";
+import { useWindowDimensions } from "react-native";
+import { AppIcon } from "@/components";
 import { useTheme } from "@/theme/ThemeProvider";
 
 export default function TabsLayout() {
   const { tokens, isDark } = useTheme();
+  const { width } = useWindowDimensions();
+  const expanded = width >= 768;
 
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: tokens.colors.accent,
-        tabBarInactiveTintColor: tokens.colors.icon,
+        tabBarInactiveTintColor: tokens.colors.textSubtle,
+        tabBarPosition: expanded ? "left" : "bottom",
+        tabBarLabelPosition: "below-icon",
         tabBarStyle: {
           backgroundColor: tokens.colors.surface,
           borderTopColor: tokens.colors.border,
-          height: 64,
-          paddingBottom: 8,
+          borderRightColor: tokens.colors.border,
+          width: expanded ? 88 : undefined,
+          height: expanded ? undefined : 68,
+          paddingBottom: expanded ? 12 : 8,
           paddingTop: 8,
           // The upward shadow only reads on a light canvas; in dark the border
           // separates the bar instead.
@@ -34,31 +41,27 @@ export default function TabsLayout() {
           fontSize: 12,
           fontWeight: "600",
         },
+        tabBarItemStyle: {
+          minHeight: expanded ? 64 : 48,
+          paddingVertical: expanded ? 6 : 0,
+        },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
           title: "Home",
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? "home" : "home-outline"}
-              size={24}
-              color={color}
-            />
+          tabBarIcon: ({ color }) => (
+            <AppIcon name="home" size={24} color={color} />
           ),
         }}
       />
       <Tabs.Screen
         name="purchases"
         options={{
-          title: "Orders",
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? "document-text" : "document-text-outline"}
-              size={24}
-              color={color}
-            />
+          title: "Purchases",
+          tabBarIcon: ({ color }) => (
+            <AppIcon name="purchases" size={24} color={color} />
           ),
         }}
       />
@@ -66,12 +69,8 @@ export default function TabsLayout() {
         name="reminders"
         options={{
           title: "Reminders",
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? "notifications" : "notifications-outline"}
-              size={24}
-              color={color}
-            />
+          tabBarIcon: ({ color }) => (
+            <AppIcon name="reminders" size={24} color={color} />
           ),
         }}
       />
@@ -84,13 +83,9 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: "Profile",
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? "person" : "person-outline"}
-              size={24}
-              color={color}
-            />
+          title: "Account",
+          tabBarIcon: ({ color }) => (
+            <AppIcon name="account" size={24} color={color} />
           ),
         }}
       />

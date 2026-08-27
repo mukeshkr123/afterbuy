@@ -34,7 +34,13 @@ describe("claims API", () => {
     expect(claim.status).toBe("draft");
     expect(claim.refundAmountMinor).toBe(500);
 
-    // 2. List claims
+    // 2. Get claim detail
+    const resGet = await requestApp(`/v1/claims/${claim.id}`, "GET");
+    expect(resGet.status).toBe(200);
+    const getDetail = await resGet.json();
+    expect(getDetail.id).toBe(claim.id);
+
+    // 3. List claims
     const resList = await requestApp(
       `/v1/claims?purchaseId=${purchaseId}`,
       "GET"
@@ -44,7 +50,7 @@ describe("claims API", () => {
     expect(listBody.items.length).toBe(1);
     expect(listBody.items[0].id).toBe(claim.id);
 
-    // 3. Patch claim (allowed transition: draft -> submitted)
+    // 4. Patch claim (allowed transition: draft -> submitted)
     const resPatch1 = await requestApp(`/v1/claims/${claim.id}`, "PATCH", {
       status: "submitted",
     });
@@ -52,7 +58,7 @@ describe("claims API", () => {
     const updated1 = await resPatch1.json();
     expect(updated1.status).toBe("submitted");
 
-    // 4. Fail patching claim with invalid transition (submitted -> draft)
+    // 5. Fail patching claim with invalid transition (submitted -> draft)
     const resPatch2 = await requestApp(`/v1/claims/${claim.id}`, "PATCH", {
       status: "draft",
     });
@@ -66,5 +72,38 @@ describe("claims API", () => {
       status: "draft",
     });
     expect(res.status).toBe(404);
+  });
+
+  test("paginates claim list with a stable cursor", async () => {
+    const purchaseId = await createTestPurchase();
+    for (const note of ["first", "second", "third"]) {
+      const res = await requestApp("/v1/claims", "POST", {
+        purchaseId,
+        type: "refund",
+        status: "draft",
+        notes: note,
+      });
+      expect(res.status).toBe(201);
+    }
+
+    const firstPage = await requestApp(
+      `/v1/claims?purchaseId=${purchaseId}&limit=2`,
+      "GET"
+    );
+    expect(firstPage.status).toBe(200);
+    const firstBody = await firstPage.json();
+    expect(firstBody.items).toHaveLength(2);
+    expect(firstBody.nextCursor).toBeTypeOf("string");
+
+    const secondPage = await requestApp(
+      `/v1/claims?purchaseId=${purchaseId}&limit=2&cursor=${firstBody.nextCursor}`,
+      "GET"
+    );
+    expect(secondPage.status).toBe(200);
+    const secondBody = await secondPage.json();
+    expect(secondBody.items).toHaveLength(1);
+    expect(secondBody.nextCursor).toBeNull();
+    expect(secondBody.items[0].id).not.toBe(firstBody.items[0].id);
+    expect(secondBody.items[0].id).not.toBe(firstBody.items[1].id);
   });
 });

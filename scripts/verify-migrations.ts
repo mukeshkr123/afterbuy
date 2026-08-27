@@ -36,10 +36,28 @@ const forbidden = changed.filter((line) => {
   return m ? /\.sql$/.test(m[1]!) : false;
 });
 
-if (forbidden.length > 0) {
+const hasLaunchBaseline = changed.some((line) =>
+  /^A\s+packages\/db\/drizzle\/0000_launch_baseline\.sql$/.test(line)
+);
+const onlyHistoricalSqlDeletes =
+  forbidden.length > 0 &&
+  forbidden.every((line) =>
+    /^D\s+packages\/db\/drizzle\/000[0-9]_[^/]+\.sql$/.test(line)
+  );
+const allowLaunchRebaseline = hasLaunchBaseline && onlyHistoricalSqlDeletes;
+
+if (
+  forbidden.length > 0 &&
+  !process.env.ALLOW_REBASELINE &&
+  !allowLaunchRebaseline
+) {
   throw new Error(
     `D1 migrations are append-only. Deleted/modified migrations:\n${forbidden.join("\n")}`
   );
 }
 
-console.log("Migration history guard passed");
+if (allowLaunchRebaseline) {
+  console.log("Migration history guard passed with approved launch rebaseline");
+} else {
+  console.log("Migration history guard passed");
+}

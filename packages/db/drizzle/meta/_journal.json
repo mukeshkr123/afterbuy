@@ -4,44 +4,9 @@
   "entries": [
     {
       "idx": 0,
-      "version": "7",
-      "when": 1784332800000,
-      "tag": "0000_initial",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
       "version": "6",
-      "when": 1784363475145,
-      "tag": "0001_fearless_professor_monster",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1784386380144,
-      "tag": "0002_zippy_quicksilver",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1784386405132,
-      "tag": "0003_fair_peter_parker",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "6",
-      "when": 1784386447009,
-      "tag": "0004_sloppy_ghost_rider",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "6",
-      "when": 1784387100206,
-      "tag": "0005_tough_the_anarchist",
+      "when": 1785683997276,
+      "tag": "0000_launch_baseline",
       "breakpoints": true
     }
   ]

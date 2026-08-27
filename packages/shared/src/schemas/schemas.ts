@@ -72,3 +72,9 @@ export const patchMeRequestSchema = z
   .strict();
 
 export type PatchMeRequest = z.infer<typeof patchMeRequestSchema>;
+
+export const deleteMeResponseSchema = z.object({
+  status: z.literal("deletion_pending"),
+});
+
+export type DeleteMeResponse = z.infer<typeof deleteMeResponseSchema>;

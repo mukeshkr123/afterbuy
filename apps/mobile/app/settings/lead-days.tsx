@@ -1,15 +1,9 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Stack, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import {
-  Button,
-  IconTile,
-  ScreenHeader,
-  ScreenScroll,
-  SectionCard,
-} from "@/components";
+import { Button, IconTile, ScreenScroll, SectionCard } from "@/components";
 import { useApi } from "@/api/ApiProvider";
 import { apiKeys } from "@/api/apiKeys";
 import { getMe } from "@/api/auth";
@@ -67,11 +61,7 @@ export default function LeadDaysScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ headerShown: false }} />
-
-      <ScreenScroll gap={tokens.spacing.lg + 2}>
-        <ScreenHeader title="Reminder Lead Time" />
-
+      <ScreenScroll gap={tokens.spacing.lg + 2} safeTop={false}>
         <SectionCard>
           <View style={[styles.infoRow, { gap: tokens.spacing.md + 2 }]}>
             <IconTile icon="alarm-outline" tone="accent" />

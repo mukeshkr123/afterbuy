@@ -1,8 +1,7 @@
 import { useRouter } from "expo-router";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
-  Dimensions,
   Image,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
@@ -11,6 +10,7 @@ import {
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/theme/ThemeProvider";
@@ -18,35 +18,33 @@ import { OnboardingHubIllustration } from "@/components/onboarding/OnboardingHub
 import { OnboardingReceiptScanIllustration } from "@/components/onboarding/OnboardingReceiptScanIllustration";
 import { OnboardingDeadlineIllustration } from "@/components/onboarding/OnboardingDeadlineIllustration";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
-
 interface OnboardingSlide {
   id: string;
   headline: string;
   supportingCopy: string;
-  IllustrationComponent: React.ComponentType;
+  IllustrationComponent: React.ComponentType<{ compact?: boolean }>;
 }
 
 const SLIDES: OnboardingSlide[] = [
   {
     id: "1",
-    headline: "Every purchase,\nall in one place.",
+    headline: "Every purchase in one place.",
     supportingCopy:
-      "Track receipts, deliveries, returns, warranties,\nand claims without searching across different apps.",
+      "Keep receipts, delivery details, returns, warranties, and claims together.",
     IllustrationComponent: OnboardingHubIllustration,
   },
   {
     id: "2",
-    headline: "Receipts, organized\nautomatically.",
+    headline: "Receipts, ready when needed.",
     supportingCopy:
-      "Save digital receipts and keep every purchase\ndetail easy to find.",
+      "Photograph or attach a receipt and find it with the purchase.",
     IllustrationComponent: OnboardingReceiptScanIllustration,
   },
   {
     id: "3",
-    headline: "Never miss an important\ndeadline.",
+    headline: "Know what needs attention.",
     supportingCopy:
-      "Get timely reminders before return windows\nand warranties expire.",
+      "Get a quiet reminder before a return window or warranty expires.",
     IllustrationComponent: OnboardingDeadlineIllustration,
   },
 ];
@@ -54,7 +52,10 @@ const SLIDES: OnboardingSlide[] = [
 export default function WelcomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { tokens } = useTheme();
+  const { tokens, reducedMotion } = useTheme();
+  const { width, height } = useWindowDimensions();
+  const expanded = width >= 768 || width > height;
+  const short = !expanded && height < 680;
   const [activeIndex, setActiveIndex] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
   const scrollX = useRef(new Animated.Value(0)).current;
@@ -65,7 +66,7 @@ export default function WelcomeScreen() {
       useNativeDriver: false,
       listener: (event: NativeSyntheticEvent<NativeScrollEvent>) => {
         const contentOffset = event.nativeEvent.contentOffset.x;
-        const index = Math.round(contentOffset / SCREEN_WIDTH);
+        const index = Math.round(contentOffset / width);
         if (index !== activeIndex && index >= 0 && index < SLIDES.length) {
           setActiveIndex(index);
         }
@@ -75,11 +76,15 @@ export default function WelcomeScreen() {
 
   const scrollToSlide = (index: number) => {
     scrollRef.current?.scrollTo({
-      x: index * SCREEN_WIDTH,
-      animated: true,
+      x: index * width,
+      animated: !reducedMotion,
     });
     setActiveIndex(index);
   };
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ x: activeIndex * width, animated: false });
+  }, [activeIndex, width]);
 
   const handlePrimaryAction = () => {
     if (activeIndex < SLIDES.length - 1) {
@@ -107,7 +112,12 @@ export default function WelcomeScreen() {
       ]}
     >
       {/* Top Header & Brand Bar (Identical 44px height across all slides) */}
-      <View style={styles.headerContainer}>
+      <View
+        style={[
+          styles.headerContainer,
+          { width: "100%", maxWidth: 960, alignSelf: "center" },
+        ]}
+      >
         {/* Brand mark: Icon + subtle wordmark on slide 1, Icon only on slide 2 & 3 */}
         <View style={styles.brandMarkContainer}>
           <Image
@@ -159,23 +169,58 @@ export default function WelcomeScreen() {
           {SLIDES.map((slide) => {
             const Illustration = slide.IllustrationComponent;
             return (
-              <View key={slide.id} style={styles.slide}>
+              <View
+                key={slide.id}
+                style={[
+                  styles.slide,
+                  {
+                    width,
+                    maxWidth: width,
+                    flexDirection: expanded ? "row" : "column",
+                    gap: expanded ? 48 : 0,
+                  },
+                ]}
+              >
                 {/* Product Illustration */}
-                <View style={styles.illustrationWrapper}>
-                  <Illustration />
+                <View
+                  style={[
+                    styles.illustrationWrapper,
+                    short && styles.illustrationShort,
+                    expanded && styles.illustrationExpanded,
+                  ]}
+                >
+                  <Illustration compact={short} />
                 </View>
 
                 {/* Typography Block */}
-                <View style={styles.textBlock}>
+                <View
+                  style={[
+                    styles.textBlock,
+                    short && styles.textBlockShort,
+                    expanded && styles.textBlockExpanded,
+                  ]}
+                >
                   <Text
-                    style={[styles.headlineText, { color: tokens.colors.text }]}
+                    style={[
+                      styles.headlineText,
+                      {
+                        color: tokens.colors.text,
+                        textAlign: expanded ? "left" : "center",
+                        fontSize: short ? 28 : 32,
+                        lineHeight: short ? 34 : 38,
+                        marginBottom: short ? 6 : 10,
+                      },
+                    ]}
                   >
                     {slide.headline}
                   </Text>
                   <Text
                     style={[
                       styles.supportingCopyText,
-                      { color: tokens.colors.textSubtle },
+                      {
+                        color: tokens.colors.textSubtle,
+                        textAlign: expanded ? "left" : "center",
+                      },
                     ]}
                   >
                     {slide.supportingCopy}
@@ -188,12 +233,12 @@ export default function WelcomeScreen() {
       </View>
 
       {/* Segmented Progress Bar */}
-      <View style={styles.paginationRow}>
+      <View style={[styles.paginationRow, short && styles.paginationRowShort]}>
         {SLIDES.map((_, index) => {
           const inputRange = [
-            (index - 1) * SCREEN_WIDTH,
-            index * SCREEN_WIDTH,
-            (index + 1) * SCREEN_WIDTH,
+            (index - 1) * width,
+            index * width,
+            (index + 1) * width,
           ];
 
           const dotWidth = scrollX.interpolate({
@@ -233,7 +278,13 @@ export default function WelcomeScreen() {
       </View>
 
       {/* Bottom CTA Block */}
-      <View style={styles.footerContainer}>
+      <View
+        style={[
+          styles.footerContainer,
+          short && styles.footerShort,
+          { maxWidth: 560, alignSelf: "center" },
+        ]}
+      >
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={
@@ -248,7 +299,10 @@ export default function WelcomeScreen() {
               borderRadius: 16,
               ...tokens.shadow.raised,
             },
-            pressed && { opacity: 0.93, transform: [{ scale: 0.985 }] },
+            pressed && {
+              opacity: 0.9,
+              transform: [{ scale: reducedMotion ? 1 : 0.985 }],
+            },
           ]}
           onPress={handlePrimaryAction}
         >
@@ -295,7 +349,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 24,
-    height: 44,
+    height: 48,
   },
   brandMarkContainer: {
     flexDirection: "row",
@@ -316,7 +370,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 16,
-    minHeight: 44,
+    minHeight: 48,
     justifyContent: "center",
   },
   skipText: {
@@ -324,8 +378,8 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   headerPlaceholder: {
-    width: 44,
-    height: 44,
+    width: 48,
+    height: 48,
   },
   carouselContainer: {
     flex: 1,
@@ -335,7 +389,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   slide: {
-    width: SCREEN_WIDTH,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 24,
@@ -346,10 +399,26 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  illustrationShort: {
+    height: 180,
+  },
+  illustrationExpanded: {
+    flex: 1,
+    maxWidth: 440,
+    height: 320,
+  },
   textBlock: {
     alignItems: "center",
     paddingHorizontal: 8,
     marginTop: 24,
+  },
+  textBlockShort: {
+    marginTop: 10,
+  },
+  textBlockExpanded: {
+    flex: 1,
+    alignItems: "flex-start",
+    maxWidth: 420,
   },
   headlineText: {
     fontSize: 32,
@@ -374,6 +443,9 @@ const styles = StyleSheet.create({
     gap: 8,
     marginVertical: 14,
   },
+  paginationRowShort: {
+    marginVertical: 6,
+  },
   dot: {
     height: 7,
     borderRadius: 4,
@@ -383,6 +455,9 @@ const styles = StyleSheet.create({
     gap: 16,
     alignItems: "center",
     width: "100%",
+  },
+  footerShort: {
+    gap: 8,
   },
   primaryButton: {
     width: "100%",
@@ -405,7 +480,7 @@ const styles = StyleSheet.create({
     fontWeight: "400",
   },
   signInLinkTouchTarget: {
-    minHeight: 44,
+    minHeight: 48,
     justifyContent: "center",
   },
   signInLink: {

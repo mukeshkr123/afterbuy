@@ -141,7 +141,7 @@ const ALLOWED_CONTENT_TYPES = [
   "image/png",
   "image/webp",
   "image/gif",
-];
+] as const;
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 
 export async function handleUploadReceipt(ctx: AuthedContext) {
@@ -182,7 +182,7 @@ export async function handleUploadReceipt(ctx: AuthedContext) {
     return apiError(ctx, 422, "validation_failed", "Missing file field");
   }
 
-  if (!ALLOWED_CONTENT_TYPES.includes(file.type)) {
+  if (!isAllowedContentType(file.type)) {
     return apiError(
       ctx,
       422,
@@ -200,15 +200,25 @@ export async function handleUploadReceipt(ctx: AuthedContext) {
     );
   }
 
+  const detectedContentType = await detectImageContentType(file);
+  if (!detectedContentType || detectedContentType !== file.type) {
+    return apiError(
+      ctx,
+      422,
+      "validation_failed",
+      "File content does not match a supported receipt image type."
+    );
+  }
+
   const receiptId = uuidv7();
-  const ext = file.name.split(".").pop() || "jpg";
+  const ext = extensionForContentType(detectedContentType);
   const r2Key = `receipts/${user.id}/${purchase.id}/${receiptId}.${ext}`;
 
   // Stream upload directly to R2
   try {
     await ctx.env.STORAGE.put(r2Key, file.stream(), {
       httpMetadata: {
-        contentType: file.type,
+        contentType: detectedContentType,
       },
       customMetadata: {
         userId: user.id,
@@ -227,7 +237,7 @@ export async function handleUploadReceipt(ctx: AuthedContext) {
     purchaseId: purchase.id,
     userId: user.id,
     r2Key,
-    contentType: file.type,
+    contentType: detectedContentType,
     sizeBytes: file.size,
     width: null,
     height: null,
@@ -258,56 +268,59 @@ export async function handleGetReceipt(ctx: AuthedContext) {
     return apiError(ctx, 404, "not_found", "Receipt not found");
   }
 
-  // Generate HMAC signed URL with 5-minute TTL
-  const ttlSeconds = 300;
-  const expires = Math.floor(Date.now() / 1000) + ttlSeconds;
-  const secret = ctx.env.CLERK_WEBHOOK_SECRET || "fallback-unsafe-secret";
-  const message = `${id}:${expires}`;
+  // Generate signed view URL
+  const expires = Math.floor(Date.now() / 1000) + 3600; // 1 hour
+  const message = `${receipt.id}:${expires}`;
+  const secret = getReceiptSigningSecret(ctx.env);
+  if (!secret) {
+    return apiError(
+      ctx,
+      503,
+      "unavailable",
+      "Receipt viewing is not configured"
+    );
+  }
   const token = await generateSignature(message, secret);
 
-  const url = `${new URL(ctx.req.url).origin}/v1/receipts/${id}/view?token=${token}&expires=${expires}`;
-  return ctx.redirect(url, 302);
+  const origin = new URL(ctx.req.url).origin;
+  const viewUrl = `${origin}/v1/receipts/${receipt.id}/view?token=${token}&expires=${expires}`;
+
+  return ctx.redirect(viewUrl, 302);
 }
 
 export async function handleViewReceipt(ctx: Context) {
   const id = ctx.req.param("id");
-  if (!id) {
-    return apiError(ctx as any, 404, "not_found", "Receipt not found");
-  }
-  const { token, expires } = ctx.req.query();
+  const token = ctx.req.query("token");
+  const expiresStr = ctx.req.query("expires");
 
-  if (!token || !expires) {
-    return apiError(
-      ctx as any,
-      400,
-      "validation_failed",
-      "Missing token or expires query parameter"
-    );
+  if (!id || !token || !expiresStr) {
+    return apiError(ctx as any, 400, "validation_failed", "Missing parameters");
   }
 
-  // Verify expiration
-  const expiresTimestamp = parseInt(expires, 10);
-  if (
-    isNaN(expiresTimestamp) ||
-    expiresTimestamp < Math.floor(Date.now() / 1000)
-  ) {
-    return apiError(
-      ctx as any,
-      400,
-      "validation_failed",
-      "Token expired or invalid"
-    );
+  const expires = parseInt(expiresStr, 10);
+  const now = Math.floor(Date.now() / 1000);
+  if (isNaN(expires) || now > expires) {
+    return apiError(ctx as any, 410, "validation_failed", "URL has expired");
   }
 
   // Verify signature
-  const secret = ctx.env.CLERK_WEBHOOK_SECRET || "fallback-unsafe-secret";
+  const env = ctx.env as Env;
+  const secret = getReceiptSigningSecret(env);
+  if (!secret) {
+    return apiError(
+      ctx as any,
+      503,
+      "unavailable",
+      "Receipt viewing is not configured"
+    );
+  }
   const message = `${id}:${expires}`;
   const verified = await verifySignature(message, token, secret);
   if (!verified) {
     return apiError(ctx as any, 400, "validation_failed", "Invalid signature");
   }
 
-  const db = createDbClient(ctx.env.DB);
+  const db = createDbClient(env.DB);
   const receipt = await db
     .select()
     .from(receipts)
@@ -319,7 +332,7 @@ export async function handleViewReceipt(ctx: Context) {
   }
 
   // Fetch from R2
-  const object = await ctx.env.STORAGE.get(receipt.r2Key);
+  const object = await env.STORAGE.get(receipt.r2Key);
   if (!object) {
     return apiError(ctx as any, 404, "not_found", "File not found in storage");
   }
@@ -386,6 +399,87 @@ async function generateSignature(
   return Array.from(new Uint8Array(signature))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
+}
+
+async function detectImageContentType(
+  file: File
+): Promise<(typeof ALLOWED_CONTENT_TYPES)[number] | null> {
+  const header = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+  if (
+    header.length >= 3 &&
+    header[0] === 0xff &&
+    header[1] === 0xd8 &&
+    header[2] === 0xff
+  ) {
+    return "image/jpeg";
+  }
+  if (
+    header.length >= 8 &&
+    header[0] === 0x89 &&
+    header[1] === 0x50 &&
+    header[2] === 0x4e &&
+    header[3] === 0x47 &&
+    header[4] === 0x0d &&
+    header[5] === 0x0a &&
+    header[6] === 0x1a &&
+    header[7] === 0x0a
+  ) {
+    return "image/png";
+  }
+  if (
+    header.length >= 12 &&
+    header[0] === 0x52 &&
+    header[1] === 0x49 &&
+    header[2] === 0x46 &&
+    header[3] === 0x46 &&
+    header[8] === 0x57 &&
+    header[9] === 0x45 &&
+    header[10] === 0x42 &&
+    header[11] === 0x50
+  ) {
+    return "image/webp";
+  }
+  if (
+    header.length >= 6 &&
+    header[0] === 0x47 &&
+    header[1] === 0x49 &&
+    header[2] === 0x46 &&
+    header[3] === 0x38 &&
+    (header[4] === 0x37 || header[4] === 0x39) &&
+    header[5] === 0x61
+  ) {
+    return "image/gif";
+  }
+  return null;
+}
+
+function extensionForContentType(
+  contentType: (typeof ALLOWED_CONTENT_TYPES)[number]
+): string {
+  switch (contentType) {
+    case "image/jpeg":
+      return "jpg";
+    case "image/png":
+      return "png";
+    case "image/webp":
+      return "webp";
+    case "image/gif":
+      return "gif";
+  }
+}
+
+function getReceiptSigningSecret(env: Env): string | null {
+  if (env.RECEIPT_SIGNING_SECRET) return env.RECEIPT_SIGNING_SECRET;
+  if (env.APP_STAGE !== "prod" && env.CLERK_WEBHOOK_SECRET) {
+    return env.CLERK_WEBHOOK_SECRET;
+  }
+  return null;
+}
+
+function isAllowedContentType(
+  contentType: string
+): contentType is (typeof ALLOWED_CONTENT_TYPES)[number] {
+  return ALLOWED_CONTENT_TYPES.some((allowed) => allowed === contentType);
 }
 
 async function verifySignature(

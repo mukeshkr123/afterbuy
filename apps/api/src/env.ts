@@ -13,6 +13,8 @@ export interface Env {
   CLERK_JWKS_URL: string;
   CLERK_ALLOWED_AZP: string;
   CLERK_WEBHOOK_SECRET: string;
+  CLERK_SECRET_KEY?: string;
+  RECEIPT_SIGNING_SECRET?: string;
   RATE_LIMIT_ENABLED?: string;
   RATE_LIMIT_WINDOW_SECONDS?: string;
   RATE_LIMIT_MAX_REQUESTS?: string;

@@ -1,1 +1,1 @@
-export const APP_SLUG = "acme";
+export const APP_SLUG = "afterbuy";

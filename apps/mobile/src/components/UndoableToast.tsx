@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import { useTheme } from "../theme/ThemeProvider";
+import { announce } from "../lib/accessibility";
 
 // Like Toast, but with an action button. Used for "Purchase deleted" undo.
 export interface UndoableToastProps {
@@ -18,7 +19,7 @@ export function UndoableToast({
   onDismiss,
   durationMs = 5000,
 }: UndoableToastProps) {
-  const { tokens } = useTheme();
+  const { tokens, reducedMotion } = useTheme();
   const opacity = useRef(new Animated.Value(0)).current;
   const [visible, setVisible] = useState(false);
 
@@ -32,15 +33,16 @@ export function UndoableToast({
       return;
     }
     setVisible(true);
+    announce(message);
     Animated.timing(opacity, {
       toValue: 1,
-      duration: tokens.motion.durationFast,
+      duration: reducedMotion ? 0 : tokens.motion.durationFast,
       useNativeDriver: true,
     }).start();
     const timer = setTimeout(() => {
       Animated.timing(opacity, {
         toValue: 0,
-        duration: tokens.motion.durationFast,
+        duration: reducedMotion ? 0 : tokens.motion.durationFast,
         useNativeDriver: true,
       }).start(() => {
         setVisible(false);
@@ -48,7 +50,14 @@ export function UndoableToast({
       });
     }, durationMs);
     return () => clearTimeout(timer);
-  }, [message, durationMs, onDismiss, opacity, tokens.motion.durationFast]);
+  }, [
+    message,
+    durationMs,
+    onDismiss,
+    opacity,
+    reducedMotion,
+    tokens.motion.durationFast,
+  ]);
 
   if (!visible) return null;
 
@@ -81,6 +90,8 @@ export function UndoableToast({
               setVisible(false);
             }}
             accessibilityRole="button"
+            accessibilityLabel={actionLabel}
+            style={{ minHeight: 48, justifyContent: "center" }}
           >
             <Text
               style={{

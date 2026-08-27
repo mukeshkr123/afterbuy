@@ -1,5 +1,11 @@
 import type { ReactNode } from "react";
-import { RefreshControl, ScrollView, View, type ViewStyle } from "react-native";
+import {
+  RefreshControl,
+  ScrollView,
+  View,
+  useWindowDimensions,
+  type ViewStyle,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "../theme/ThemeProvider";
 
@@ -11,6 +17,8 @@ export interface ScreenScrollProps {
   onRefresh?: (() => void) | undefined;
   /** Drop the horizontal gutter for full-bleed content. */
   flush?: boolean | undefined;
+  /** Set false when a native navigator header already owns the top inset. */
+  safeTop?: boolean | undefined;
   contentStyle?: ViewStyle | undefined;
 }
 
@@ -25,19 +33,25 @@ export function ScreenScroll({
   refreshing,
   onRefresh,
   flush = false,
+  safeTop = true,
   contentStyle,
 }: ScreenScrollProps) {
   const { tokens } = useTheme();
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const maxWidth = width >= 1024 ? 880 : width >= 768 ? 720 : undefined;
 
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: tokens.colors.canvas }}
       contentContainerStyle={[
         {
+          width: "100%",
+          maxWidth,
+          alignSelf: "center",
           paddingHorizontal: flush ? 0 : tokens.spacing.xl - 4,
           paddingTop: Math.max(
-            insets.top + tokens.spacing.md,
+            (safeTop ? insets.top : 0) + tokens.spacing.md,
             tokens.spacing.xl
           ),
           paddingBottom: Math.max(
@@ -49,6 +63,8 @@ export function ScreenScroll({
         contentStyle,
       ]}
       showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      automaticallyAdjustKeyboardInsets
       refreshControl={
         onRefresh ? (
           <RefreshControl
@@ -75,9 +91,22 @@ export function ScreenView({
   style?: ViewStyle | undefined;
 }) {
   const { tokens } = useTheme();
+  const { width } = useWindowDimensions();
   return (
-    <View style={[{ flex: 1, backgroundColor: tokens.colors.canvas }, style]}>
-      {children}
+    <View style={{ flex: 1, backgroundColor: tokens.colors.canvas }}>
+      <View
+        style={[
+          {
+            flex: 1,
+            width: "100%",
+            maxWidth: width >= 1024 ? 960 : undefined,
+            alignSelf: "center",
+          },
+          style,
+        ]}
+      >
+        {children}
+      </View>
     </View>
   );
 }

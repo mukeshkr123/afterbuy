@@ -1,8 +1,7 @@
 import { useOAuth, useSignUp } from "@clerk/clerk-expo";
-import { Link, useRouter } from "expo-router";
+import { Link, useRouter, type Href } from "expo-router";
 import React, { useRef, useState } from "react";
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -83,10 +82,6 @@ export default function SignUpScreen() {
     } finally {
       setSocialLoading(null);
     }
-  };
-
-  const openLegalDocument = (title: string, content: string) => {
-    Alert.alert(title, content);
   };
 
   const onSubmit = async () => {
@@ -347,24 +342,14 @@ export default function SignUpScreen() {
             >
               I agree to the{" "}
               <Text
-                onPress={() =>
-                  openLegalDocument(
-                    "Terms of Service",
-                    "By using AfterBuy, you agree to track and manage your purchase receipts, warranties, and deadline notifications responsibly."
-                  )
-                }
+                onPress={() => router.push("/terms" as Href)}
                 style={[styles.legalLink, { color: tokens.colors.accent }]}
               >
                 Terms of Service
               </Text>{" "}
               and{" "}
               <Text
-                onPress={() =>
-                  openLegalDocument(
-                    "Privacy Policy",
-                    "AfterBuy encrypts your transaction receipts and personal credentials. We never sell your personal data."
-                  )
-                }
+                onPress={() => router.push("/privacy" as Href)}
                 style={[styles.legalLink, { color: tokens.colors.accent }]}
               >
                 Privacy Policy
@@ -450,8 +435,8 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   adornmentPress: {
-    width: 44,
-    height: 44,
+    width: 48,
+    height: 48,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -463,7 +448,7 @@ const styles = StyleSheet.create({
   },
   checkboxTouchable: {
     minWidth: 44,
-    minHeight: 44,
+    minHeight: 48,
     alignItems: "center",
     justifyContent: "center",
     marginTop: -10,
@@ -495,7 +480,7 @@ const styles = StyleSheet.create({
     fontWeight: "400",
   },
   footerLinkTouch: {
-    minHeight: 44,
+    minHeight: 48,
     justifyContent: "center",
   },
   footerLink: {

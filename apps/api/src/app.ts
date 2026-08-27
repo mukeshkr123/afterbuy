@@ -58,9 +58,11 @@ import {
 } from "./routes/receipts";
 import {
   handleListClaims,
+  handleGetClaim,
   handleCreateClaim,
   handlePatchClaim,
   claimsListRoute,
+  claimsGetRoute,
   claimsCreateRoute,
   claimsPatchRoute,
 } from "./routes/claims";
@@ -161,6 +163,8 @@ export function createApp() {
   // Claims
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   v1.openapi(claimsListRoute, ((c: any) => handleListClaims(c)) as any);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  v1.openapi(claimsGetRoute, ((c: any) => handleGetClaim(c)) as any);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   v1.openapi(claimsCreateRoute, ((c: any) => handleCreateClaim(c)) as any);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

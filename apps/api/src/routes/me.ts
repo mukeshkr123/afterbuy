@@ -4,10 +4,17 @@ import {
   apiErrorResponseSchema,
   meResponseSchema,
   patchMeRequestSchema,
+  deleteMeResponseSchema,
   type MeResponse,
   type PatchMeRequest,
 } from "@acme/shared";
-import { users, purchases, type UserRow } from "@acme/db";
+import {
+  users,
+  purchases,
+  accountDeletionJobs,
+  uuidv7,
+  type UserRow,
+} from "@acme/db";
 import { createDbClient } from "@acme/db";
 import type { AuthedContext } from "../auth";
 import { apiError } from "../errors";
@@ -71,7 +78,10 @@ export const meDeleteRoute = createRoute({
   tags: ["Identity"],
   security: [{ bearerAuth: [] }],
   responses: {
-    204: { description: "Account soft-deleted." },
+    202: {
+      description: "Account deletion job recorded.",
+      content: { "application/json": { schema: deleteMeResponseSchema } },
+    },
     401: {
       description: "Unauthenticated.",
       content: { "application/json": { schema: apiErrorResponseSchema } },
@@ -144,17 +154,31 @@ export async function handleDeleteMe(ctx: AuthedContext) {
   const db = createDbClient(ctx.env.DB);
   const user = ctx.get("user");
   const now = new Date().toISOString();
+
+  // Immediately soft-delete user to revoke access
   await db
     .update(users)
     .set({ deletedAt: now, updatedAt: now })
     .where(eq(users.id, user.id));
+  await ctx.env.APP_KV.delete(`user:by-clerk-id:${user.clerkUserId}`);
 
-  // Phase 4 implements the receipts.purge R2 deletion; here we enqueue
-  // a message that Phase 4's consumer will dispatch on.
-  await ctx.env.REMINDER_QUEUE.send({
-    type: "receipts.purge",
+  const jobId = uuidv7();
+  await db.insert(accountDeletionJobs).values({
+    id: jobId,
     userId: user.id,
+    clerkUserId: user.clerkUserId,
+    status: "pending",
+    attempts: 0,
+    createdAt: now,
+    updatedAt: now,
   });
 
-  return ctx.body(null, 204);
+  await ctx.env.REMINDER_QUEUE.send({
+    type: "account.delete",
+    jobId,
+    userId: user.id,
+    clerkUserId: user.clerkUserId,
+  });
+
+  return ctx.json({ status: "deletion_pending" }, 202);
 }

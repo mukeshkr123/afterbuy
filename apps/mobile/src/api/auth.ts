@@ -1,10 +1,11 @@
 import {
   meResponseSchema,
   patchMeRequestSchema,
+  deleteMeResponseSchema,
+  type DeleteMeResponse,
   type MeResponse,
   type PatchMeRequest,
 } from "@acme/shared";
-import { z } from "zod";
 import type { ApiRequest } from "./client";
 
 export function getMe(api: ApiRequest): Promise<MeResponse> {
@@ -28,10 +29,10 @@ export function patchMe(
   }) as Promise<MeResponse>;
 }
 
-export function deleteMe(api: ApiRequest): Promise<void> {
+export function deleteMe(api: ApiRequest): Promise<DeleteMeResponse> {
   return api({
     method: "DELETE",
     path: "/v1/me",
-    schema: z.void(),
-  }) as Promise<void>;
+    schema: deleteMeResponseSchema,
+  }) as Promise<DeleteMeResponse>;
 }

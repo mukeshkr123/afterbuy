@@ -1,18 +1,18 @@
+import type { Receipt } from "@acme/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Stack, useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import React, { useState } from "react";
-import { View } from "react-native";
+import { FlatList, RefreshControl, StyleSheet, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   Button,
   EmptyState,
   FormError,
   IconTile,
   ListItem,
-  ScreenHeader,
-  ScreenScroll,
-  SectionCard,
   SkeletonGroup,
+  useAdaptiveLayout,
 } from "@/components";
 import { useApi } from "@/api/ApiProvider";
 import { apiKeys } from "@/api/apiKeys";
@@ -41,15 +41,15 @@ export default function ReceiptsScreen() {
   const api = useApi();
   const qc = useQueryClient();
   const { tokens } = useTheme();
+  const insets = useSafeAreaInsets();
+  const { contentWidth } = useAdaptiveLayout();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [error, setError] = useState<string | null>(null);
-
   const detail = useQuery({
     queryKey: apiKeys.purchases.detail(id ?? ""),
     queryFn: () => getPurchase(api, id ?? ""),
     enabled: Boolean(id),
   });
-
   const capture = useMutation({
     mutationFn: async (source: "camera" | "library") => {
       setError(null);
@@ -64,14 +64,16 @@ export default function ReceiptsScreen() {
             : "Photo access is off. Enable it in Settings to attach a receipt."
         );
       }
-      const options: ImagePicker.ImagePickerOptions = {
-        mediaTypes: ["images"],
-        quality: 0.7,
-      };
       const result =
         source === "camera"
-          ? await ImagePicker.launchCameraAsync(options)
-          : await ImagePicker.launchImageLibraryAsync(options);
+          ? await ImagePicker.launchCameraAsync({
+              mediaTypes: ["images"],
+              quality: 0.7,
+            })
+          : await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ["images"],
+              quality: 0.7,
+            });
       if (result.canceled) return null;
       const asset = result.assets[0];
       if (!asset) return null;
@@ -89,29 +91,49 @@ export default function ReceiptsScreen() {
         });
       }
     },
-    onError: (e) => {
-      const parsed = fromCaught(e);
+    onError: (caught) => {
+      const parsed = fromCaught(caught);
       setError(
         parsed.message ??
-          (e instanceof Error ? e.message : "Could not attach the receipt.")
+          (caught instanceof Error
+            ? caught.message
+            : "Could not attach the receipt.")
       );
     },
   });
-
-  const receipts = detail.data?.receipts ?? [];
+  const receipts: Receipt[] = detail.data?.receipts ?? [];
 
   return (
-    <>
-      <Stack.Screen options={{ headerShown: false }} />
-
-      <ScreenScroll gap={tokens.spacing.lg + 2}>
-        <ScreenHeader title="Bill & Documents" />
-
-        <SectionCard title="Add a receipt">
-          <View style={{ gap: tokens.spacing.md }}>
+    <View style={{ flex: 1, backgroundColor: tokens.colors.canvas }}>
+      <FlatList
+        data={receipts}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={{
+          width: "100%",
+          maxWidth: contentWidth,
+          alignSelf: "center",
+          paddingBottom: Math.max(insets.bottom + 24, 32),
+          flexGrow: receipts.length === 0 ? 1 : undefined,
+        }}
+        refreshControl={
+          <RefreshControl
+            refreshing={detail.isRefetching}
+            onRefresh={() => void detail.refetch()}
+            tintColor={tokens.colors.primary}
+          />
+        }
+        ListHeaderComponent={
+          <View
+            style={{
+              padding: tokens.spacing.xl,
+              gap: tokens.spacing.sm,
+              backgroundColor: tokens.colors.canvas,
+            }}
+          >
             <Button
               label={capture.isPending ? "Uploading…" : "Photograph receipt"}
               disabled={capture.isPending}
+              busy={capture.isPending}
               onPress={() => capture.mutate("camera")}
             />
             <Button
@@ -122,35 +144,47 @@ export default function ReceiptsScreen() {
             />
             <FormError message={error} />
           </View>
-        </SectionCard>
-
-        {detail.isLoading ? (
-          <SkeletonGroup count={3} gap={tokens.spacing.md} />
-        ) : receipts.length === 0 ? (
-          <SectionCard>
-            <EmptyState
-              icon="document-text-outline"
-              title="No receipts yet"
-              message="Attach the bill so you have proof of purchase when you file a claim."
-            />
-          </SectionCard>
-        ) : (
-          <SectionCard flush>
-            {receipts.map((r, idx) => (
-              <ListItem
-                key={r.id}
-                // The API stores no filename — show the facts it does return
-                // instead of the "Invoice.pdf" this screen used to display.
-                title={r.contentType.split("/")[1]?.toUpperCase() ?? "Receipt"}
-                subtitle={formatBytes(r.sizeBytes)}
-                detail={`Added ${formatAdded(r.createdAt)}`}
-                divider={idx < receipts.length - 1}
-                leading={<IconTile icon="document-outline" tone="info" />}
+        }
+        ListEmptyComponent={
+          <View style={styles.emptyWrap}>
+            {detail.isLoading ? (
+              <SkeletonGroup count={3} gap={tokens.spacing.sm} />
+            ) : (
+              <EmptyState
+                icon="document-text-outline"
+                title="No receipts yet"
+                message="Attach a receipt so you have proof of purchase when you file a claim."
               />
-            ))}
-          </SectionCard>
+            )}
+          </View>
+        }
+        ItemSeparatorComponent={() => (
+          <View
+            style={{
+              height: StyleSheet.hairlineWidth,
+              marginLeft: 76,
+              backgroundColor: tokens.colors.border,
+            }}
+          />
         )}
-      </ScreenScroll>
-    </>
+        renderItem={({ item }) => (
+          <ListItem
+            title={item.contentType.split("/")[1]?.toUpperCase() ?? "Receipt"}
+            subtitle={formatBytes(item.sizeBytes)}
+            detail={`Added ${formatAdded(item.createdAt)}`}
+            divider={false}
+            leading={<IconTile icon="document-outline" tone="info" />}
+          />
+        )}
+      />
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  emptyWrap: {
+    flex: 1,
+    justifyContent: "center",
+    padding: 20,
+  },
+});

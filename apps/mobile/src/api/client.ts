@@ -147,6 +147,9 @@ export function createApi(opts: ApiOptions): ApiRequest {
         text.slice(0, 200)
       );
     }
+    if (res.status === 204 || text.trim() === "") {
+      return req.schema.parse(undefined) as T;
+    }
     return req.schema.parse(safeJson(text)) as T;
   };
 }

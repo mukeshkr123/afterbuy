@@ -2,15 +2,16 @@ import { useEffect, useMemo, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "@tanstack/react-query";
-import { ScrollView, View } from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
 import {
   PURCHASE_CATEGORIES,
   PURCHASE_DELIVERY_STATUSES,
   createPurchaseRequestSchema,
   type CreatePurchaseRequest,
+  type CategoryMetaListResponse,
   type PurchaseDetailResponse,
 } from "@acme/shared";
-import { Button, Card } from "@/components";
+import { AppText, Button, Card } from "@/components";
 import { DateField } from "./DateField";
 import { FormError } from "./FormError";
 import { Input } from "./Input";
@@ -89,6 +90,15 @@ export function PurchaseForm({
 }: PurchaseFormProps) {
   const api = useApi();
   const { tokens } = useTheme();
+  const [showOptional, setShowOptional] = useState(
+    Boolean(
+      initial?.trackingNumber ||
+      initial?.carrier ||
+      initial?.returnDeadlineAt ||
+      initial?.warrantyExpiresAt ||
+      initial?.notes
+    )
+  );
   const categories = useQuery({
     queryKey: ["categories"],
     queryFn: () => getCategories(api),
@@ -96,7 +106,9 @@ export function PurchaseForm({
   const defaults = useMemo(
     () =>
       Object.fromEntries(
-        (categories.data?.items ?? []).map((c) => [c.category, c])
+        (
+          (categories.data?.items ?? []) as CategoryMetaListResponse["items"]
+        ).map((c) => [c.category, c])
       ),
     [categories.data]
   );
@@ -210,69 +222,98 @@ export function PurchaseForm({
           />
         )}
       />
-      <Controller
-        control={control}
-        name="deliveryStatus"
-        render={({ field, fieldState }) => (
-          <OptionPicker
-            label="Delivery status"
-            value={
-              (field.value ??
-                "ordered") as (typeof PURCHASE_DELIVERY_STATUSES)[number]
-            }
-            options={PURCHASE_DELIVERY_STATUSES.map((s) => ({
-              value: s,
-              label: deliveryDisplay(s).label,
-            }))}
-            onChange={field.onChange}
-            error={
-              fieldState.error?.message ?? serverError.fields["deliveryStatus"]
-            }
+      <Pressable
+        onPress={() => setShowOptional((current) => !current)}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: showOptional }}
+        style={({ pressed }) => ({
+          minHeight: 48,
+          justifyContent: "center",
+          borderTopWidth: 1,
+          borderBottomWidth: showOptional ? 1 : 0,
+          borderColor: tokens.colors.border,
+          opacity: pressed ? 0.75 : 1,
+        })}
+      >
+        <AppText role="headline">
+          {showOptional
+            ? "Hide optional details"
+            : "Add protection and delivery"}
+        </AppText>
+        <AppText role="caption" tone="subtle">
+          Delivery status, return date, warranty, and notes
+        </AppText>
+      </Pressable>
+      {showOptional ? (
+        <>
+          <Controller
+            control={control}
+            name="deliveryStatus"
+            render={({ field, fieldState }) => (
+              <OptionPicker
+                label="Delivery status"
+                value={
+                  (field.value ??
+                    "ordered") as (typeof PURCHASE_DELIVERY_STATUSES)[number]
+                }
+                options={PURCHASE_DELIVERY_STATUSES.map((s) => ({
+                  value: s,
+                  label: deliveryDisplay(s).label,
+                }))}
+                onChange={field.onChange}
+                error={
+                  fieldState.error?.message ??
+                  serverError.fields["deliveryStatus"]
+                }
+              />
+            )}
           />
-        )}
-      />
-      <Controller
-        control={control}
-        name="returnDeadlineAt"
-        render={({ field, fieldState }) => (
-          <DateField
-            label="Return deadline"
-            value={field.value ?? ""}
-            onChange={field.onChange}
-            error={
-              fieldState.error?.message ??
-              serverError.fields["returnDeadlineAt"]
-            }
+          <Controller
+            control={control}
+            name="returnDeadlineAt"
+            render={({ field, fieldState }) => (
+              <DateField
+                label="Return deadline"
+                value={field.value ?? ""}
+                onChange={field.onChange}
+                error={
+                  fieldState.error?.message ??
+                  serverError.fields["returnDeadlineAt"]
+                }
+              />
+            )}
           />
-        )}
-      />
-      <Controller
-        control={control}
-        name="warrantyExpiresAt"
-        render={({ field, fieldState }) => (
-          <DateField
-            label="Warranty expires"
-            value={field.value ?? ""}
-            onChange={field.onChange}
-            error={
-              fieldState.error?.message ??
-              serverError.fields["warrantyExpiresAt"]
-            }
+          <Controller
+            control={control}
+            name="warrantyExpiresAt"
+            render={({ field, fieldState }) => (
+              <DateField
+                label="Warranty expires"
+                value={field.value ?? ""}
+                onChange={field.onChange}
+                error={
+                  fieldState.error?.message ??
+                  serverError.fields["warrantyExpiresAt"]
+                }
+              />
+            )}
           />
-        )}
-      />
-      <Controller
-        control={control}
-        name="notes"
-        render={({ field, fieldState }) => (
-          <Input
-            label="Notes (optional)"
-            value={field.value ?? ""}
-            onChangeText={field.onChange}
-            error={fieldState.error?.message ?? serverError.fields["notes"]}
+          <Controller
+            control={control}
+            name="notes"
+            render={({ field, fieldState }) => (
+              <Input
+                label="Notes"
+                value={field.value ?? ""}
+                onChangeText={field.onChange}
+                multiline
+                numberOfLines={3}
+                error={fieldState.error?.message ?? serverError.fields["notes"]}
+              />
+            )}
           />
-        )}
-      />
+        </>
+      ) : null}
       <FormError message={serverError.message} />
       <Button
         label={formState.isSubmitting ? "Saving…" : submitLabel}
@@ -284,6 +325,7 @@ export function PurchaseForm({
           }
         })}
         disabled={formState.isSubmitting}
+        busy={formState.isSubmitting}
       />
     </View>
   );

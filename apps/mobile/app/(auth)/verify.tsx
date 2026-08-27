@@ -252,7 +252,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   resendPress: {
-    minHeight: 44,
+    minHeight: 48,
     alignItems: "center",
     justifyContent: "center",
   },
