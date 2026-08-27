@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, and, isNull } from "drizzle-orm";
 import {
   createDbClient,
   receipts,
@@ -12,7 +12,49 @@ import {
   idempotencyKeys,
 } from "@acme/db";
 import { retryPolicy } from "@acme/shared";
+import { z } from "zod";
 import type { Env } from "./env";
+
+const queueMessageSchema = z.union([
+  z.object({
+    type: z.literal("receipts.purge"),
+    userId: z.string(),
+  }),
+  z.object({
+    type: z.literal("account.delete"),
+    jobId: z.string(),
+    userId: z.string(),
+    clerkUserId: z.string(),
+  }),
+  z.object({
+    type: z.literal("reminder.send"),
+    reminderId: z.string(),
+    userId: z.string(),
+  }),
+  z.object({
+    message: z.literal("hello"),
+  }),
+]);
+
+const expoResponseSchema = z.object({
+  data: z.array(
+    z.union([
+      z.object({
+        status: z.literal("ok"),
+        id: z.string().optional(),
+      }),
+      z.object({
+        status: z.literal("error"),
+        message: z.string().optional(),
+        details: z
+          .object({
+            error: z.string().optional(),
+          })
+          .optional(),
+      }),
+    ])
+  ),
+});
 
 interface QueueMessage<T = unknown> {
   id: string;
@@ -55,36 +97,22 @@ export async function handleQueueBatch(
 
   for (const msg of batch.messages) {
     try {
-      const payload = msg.body;
-      if (payload && typeof payload === "object") {
-        if ("type" in payload && payload.type === "receipts.purge") {
-          const userId = (payload as any).userId;
-          if (userId) {
-            await handlePurgeReceipts(env, userId);
-          }
-        } else if ("type" in payload && payload.type === "account.delete") {
-          const jobId = (payload as any).jobId;
-          const userId = (payload as any).userId;
-          const clerkUserId = (payload as any).clerkUserId;
-          if (jobId && userId) {
-            await handleAccountDeletion(env, jobId, userId, clerkUserId);
-          }
-        } else if ("type" in payload && payload.type === "reminder.send") {
-          const reminderId = (payload as any).reminderId;
-          const userId = (payload as any).userId;
-          if (reminderId && userId) {
-            await handleSendReminder(env, reminderId, userId);
-          }
-        } else if (
-          "message" in payload &&
-          (payload as any).message === "hello"
-        ) {
-          // Allow legacy test message
-        } else {
-          throw new Error("Malformed or unknown queue message body");
+      const payload = queueMessageSchema.parse(msg.body);
+      if ("type" in payload) {
+        if (payload.type === "receipts.purge") {
+          await handlePurgeReceipts(env, payload.userId);
+        } else if (payload.type === "account.delete") {
+          await handleAccountDeletion(
+            env,
+            payload.jobId,
+            payload.userId,
+            payload.clerkUserId
+          );
+        } else if (payload.type === "reminder.send") {
+          await handleSendReminder(env, payload.reminderId, payload.userId);
         }
-      } else {
-        throw new Error("Invalid queue message payload");
+      } else if ("message" in payload && payload.message === "hello") {
+        // Allow legacy test message
       }
       msg.ack();
     } catch (err) {
@@ -152,14 +180,19 @@ async function handleAccountDeletion(
   try {
     await handlePurgeReceipts(env, userId);
 
-    await db
-      .delete(reminderDeliveries)
-      .where(eq(reminderDeliveries.userId, userId));
-    await db.delete(idempotencyKeys).where(eq(idempotencyKeys.userId, userId));
-    await db.delete(claims).where(eq(claims.userId, userId));
-    await db.delete(reminders).where(eq(reminders.userId, userId));
-    await db.delete(purchases).where(eq(purchases.userId, userId));
-    await db.delete(devices).where(eq(devices.userId, userId));
+    await db.batch([
+      db
+        .delete(reminderDeliveries)
+        .where(eq(reminderDeliveries.userId, userId)),
+      db.delete(idempotencyKeys).where(eq(idempotencyKeys.userId, userId)),
+      db.delete(claims).where(eq(claims.userId, userId)),
+      db.delete(reminders).where(eq(reminders.userId, userId)),
+      db.delete(purchases).where(eq(purchases.userId, userId)),
+      db.delete(devices).where(eq(devices.userId, userId)),
+      db.delete(users).where(eq(users.id, userId)),
+      db.delete(accountDeletionJobs).where(eq(accountDeletionJobs.id, jobId)),
+    ]);
+
     if (clerkUserId) {
       await env.APP_KV.delete(`user:by-clerk-id:${clerkUserId}`);
     }
@@ -182,11 +215,6 @@ async function handleAccountDeletion(
         console.error("Failed to delete Clerk user identity:", clerkErr);
       }
     }
-
-    await db.delete(users).where(eq(users.id, userId));
-    await db
-      .delete(accountDeletionJobs)
-      .where(eq(accountDeletionJobs.id, jobId));
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : String(err);
     await db
@@ -207,6 +235,23 @@ async function handleSendReminder(
   userId: string
 ): Promise<void> {
   const db = createDbClient(env.DB);
+  const now = new Date().toISOString();
+
+  // Atomically claim the reminder by updating sentAt only if it is currently null
+  const updateResult = await db
+    .update(reminders)
+    .set({ sentAt: now })
+    .where(
+      and(
+        eq(reminders.id, reminderId),
+        isNull(reminders.sentAt),
+        isNull(reminders.dismissedAt)
+      )
+    );
+
+  if (updateResult.meta.changes === 0) {
+    return;
+  }
 
   const reminderRow = await db
     .select()
@@ -214,11 +259,7 @@ async function handleSendReminder(
     .where(eq(reminders.id, reminderId))
     .get();
 
-  if (
-    !reminderRow ||
-    reminderRow.sentAt !== null ||
-    reminderRow.dismissedAt !== null
-  ) {
+  if (!reminderRow) {
     return;
   }
 
@@ -238,11 +279,7 @@ async function handleSendReminder(
     .where(eq(devices.userId, userId));
 
   if (userDevices.length === 0) {
-    // Stamp sent_at even if no devices registered, to avoid stuck reminders
-    await db
-      .update(reminders)
-      .set({ sentAt: new Date().toISOString() })
-      .where(eq(reminders.id, reminderId));
+    // Keep the claimed sentAt to avoid reprocessing, as no devices are registered
     return;
   }
 
@@ -263,28 +300,29 @@ async function handleSendReminder(
     },
   }));
 
-  const res = await fetch("https://exp.host/--/api/v2/push/send", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-      "Accept-Encoding": "gzip, deflate",
-    },
-    body: JSON.stringify(expoMessages),
-  });
+  try {
+    const res = await fetch("https://exp.host/--/api/v2/push/send", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        "Accept-Encoding": "gzip, deflate",
+      },
+      body: JSON.stringify(expoMessages),
+    });
 
-  if (!res.ok) {
-    throw new Error(
-      `Expo push API returned status ${res.status}: ${await res.text()}`
-    );
-  }
+    if (!res.ok) {
+      throw new Error(
+        `Expo push API returned status ${res.status}: ${await res.text()}`
+      );
+    }
 
-  const result = (await res.json()) as any;
-  if (result && Array.isArray(result.data)) {
+    const rawResult = await res.json();
+    const result = expoResponseSchema.parse(rawResult);
     for (let i = 0; i < result.data.length; i++) {
       const ticket = result.data[i];
       const device = userDevices[i];
-      if (!device) continue;
+      if (!device || !ticket) continue;
       if (ticket.status === "error") {
         console.error(
           `Expo push error for token "${device.expoPushToken}":`,
@@ -296,10 +334,12 @@ async function handleSendReminder(
         }
       }
     }
+  } catch (err) {
+    // Revert sentAt to null to allow retry
+    await db
+      .update(reminders)
+      .set({ sentAt: null })
+      .where(eq(reminders.id, reminderId));
+    throw err;
   }
-
-  await db
-    .update(reminders)
-    .set({ sentAt: new Date().toISOString() })
-    .where(eq(reminders.id, reminderId));
 }

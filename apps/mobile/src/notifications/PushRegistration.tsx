@@ -42,12 +42,7 @@ export function PushRegistration() {
       }
 
       const { status } = await Notifications.getPermissionsAsync();
-      let finalStatus = status;
-      if (status !== "granted") {
-        const req = await Notifications.requestPermissionsAsync();
-        finalStatus = req.status;
-      }
-      if (finalStatus !== "granted") return null;
+      if (status !== "granted") return null;
       const projectId =
         (
           Constants.expoConfig?.extra as

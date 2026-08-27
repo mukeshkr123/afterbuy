@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
+  AppText,
   Button,
   Dialog,
   IconTile,
@@ -110,42 +111,25 @@ export default function ProfileScreen() {
               { backgroundColor: tokens.colors.primary },
             ]}
           >
-            <Text
+            <AppText
+              role="title"
               style={[
                 styles.avatarText,
-                {
-                  color: tokens.colors.onPrimary,
-                  fontSize: 22,
-                },
+                { color: tokens.colors.action.onPrimary },
               ]}
             >
               {initials}
-            </Text>
+            </AppText>
           </View>
 
           <View style={{ gap: 2, flex: 1, justifyContent: "center" }}>
-            <Text
-              numberOfLines={1}
-              style={[
-                styles.userNameText,
-                {
-                  color: tokens.colors.text,
-                  fontSize: 22,
-                },
-              ]}
-            >
+            <AppText role="title" numberOfLines={1} style={styles.userNameText}>
               {userName}
-            </Text>
+            </AppText>
             {userEmail ? (
-              <Text
-                numberOfLines={1}
-                style={{
-                  color: tokens.colors.textMuted,
-                  fontSize: 15,
-                }}
-              >
+              <AppText role="subheadline" tone="subtle" numberOfLines={1}>
                 {userEmail}
-              </Text>
+              </AppText>
             ) : null}
           </View>
         </View>
@@ -172,14 +156,17 @@ export default function ProfileScreen() {
             style={({ pressed }) => [
               styles.signOutButton,
               {
-                backgroundColor: tokens.colors.surfaceMuted,
+                backgroundColor: tokens.colors.dangerSurface,
                 borderColor: tokens.colors.border,
+                borderRadius: tokens.radius.lg,
                 opacity: pressed ? 0.82 : 1,
                 transform: [{ scale: pressed && !reducedMotion ? 0.98 : 1 }],
               },
             ]}
           >
-            <Text style={[styles.signOutText, { color: tokens.colors.text }]}>
+            <Text
+              style={[styles.signOutText, { color: tokens.colors.dangerText }]}
+            >
               Sign out
             </Text>
           </Pressable>
@@ -246,7 +233,6 @@ const styles = StyleSheet.create({
   signOutButton: {
     width: "100%",
     height: 50,
-    borderRadius: 14,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",

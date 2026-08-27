@@ -1,4 +1,4 @@
-import { createRoute } from "@hono/zod-openapi";
+import { createRoute, type RouteHandler } from "@hono/zod-openapi";
 import { eq, and, isNull } from "drizzle-orm";
 import {
   apiErrorResponseSchema,
@@ -16,7 +16,7 @@ import {
   type UserRow,
 } from "@acme/db";
 import { createDbClient } from "@acme/db";
-import type { AuthedContext } from "../auth";
+import type { AuthedContext, AuthedEnv } from "../auth";
 import { apiError } from "../errors";
 import { onPurchaseMutated } from "./purchases";
 
@@ -103,7 +103,9 @@ export function rowToMe(row: UserRow): MeResponse {
   };
 }
 
-export async function handleGetMe(ctx: AuthedContext) {
+export const handleGetMe: RouteHandler<typeof meGetRoute, AuthedEnv> = async (
+  ctx
+) => {
   const db = createDbClient(ctx.env.DB);
   const user = ctx.get("user");
   const row = await db.select().from(users).where(eq(users.id, user.id)).get();
@@ -112,10 +114,13 @@ export async function handleGetMe(ctx: AuthedContext) {
   }
   const body = meResponseSchema.parse(rowToMe(row));
   return ctx.json(body, 200);
-}
+};
 
-export async function handlePatchMe(ctx: AuthedContext, rawBody: unknown) {
-  const body = patchMeRequestSchema.parse(rawBody) as PatchMeRequest;
+export const handlePatchMe: RouteHandler<
+  typeof mePatchRoute,
+  AuthedEnv
+> = async (ctx) => {
+  const body = ctx.req.valid("json");
   const db = createDbClient(ctx.env.DB);
   const user = ctx.get("user");
   const now = new Date().toISOString();
@@ -148,9 +153,12 @@ export async function handlePatchMe(ctx: AuthedContext, rawBody: unknown) {
     return apiError(ctx, 404, "not_found", "User not found");
   }
   return ctx.json(meResponseSchema.parse(rowToMe(updated)), 200);
-}
+};
 
-export async function handleDeleteMe(ctx: AuthedContext) {
+export const handleDeleteMe: RouteHandler<
+  typeof meDeleteRoute,
+  AuthedEnv
+> = async (ctx) => {
   const db = createDbClient(ctx.env.DB);
   const user = ctx.get("user");
   const now = new Date().toISOString();
@@ -180,5 +188,5 @@ export async function handleDeleteMe(ctx: AuthedContext) {
     clerkUserId: user.clerkUserId,
   });
 
-  return ctx.json({ status: "deletion_pending" }, 202);
-}
+  return ctx.json({ status: "deletion_pending" } as const, 202);
+};

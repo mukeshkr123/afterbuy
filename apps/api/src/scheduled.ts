@@ -66,68 +66,80 @@ async function scanAndQueueReminders(env: Env): Promise<void> {
   const db = createDbClient(env.DB);
   const now = new Date();
 
-  // Query reminders where:
-  // - sent_at IS NULL
-  // - dismissed_at IS NULL
-  // - user has push_enabled = 1
-  // - user is not deleted
-  // - purchase is not deleted
-  const activeReminders = await db
-    .select({
-      reminder: reminders,
-      user: users,
-    })
-    .from(reminders)
-    .innerJoin(users, eq(reminders.userId, users.id))
-    .innerJoin(purchases, eq(reminders.purchaseId, purchases.id))
-    .where(
-      and(
-        isNull(reminders.sentAt),
-        isNull(reminders.dismissedAt),
-        eq(users.pushEnabled, 1),
-        isNull(users.deletedAt),
-        isNull(purchases.deletedAt)
+  const LIMIT = 100;
+  let offset = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    const activeReminders = await db
+      .select({
+        reminder: reminders,
+        user: users,
+      })
+      .from(reminders)
+      .innerJoin(users, eq(reminders.userId, users.id))
+      .innerJoin(purchases, eq(reminders.purchaseId, purchases.id))
+      .where(
+        and(
+          isNull(reminders.sentAt),
+          isNull(reminders.dismissedAt),
+          eq(users.pushEnabled, 1),
+          isNull(users.deletedAt),
+          isNull(purchases.deletedAt)
+        )
       )
-    );
+      .limit(LIMIT)
+      .offset(offset);
 
-  for (const item of activeReminders) {
-    const userTz = item.user.timezone || "UTC";
-    let userLocalDateStr: string;
-
-    try {
-      const formatter = new Intl.DateTimeFormat("en-US", {
-        timeZone: userTz,
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-      });
-      const parts = formatter.formatToParts(now);
-      const y = parts.find((p) => p.type === "year")!.value;
-      const m = parts.find((p) => p.type === "month")!.value;
-      const d = parts.find((p) => p.type === "day")!.value;
-      userLocalDateStr = `${y}-${m}-${d}`;
-    } catch (err) {
-      console.error(
-        `Invalid timezone "${userTz}" for user ${item.user.id}, falling back to UTC`,
-        err
-      );
-      userLocalDateStr = now.toISOString().slice(0, 10);
+    if (activeReminders.length === 0) {
+      break;
     }
 
-    // Timezone-aware rolling window scan
-    if (userLocalDateStr >= item.reminder.fireOn) {
+    for (const item of activeReminders) {
+      const userTz = item.user.timezone || "UTC";
+      let userLocalDateStr: string;
+
       try {
-        await env.REMINDER_QUEUE.send({
-          type: "reminder.send",
-          reminderId: item.reminder.id,
-          userId: item.user.id,
+        const formatter = new Intl.DateTimeFormat("en-US", {
+          timeZone: userTz,
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
         });
-      } catch (queueErr) {
+        const parts = formatter.formatToParts(now);
+        const y = parts.find((p) => p.type === "year")!.value;
+        const m = parts.find((p) => p.type === "month")!.value;
+        const d = parts.find((p) => p.type === "day")!.value;
+        userLocalDateStr = `${y}-${m}-${d}`;
+      } catch (err) {
         console.error(
-          `Failed to enqueue reminder ${item.reminder.id}:`,
-          queueErr
+          `Invalid timezone "${userTz}" for user ${item.user.id}, falling back to UTC`,
+          err
         );
+        userLocalDateStr = now.toISOString().slice(0, 10);
       }
+
+      // Timezone-aware rolling window scan
+      if (userLocalDateStr >= item.reminder.fireOn) {
+        try {
+          await env.REMINDER_QUEUE.send({
+            type: "reminder.send",
+            reminderId: item.reminder.id,
+            userId: item.user.id,
+          });
+        } catch (queueErr) {
+          console.error(
+            `Failed to enqueue reminder ${item.reminder.id}:`,
+            queueErr
+          );
+        }
+      }
+    }
+
+    if (activeReminders.length < LIMIT) {
+      hasMore = false;
+    } else {
+      offset += LIMIT;
     }
   }
 }

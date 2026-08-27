@@ -2,7 +2,15 @@ import { Text, type TextProps, type TextStyle } from "react-native";
 import { useTheme } from "../theme/ThemeProvider";
 
 export type AppTextRole =
-  "largeTitle" | "title" | "headline" | "body" | "subheadline" | "caption";
+  | "largeTitle"
+  | "screenTitle"
+  | "title"
+  | "sectionTitle"
+  | "headline"
+  | "body"
+  | "subheadline"
+  | "label"
+  | "caption";
 
 export interface AppTextProps extends Omit<TextProps, "role"> {
   role?: AppTextRole;
@@ -33,7 +41,6 @@ export function AppText({
 
   return (
     <Text
-      maxFontSizeMultiplier={2}
       {...props}
       style={[
         {
@@ -42,9 +49,11 @@ export function AppText({
           lineHeight: tokens.type[role].lineHeight,
           fontWeight:
             weight ??
-            (role === "largeTitle"
+            (role === "largeTitle" || role === "screenTitle"
               ? "800"
-              : role === "title" || role === "headline"
+              : role === "title" ||
+                  role === "sectionTitle" ||
+                  role === "headline"
                 ? "700"
                 : "400"),
         },

@@ -6,6 +6,8 @@ export interface SettingsShape {
   themePreference: ThemePreference;
   timezone: string | null;
   pushPromptDismissedAt: string | null;
+  authOnboardingPending: boolean;
+  authOnboardingCompletedAt: string | null;
 }
 
 const KEY = "app:settings:v1";
@@ -14,6 +16,8 @@ const DEFAULTS: SettingsShape = {
   themePreference: "system",
   timezone: null,
   pushPromptDismissedAt: null,
+  authOnboardingPending: false,
+  authOnboardingCompletedAt: null,
 };
 
 export async function readSettings(): Promise<SettingsShape> {

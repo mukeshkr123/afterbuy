@@ -17,7 +17,8 @@ import {
   ListItem,
   SkeletonGroup,
   StatusPill,
-  Tabs,
+  ScreenTitle,
+  SegmentedControl,
   useAdaptiveLayout,
 } from "@/components";
 import { useApi } from "@/api/ApiProvider";
@@ -123,15 +124,11 @@ export default function RemindersScreen() {
               gap: tokens.spacing.lg + 2,
             }}
           >
-            <View style={{ gap: 4 }}>
-              <AppText role="largeTitle" weight="700">
-                Reminders
-              </AppText>
-              <AppText role="subheadline" tone="subtle">
-                Return and warranty deadlines in one place.
-              </AppText>
-            </View>
-            <Tabs
+            <ScreenTitle
+              title="Reminders"
+              subtitle="Return and warranty deadlines in one place."
+            />
+            <SegmentedControl
               tabs={SCOPES.map((item) => ({
                 key: item.value,
                 label: item.label,

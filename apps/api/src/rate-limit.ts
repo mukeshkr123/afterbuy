@@ -26,13 +26,10 @@ export const rateLimitMiddleware: MiddlewareHandler<AuthedEnv> = async (
   let decision: RateLimitDecision;
   try {
     decision = await checkRateLimit(c.env, clientKey(c));
-  } catch {
-    return apiError(
-      c,
-      503,
-      "unavailable",
-      "Rate limit storage is not configured"
-    );
+  } catch (err) {
+    console.error("Rate limiter storage error (failing open):", err);
+    await next();
+    return;
   }
   c.header("x-ratelimit-remaining", String(decision.remaining));
   c.header("x-ratelimit-reset", decision.resetAt);
@@ -78,7 +75,7 @@ export async function checkRateLimit(
   }
 
   await env.APP_KV.put(storageKey, String(next), {
-    expirationTtl: windowSeconds * 2,
+    expirationTtl: Math.max(60, windowSeconds * 2),
   });
 
   return {

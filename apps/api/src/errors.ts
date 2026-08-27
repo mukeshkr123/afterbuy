@@ -1,5 +1,9 @@
-import type { Context } from "hono";
-import { apiErrorResponseSchema, type ApiErrorCode } from "@acme/shared";
+import type { Context, TypedResponse } from "hono";
+import {
+  apiErrorResponseSchema,
+  type ApiErrorCode,
+  type ApiErrorResponse,
+} from "@acme/shared";
 import { getRequestId } from "./logging";
 
 export type ApiErrorStatus =
@@ -15,7 +19,7 @@ export function apiError(
   code: ApiErrorCode,
   message: string,
   options: ApiErrorOptions = {}
-): Response {
+): Response & TypedResponse<ApiErrorResponse, any, "json"> {
   const body = apiErrorResponseSchema.parse({
     error: {
       code,
@@ -27,7 +31,7 @@ export function apiError(
   return c.json(
     body,
     status as 400 | 401 | 403 | 404 | 409 | 410 | 422 | 429 | 500 | 503
-  );
+  ) as Response & TypedResponse<ApiErrorResponse, any, "json">;
 }
 
 export class ApiError extends Error {

@@ -249,7 +249,7 @@ export function PurchaseForm({
             backgroundColor: tokens.colors.surface,
             borderColor: tokens.colors.border,
             borderWidth: 1,
-            borderRadius: 14,
+            borderRadius: tokens.radius.lg,
             paddingHorizontal: tokens.spacing.lg,
             paddingVertical: tokens.spacing.md,
             marginTop: 4,

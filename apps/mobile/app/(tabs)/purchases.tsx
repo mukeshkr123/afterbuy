@@ -21,12 +21,14 @@ import {
   AppIcon,
   AppText,
   Button,
+  CategoryArtwork,
   EmptyState,
   IconTile,
   ListItem,
   Money,
   SelectionField,
   Sheet,
+  ScreenTitle,
   SkeletonGroup,
   StatusPill,
   useAdaptiveLayout,
@@ -145,14 +147,10 @@ export default function PurchasesScreen() {
               }}
             >
               <View style={styles.titleRow}>
-                <View style={{ flex: 1, gap: 2 }}>
-                  <AppText role="largeTitle" weight="700">
-                    Purchases
-                  </AppText>
-                  <AppText role="subheadline" tone="subtle">
-                    Receipts, returns, warranties, all in one place.
-                  </AppText>
-                </View>
+                <ScreenTitle
+                  title="Purchases"
+                  subtitle="Receipts, returns, and warranties in one place."
+                />
                 <Pressable
                   onPress={() => router.push("/purchase/new")}
                   accessibilityRole="button"
@@ -183,7 +181,7 @@ export default function PurchasesScreen() {
                     {
                       backgroundColor: tokens.colors.surfaceMuted,
                       borderColor: tokens.colors.border,
-                      borderRadius: 14,
+                      borderRadius: tokens.radius.lg,
                       paddingHorizontal: tokens.spacing.md,
                       gap: tokens.spacing.sm,
                     },
@@ -324,9 +322,7 @@ export default function PurchasesScreen() {
                   [item.merchant, date].filter(Boolean).join(" • ") || null
                 }
                 divider={false}
-                leading={
-                  <IconTile icon={categoryIcon(item.category)} tone="neutral" />
-                }
+                leading={<CategoryArtwork category={item.category} size="sm" />}
                 trailing={
                   <View style={styles.trailing}>
                     <StatusPill label={badge.label} tone={badge.tone} />

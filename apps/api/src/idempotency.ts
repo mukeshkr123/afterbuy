@@ -53,7 +53,18 @@ export const idempotencyMiddleware: MiddlewareHandler<AuthedEnv> = async (
 
   const db = createDbClient(c.env.DB);
   const path = new URL(c.req.url).pathname;
-  const requestHash = await sha256Hex(await c.req.raw.clone().arrayBuffer());
+
+  let requestHash = "";
+  const contentType = c.req.header("content-type") ?? "";
+  if (contentType.includes("multipart/form-data")) {
+    const contentLength = c.req.header("content-length") ?? "0";
+    requestHash = await sha256Hex(
+      new TextEncoder().encode(`${path}:${contentLength}`)
+    );
+  } else {
+    requestHash = await sha256Hex(await c.req.raw.clone().arrayBuffer());
+  }
+
   const dbKey = `${user.id}:${key}`;
 
   // Check D1 for persisted idempotency key
@@ -108,7 +119,8 @@ export const idempotencyMiddleware: MiddlewareHandler<AuthedEnv> = async (
         .where(
           and(
             eq(idempotencyKeys.key, dbKey),
-            eq(idempotencyKeys.userId, user.id)
+            eq(idempotencyKeys.userId, user.id),
+            eq(idempotencyKeys.createdAt, existingRecord.createdAt)
           )
         );
     }
@@ -188,7 +200,9 @@ export const idempotencyMiddleware: MiddlewareHandler<AuthedEnv> = async (
   }
 };
 
-async function sha256Hex(input: ArrayBuffer): Promise<string> {
+async function sha256Hex(
+  input: ArrayBufferView | ArrayBuffer
+): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", input);
   return Array.from(new Uint8Array(digest))
     .map((b) => b.toString(16).padStart(2, "0"))

@@ -13,6 +13,7 @@ import {
   IconTile,
   ScreenHeader,
   ScreenScroll,
+  SectionHeading,
 } from "@/components";
 import { PurchaseForm } from "@/components/PurchaseForm";
 import { useApi } from "@/api/ApiProvider";
@@ -133,12 +134,7 @@ export default function NewPurchaseScreen() {
         contentStyle={{ paddingTop: tokens.spacing.lg }}
       >
         <View style={{ gap: tokens.spacing.sm }}>
-          <View style={styles.sectionHeaderRow}>
-            <AppText role="headline">Receipt</AppText>
-            <AppText role="caption" tone="subtle">
-              Optional
-            </AppText>
-          </View>
+          <SectionHeading title="Receipt" detail="Optional" />
 
           {receipt ? (
             <View
@@ -148,7 +144,7 @@ export default function NewPurchaseScreen() {
                   gap: tokens.spacing.md,
                   backgroundColor: tokens.colors.surface,
                   borderColor: tokens.colors.border,
-                  borderRadius: 14,
+                  borderRadius: tokens.radius.lg,
                   padding: tokens.spacing.md,
                 },
               ]}
@@ -222,7 +218,7 @@ export default function NewPurchaseScreen() {
         </View>
 
         <View style={{ gap: tokens.spacing.sm }}>
-          <AppText role="headline">Purchase details</AppText>
+          <SectionHeading title="Purchase details" />
           <PurchaseForm
             embedded
             onDirtyChange={setIsDirty}
@@ -274,7 +270,7 @@ function PickButton({
         {
           backgroundColor: tokens.colors.surface,
           borderColor: tokens.colors.border,
-          borderRadius: 14,
+          borderRadius: tokens.radius.lg,
           paddingVertical: tokens.spacing.md - 2,
           gap: tokens.spacing.xs,
           opacity: disabled ? 0.5 : pressed ? 0.85 : 1,
@@ -297,11 +293,6 @@ function PickButton({
 }
 
 const styles = StyleSheet.create({
-  sectionHeaderRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
   receiptRow: {
     flexDirection: "row",
     alignItems: "center",

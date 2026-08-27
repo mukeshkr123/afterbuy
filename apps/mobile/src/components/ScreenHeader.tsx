@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useTheme } from "../theme/ThemeProvider";
+import { AppIcon } from "./AppIcon";
 
 export interface ScreenHeaderAction {
   /** Optional Ionicons glyph name, e.g. "add" or "ellipsis-horizontal". */
@@ -59,7 +60,7 @@ export function ScreenHeader({
           hitSlop={8}
           style={({ pressed }) => [styles.control, pressed && { opacity: 0.6 }]}
         >
-          <Ionicons name="chevron-back" size={22} color={tokens.colors.text} />
+          <AppIcon name="back" size={22} color={tokens.colors.text} />
         </Pressable>
       ) : (
         <View style={styles.control} />

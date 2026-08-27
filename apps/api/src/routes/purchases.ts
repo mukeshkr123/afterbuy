@@ -1,4 +1,4 @@
-import { createRoute } from "@hono/zod-openapi";
+import { createRoute, type RouteHandler } from "@hono/zod-openapi";
 import { and, eq, isNull } from "drizzle-orm";
 import { z, type ZodError } from "zod";
 import {
@@ -11,6 +11,8 @@ import {
   type CreatePurchaseRequest,
   type PurchaseListQuery,
   type UpdatePurchaseRequest,
+  type Purchase,
+  type Receipt,
 } from "@acme/shared";
 import {
   createDbClient,
@@ -27,7 +29,7 @@ import {
   type ReminderRow,
 } from "@acme/db";
 import type { Env } from "../env";
-import type { AuthedContext } from "../auth";
+import type { AuthedContext, AuthedEnv } from "../auth";
 import { apiError } from "../errors";
 import { decodeCursor, encodeCursor, type Cursor } from "../keyset";
 import { rowToClaim } from "./claims";
@@ -197,17 +199,11 @@ export const purchasesRestoreRoute = createRoute({
 
 // ---- Handlers -------------------------------------------------------------
 
-export async function handleListPurchases(ctx: AuthedContext) {
-  const url = new URL(ctx.req.url);
-  const raw = purchaseListQuerySchema.safeParse(
-    Object.fromEntries(url.searchParams)
-  );
-  if (!raw.success) {
-    return apiError(ctx, 422, "validation_failed", "Invalid query parameters", {
-      fields: zodFields(raw.error),
-    });
-  }
-  const query: PurchaseListQuery = raw.data;
+export const handleListPurchases: RouteHandler<
+  typeof purchasesListRoute,
+  AuthedEnv
+> = async (ctx) => {
+  const query = ctx.req.valid("query");
   const sort = query.sort ?? "createdAt";
   const cursor = query.cursor ? decodeCursor(query.cursor) : null;
   if (query.cursor && cursor === null) {
@@ -274,16 +270,13 @@ export async function handleListPurchases(ctx: AuthedContext) {
 
   const body = purchaseListResponseSchema.parse({ items, nextCursor });
   return ctx.json(body, 200);
-}
+};
 
-export async function handleCreatePurchase(ctx: AuthedContext) {
-  const parsed = createPurchaseRequestSchema.safeParse(await ctx.req.json());
-  if (!parsed.success) {
-    return apiError(ctx, 422, "validation_failed", "Invalid purchase body", {
-      fields: zodFields(parsed.error),
-    });
-  }
-  const input: CreatePurchaseRequest = parsed.data;
+export const handleCreatePurchase: RouteHandler<
+  typeof purchasesCreateRoute,
+  AuthedEnv
+> = async (ctx) => {
+  const input = ctx.req.valid("json");
   const user = ctx.get("user");
   const now = new Date().toISOString();
   const today = now.slice(0, 10);
@@ -325,12 +318,14 @@ export async function handleCreatePurchase(ctx: AuthedContext) {
     reminders: reminderRows.map(rowToReminder),
   });
   return ctx.json(body, 201);
-}
+};
 
-export async function handleGetPurchase(ctx: AuthedContext) {
+export const handleGetPurchase: RouteHandler<
+  typeof purchasesGetRoute,
+  AuthedEnv
+> = async (ctx) => {
   const user = ctx.get("user");
-  const id = ctx.req.param("id");
-  if (!id) return apiError(ctx, 404, "not_found", "Purchase not found");
+  const { id } = ctx.req.valid("param");
 
   const db = createDbClient(ctx.env.DB);
   const row = await db
@@ -368,20 +363,16 @@ export async function handleGetPurchase(ctx: AuthedContext) {
     reminders: reminderRows.map(rowToReminder),
   });
   return ctx.json(body, 200);
-}
+};
 
-export async function handlePatchPurchase(ctx: AuthedContext) {
+export const handlePatchPurchase: RouteHandler<
+  typeof purchasesPatchRoute,
+  AuthedEnv
+> = async (ctx) => {
   const user = ctx.get("user");
-  const id = ctx.req.param("id");
-  if (!id) return apiError(ctx, 404, "not_found", "Purchase not found");
+  const { id } = ctx.req.valid("param");
+  const input = ctx.req.valid("json");
 
-  const parsed = updatePurchaseRequestSchema.safeParse(await ctx.req.json());
-  if (!parsed.success) {
-    return apiError(ctx, 422, "validation_failed", "Invalid purchase body", {
-      fields: zodFields(parsed.error),
-    });
-  }
-  const input: UpdatePurchaseRequest = parsed.data;
   if (Object.keys(input).length === 0) {
     return apiError(
       ctx,
@@ -453,12 +444,14 @@ export async function handlePatchPurchase(ctx: AuthedContext) {
     reminders: reminderRows.map(rowToReminder),
   });
   return ctx.json(body, 200);
-}
+};
 
-export async function handleDeletePurchase(ctx: AuthedContext) {
+export const handleDeletePurchase: RouteHandler<
+  typeof purchasesDeleteRoute,
+  AuthedEnv
+> = async (ctx) => {
   const user = ctx.get("user");
-  const id = ctx.req.param("id");
-  if (!id) return apiError(ctx, 404, "not_found", "Purchase not found");
+  const { id } = ctx.req.valid("param");
 
   const db = createDbClient(ctx.env.DB);
   const now = new Date().toISOString();
@@ -478,12 +471,14 @@ export async function handleDeletePurchase(ctx: AuthedContext) {
   }
   await onPurchaseMutated(ctx.env, db, id);
   return ctx.body(null, 204);
-}
+};
 
-export async function handleRestorePurchase(ctx: AuthedContext) {
+export const handleRestorePurchase: RouteHandler<
+  typeof purchasesRestoreRoute,
+  AuthedEnv
+> = async (ctx) => {
   const user = ctx.get("user");
-  const id = ctx.req.param("id");
-  if (!id) return apiError(ctx, 404, "not_found", "Purchase not found");
+  const { id } = ctx.req.valid("param");
 
   const db = createDbClient(ctx.env.DB);
   const now = new Date().toISOString();
@@ -525,11 +520,11 @@ export async function handleRestorePurchase(ctx: AuthedContext) {
     reminders: restoredReminders.map(rowToReminder),
   });
   return ctx.json(body, 200);
-}
+};
 
 // ---- Helpers --------------------------------------------------------------
 
-function rowToPurchase(row: PurchaseRow) {
+function rowToPurchase(row: PurchaseRow): Purchase {
   return {
     id: row.id,
     userId: row.userId,
@@ -752,7 +747,7 @@ export async function onPurchaseMutated(
   }
 }
 
-function rowToReceipt(row: ReceiptRow) {
+function rowToReceipt(row: ReceiptRow): Receipt {
   return {
     id: row.id,
     purchaseId: row.purchaseId,

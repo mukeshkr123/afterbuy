@@ -116,10 +116,10 @@ export function createApp() {
   });
 
   // /v1/webhooks/clerk is unauthenticated (Svix-signed).
-  app.openapi(clerkWebhookRoute, (c) => handleClerkWebhook(c));
+  app.openapi(clerkWebhookRoute, handleClerkWebhook);
 
   // Receipts view is unauthenticated
-  app.openapi(receiptsViewRoute, (c) => handleViewReceipt(c));
+  app.openapi(receiptsViewRoute, handleViewReceipt);
 
   // All /v1 routes require Clerk auth. Middleware order matters:
   //   auth       — populates `user` on context
@@ -130,68 +130,39 @@ export function createApp() {
   v1.use("*", idempotencyMiddleware);
   v1.use("*", rateLimitMiddleware);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  v1.openapi(meGetRoute, (async (c: any) => handleGetMe(c)) as any);
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  v1.openapi(mePatchRoute, (async (c: any) =>
-    handlePatchMe(c, await c.req.json())) as any);
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  v1.openapi(meDeleteRoute, (async (c: any) => handleDeleteMe(c)) as any);
+  v1.openapi(meGetRoute, handleGetMe);
+  v1.openapi(mePatchRoute, handlePatchMe);
+  v1.openapi(meDeleteRoute, handleDeleteMe);
 
   // Purchases
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  v1.openapi(purchasesListRoute, ((c: any) => handleListPurchases(c)) as any);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  v1.openapi(purchasesCreateRoute, ((c: any) =>
-    handleCreatePurchase(c)) as any);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  v1.openapi(purchasesGetRoute, ((c: any) => handleGetPurchase(c)) as any);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  v1.openapi(purchasesPatchRoute, ((c: any) => handlePatchPurchase(c)) as any);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  v1.openapi(purchasesDeleteRoute, ((c: any) =>
-    handleDeletePurchase(c)) as any);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  v1.openapi(purchasesRestoreRoute, ((c: any) =>
-    handleRestorePurchase(c)) as any);
+  v1.openapi(purchasesListRoute, handleListPurchases);
+  v1.openapi(purchasesCreateRoute, handleCreatePurchase);
+  v1.openapi(purchasesGetRoute, handleGetPurchase);
+  v1.openapi(purchasesPatchRoute, handlePatchPurchase);
+  v1.openapi(purchasesDeleteRoute, handleDeletePurchase);
+  v1.openapi(purchasesRestoreRoute, handleRestorePurchase);
 
   // Receipts
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  v1.openapi(receiptsUploadRoute, ((c: any) => handleUploadReceipt(c)) as any);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  v1.openapi(receiptsGetRoute, ((c: any) => handleGetReceipt(c)) as any);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  v1.openapi(receiptsDeleteRoute, ((c: any) => handleDeleteReceipt(c)) as any);
+  v1.openapi(receiptsUploadRoute, handleUploadReceipt);
+  v1.openapi(receiptsGetRoute, handleGetReceipt);
+  v1.openapi(receiptsDeleteRoute, handleDeleteReceipt);
 
   // Claims
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  v1.openapi(claimsListRoute, ((c: any) => handleListClaims(c)) as any);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  v1.openapi(claimsGetRoute, ((c: any) => handleGetClaim(c)) as any);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  v1.openapi(claimsCreateRoute, ((c: any) => handleCreateClaim(c)) as any);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  v1.openapi(claimsPatchRoute, ((c: any) => handlePatchClaim(c)) as any);
+  v1.openapi(claimsListRoute, handleListClaims);
+  v1.openapi(claimsGetRoute, handleGetClaim);
+  v1.openapi(claimsCreateRoute, handleCreateClaim);
+  v1.openapi(claimsPatchRoute, handlePatchClaim);
 
   // Reminders
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  v1.openapi(remindersListRoute, ((c: any) => handleListReminders(c)) as any);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  v1.openapi(remindersDismissRoute, ((c: any) =>
-    handleDismissReminder(c)) as any);
+  v1.openapi(remindersListRoute, handleListReminders);
+  v1.openapi(remindersDismissRoute, handleDismissReminder);
 
   // Devices
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  v1.openapi(devicesRegisterRoute, ((c: any) =>
-    handleRegisterDevice(c)) as any);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  v1.openapi(devicesDeleteRoute, ((c: any) => handleDeleteDevice(c)) as any);
+  v1.openapi(devicesRegisterRoute, handleRegisterDevice);
+  v1.openapi(devicesDeleteRoute, handleDeleteDevice);
 
   // Meta
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  v1.openapi(metaCategoriesRoute, ((c: any) => handleCategories(c)) as any);
+  v1.openapi(metaCategoriesRoute, handleCategories);
 
   app.route("/", v1);
 

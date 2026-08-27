@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import {
   ActivityIndicator,
   Platform,
@@ -15,8 +16,9 @@ export interface ButtonProps {
   onPress: () => void;
   disabled?: boolean;
   busy?: boolean;
-  variant?: "primary" | "secondary" | "ghost" | "danger";
+  variant?: "primary" | "secondary" | "tertiary" | "ghost" | "danger";
   size?: "md" | "lg";
+  leading?: ReactNode;
   style?: StyleProp<ViewStyle>;
 }
 
@@ -27,6 +29,7 @@ export function Button({
   busy = false,
   variant = "primary",
   size = "md",
+  leading,
   style,
 }: ButtonProps) {
   const { tokens, reducedMotion } = useTheme();
@@ -35,7 +38,7 @@ export function Button({
   const backgroundColor = isDisabled
     ? tokens.colors.disabled
     : variant === "primary"
-      ? tokens.colors.accent
+      ? tokens.colors.action.primary
       : variant === "danger"
         ? tokens.colors.danger
         : variant === "secondary"
@@ -45,10 +48,14 @@ export function Button({
   const textColor = isDisabled
     ? tokens.colors.disabledText
     : variant === "primary"
-      ? tokens.colors.accentText
+      ? tokens.colors.action.onPrimary
       : variant === "danger"
         ? tokens.colors.accentText
-        : tokens.colors.text;
+        : variant === "secondary" ||
+            variant === "tertiary" ||
+            variant === "ghost"
+          ? tokens.colors.action.primary
+          : tokens.colors.text;
 
   const minHeight =
     size === "lg" ? 54 : Platform.select({ ios: 44, android: 48, default: 44 });
@@ -71,7 +78,7 @@ export function Button({
           paddingVertical:
             size === "lg" ? tokens.spacing.md : tokens.spacing.sm + 2,
           paddingHorizontal: tokens.spacing.lg,
-          opacity: pressed && !isDisabled ? 0.85 : 1,
+          opacity: pressed && !isDisabled ? 0.9 : 1,
           transform: [
             { scale: pressed && !isDisabled && !reducedMotion ? 0.98 : 1 },
           ],
@@ -87,6 +94,7 @@ export function Button({
             style={styles.spinner}
           />
         )}
+        {leading ? <View style={styles.leading}>{leading}</View> : null}
         <Text
           style={[
             styles.label,
@@ -113,6 +121,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   spinner: {
+    marginRight: 8,
+  },
+  leading: {
     marginRight: 8,
   },
   label: {

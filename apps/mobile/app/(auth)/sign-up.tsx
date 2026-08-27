@@ -1,4 +1,4 @@
-import { useOAuth, useSignUp } from "@clerk/clerk-expo";
+import { useSignUp } from "@clerk/clerk-expo";
 import { Link, useRouter, type Href } from "expo-router";
 import React, { useRef, useState } from "react";
 import {
@@ -17,8 +17,8 @@ import {
   Input,
   ScreenHeader,
   ScreenScroll,
-  SocialAuthButton,
 } from "@/components";
+import { writeSettings } from "@/lib/settings";
 import { useTheme } from "@/theme/ThemeProvider";
 
 const MIN_PASSWORD_LENGTH = 8;
@@ -28,73 +28,60 @@ export default function SignUpScreen() {
   const router = useRouter();
   const { tokens } = useTheme();
 
-  const { startOAuthFlow: startAppleOAuth } = useOAuth({
-    strategy: "oauth_apple",
-  });
-  const { startOAuthFlow: startGoogleOAuth } = useOAuth({
-    strategy: "oauth_google",
-  });
-
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [agreedTerms, setAgreedTerms] = useState(false);
   const [pending, setPending] = useState(false);
-  const [socialLoading, setSocialLoading] = useState<"apple" | "google" | null>(
-    null
-  );
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const emailInputRef = useRef<TextInput>(null);
   const passwordInputRef = useRef<TextInput>(null);
 
-  const isValidEmail = (val: string) =>
-    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val.trim());
+  const passwordChecks = {
+    length: password.length >= MIN_PASSWORD_LENGTH,
+    uppercase: /[A-Z]/.test(password),
+    number: /\d/.test(password),
+  };
+
+  const isValidEmail = (value: string) =>
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 
   const isFormValid =
     fullName.trim().length > 0 &&
     isValidEmail(email) &&
-    password.length >= MIN_PASSWORD_LENGTH &&
+    passwordChecks.length &&
+    passwordChecks.uppercase &&
+    passwordChecks.number &&
     agreedTerms;
 
-  const handleSocialSignUp = async (
-    strategy: "oauth_apple" | "oauth_google"
-  ) => {
-    const providerKey = strategy === "oauth_apple" ? "apple" : "google";
-    setSocialLoading(providerKey);
-    setError(null);
-    try {
-      const flow =
-        strategy === "oauth_apple" ? startAppleOAuth : startGoogleOAuth;
-      const { createdSessionId, setActive: setOAuthActive } = await flow();
-      if (createdSessionId && setOAuthActive) {
-        await setOAuthActive({ session: createdSessionId });
-        router.replace("/(tabs)");
-      }
-    } catch (e: unknown) {
-      setError(
-        e instanceof Error
-          ? e.message
-          : "Social authentication was canceled or failed."
-      );
-    } finally {
-      setSocialLoading(null);
+  const clearFieldError = (field: string) => {
+    if (fieldErrors[field]) {
+      setFieldErrors((prev) => ({ ...prev, [field]: "" }));
     }
   };
 
+  const markOnboardingPending = () =>
+    writeSettings({
+      authOnboardingPending: true,
+      authOnboardingCompletedAt: null,
+    });
+
   const onSubmit = async () => {
     if (!isLoaded || !signUp) return;
-
     const nextFieldErrors: Record<string, string> = {};
     if (!fullName.trim()) nextFieldErrors["fullName"] = "Enter your full name.";
     if (!email.trim() || !isValidEmail(email)) {
       nextFieldErrors["email"] = "Enter a valid email address.";
     }
-    if (password.length < MIN_PASSWORD_LENGTH) {
-      nextFieldErrors["password"] =
-        `Use at least ${MIN_PASSWORD_LENGTH} characters.`;
+    if (
+      !passwordChecks.length ||
+      !passwordChecks.uppercase ||
+      !passwordChecks.number
+    ) {
+      nextFieldErrors["password"] = "Use a stronger password.";
     }
     setFieldErrors(nextFieldErrors);
     if (Object.keys(nextFieldErrors).length > 0) {
@@ -112,7 +99,6 @@ export default function SignUpScreen() {
       const nameParts = fullName.trim().split(/\s+/);
       const firstName = nameParts[0] ?? "";
       const lastName = nameParts.slice(1).join(" ");
-
       const result = await signUp.create({
         emailAddress: email.trim(),
         password,
@@ -120,9 +106,10 @@ export default function SignUpScreen() {
         ...(lastName ? { lastName } : {}),
       });
 
+      await markOnboardingPending();
       if (result.status === "complete") {
         await setActive({ session: result.createdSessionId });
-        router.replace("/(tabs)");
+        router.replace("/onboarding/permissions");
       } else {
         await signUp.prepareEmailAddressVerification({
           strategy: "email_code",
@@ -140,23 +127,12 @@ export default function SignUpScreen() {
     }
   };
 
-  const getPasswordHint = () => {
-    if (password.length === 0) {
-      return "At least 8 characters.";
-    }
-    if (password.length >= MIN_PASSWORD_LENGTH) {
-      return "Password meets requirement.";
-    }
-    return `Use at least ${MIN_PASSWORD_LENGTH} characters.`;
-  };
-
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       style={{ flex: 1 }}
     >
-      <ScreenScroll gap={12} contentStyle={styles.scrollContainer}>
-        {/* Top Header */}
+      <ScreenScroll gap={tokens.spacing.lg} contentStyle={styles.scrollContent}>
         <ScreenHeader
           title=""
           onBack={() =>
@@ -164,80 +140,27 @@ export default function SignUpScreen() {
           }
         />
 
-        {/* Heading & Supporting Copy */}
-        <View style={styles.headingBlock}>
+        <View style={styles.heading}>
           <Text
             accessibilityRole="header"
-            style={[
-              styles.title,
-              {
-                color: tokens.colors.text,
-              },
-            ]}
+            style={[styles.title, { color: tokens.colors.textStrong }]}
           >
             Create your account
           </Text>
-          <Text
-            style={[
-              styles.subtitle,
-              {
-                color: tokens.colors.textSubtle,
-              },
-            ]}
-          >
-            Keep your purchases, receipts, and protection details in one place.
+          <Text style={[styles.subtitle, { color: tokens.colors.textSubtle }]}>
+            Let&apos;s get you started.
           </Text>
         </View>
 
-        {/* Social Authentication Section */}
-        <View style={styles.socialBlock}>
-          <SocialAuthButton
-            provider="apple"
-            onPress={() => void handleSocialSignUp("oauth_apple")}
-            loading={socialLoading === "apple"}
-            disabled={pending || socialLoading !== null}
-          />
-          <SocialAuthButton
-            provider="google"
-            onPress={() => void handleSocialSignUp("oauth_google")}
-            loading={socialLoading === "google"}
-            disabled={pending || socialLoading !== null}
-          />
-        </View>
-
-        {/* Section Divider */}
-        <View style={styles.dividerRow}>
-          <View
-            style={[
-              styles.dividerLine,
-              { backgroundColor: tokens.colors.border },
-            ]}
-          />
-          <Text
-            style={[styles.dividerText, { color: tokens.colors.textMuted }]}
-          >
-            or continue with email
-          </Text>
-          <View
-            style={[
-              styles.dividerLine,
-              { backgroundColor: tokens.colors.border },
-            ]}
-          />
-        </View>
-
-        {/* Form Fields */}
-        <View style={styles.formBlock}>
+        <View style={styles.form}>
           <Input
             label="Full name"
             value={fullName}
             onChangeText={(text) => {
               setFullName(text);
-              if (fieldErrors["fullName"]) {
-                setFieldErrors((prev) => ({ ...prev, fullName: "" }));
-              }
+              clearFieldError("fullName");
             }}
-            placeholder="Your name"
+            placeholder="Alex Kim"
             autoCapitalize="words"
             textContentType="name"
             autoComplete="name"
@@ -247,13 +170,12 @@ export default function SignUpScreen() {
           />
 
           <Input
+            ref={emailInputRef}
             label="Email"
             value={email}
             onChangeText={(text) => {
               setEmail(text);
-              if (fieldErrors["email"]) {
-                setFieldErrors((prev) => ({ ...prev, email: "" }));
-              }
+              clearFieldError("email");
             }}
             placeholder="you@example.com"
             keyboardType="email-address"
@@ -267,26 +189,24 @@ export default function SignUpScreen() {
           />
 
           <Input
+            ref={passwordInputRef}
             label="Password"
             value={password}
             onChangeText={(text) => {
               setPassword(text);
-              if (fieldErrors["password"]) {
-                setFieldErrors((prev) => ({ ...prev, password: "" }));
-              }
+              clearFieldError("password");
             }}
-            placeholder="Choose a password"
+            placeholder="Create a strong password"
             secureTextEntry={!showPassword}
             autoCapitalize="none"
             textContentType="newPassword"
             autoComplete="new-password"
             returnKeyType="done"
             onSubmitEditing={() => void onSubmit()}
-            hint={getPasswordHint()}
             error={fieldErrors["password"]}
             adornment={
               <Pressable
-                onPress={() => setShowPassword((v) => !v)}
+                onPress={() => setShowPassword((value) => !value)}
                 accessibilityRole="button"
                 accessibilityLabel={
                   showPassword ? "Hide password" : "Show password"
@@ -303,54 +223,63 @@ export default function SignUpScreen() {
             }
           />
 
-          {/* Terms & Privacy Agreement Row */}
-          <View style={styles.termsRowContainer}>
+          <View style={styles.checkList}>
+            <PasswordCheck
+              ok={passwordChecks.length}
+              label="At least 8 characters"
+            />
+            <PasswordCheck
+              ok={passwordChecks.uppercase}
+              label="One uppercase letter"
+            />
+            <PasswordCheck ok={passwordChecks.number} label="One number" />
+          </View>
+
+          <View style={styles.termsRow}>
             <Pressable
-              onPress={() => setAgreedTerms((v) => !v)}
+              onPress={() => setAgreedTerms((value) => !value)}
               accessibilityRole="checkbox"
               accessibilityState={{ checked: agreedTerms }}
               accessibilityLabel="Agree to the Terms of Service and Privacy Policy"
               hitSlop={8}
-              style={styles.checkboxTouchable}
+              style={styles.checkboxTouch}
             >
               <View
                 style={[
                   styles.checkbox,
                   {
-                    borderRadius: 6,
                     borderColor: agreedTerms
                       ? tokens.colors.accent
-                      : tokens.colors.border,
+                      : tokens.colors.outline,
                     backgroundColor: agreedTerms
                       ? tokens.colors.accent
-                      : "transparent",
+                      : tokens.colors.surface,
                   },
                 ]}
               >
-                {agreedTerms && (
+                {agreedTerms ? (
                   <Ionicons
                     name="checkmark"
                     size={14}
                     color={tokens.colors.accentText}
                   />
-                )}
+                ) : null}
               </View>
             </Pressable>
-
             <Text
               style={[styles.termsText, { color: tokens.colors.textSubtle }]}
             >
               I agree to the{" "}
               <Text
                 onPress={() => router.push("/terms" as Href)}
-                style={[styles.legalLink, { color: tokens.colors.accent }]}
+                style={[styles.inlineLink, { color: tokens.colors.accent }]}
               >
                 Terms of Service
               </Text>{" "}
               and{" "}
               <Text
                 onPress={() => router.push("/privacy" as Href)}
-                style={[styles.legalLink, { color: tokens.colors.accent }]}
+                style={[styles.inlineLink, { color: tokens.colors.accent }]}
               >
                 Privacy Policy
               </Text>
@@ -361,130 +290,102 @@ export default function SignUpScreen() {
           <FormError message={error} />
 
           <Button
-            label={pending ? "Creating account…" : "Create account"}
-            disabled={!isFormValid || pending || socialLoading !== null}
+            label={pending ? "Creating account..." : "Create account"}
+            disabled={!isFormValid || pending}
+            busy={pending}
+            size="lg"
             onPress={() => void onSubmit()}
           />
+        </View>
 
-          <View style={styles.footerRow}>
-            <Text
-              style={[styles.footerText, { color: tokens.colors.textMuted }]}
-            >
-              Already have an account?{" "}
-            </Text>
-            <Link href="/(auth)/sign-in" asChild>
-              <Pressable
-                hitSlop={8}
-                accessibilityRole="link"
-                accessibilityLabel="Sign in to existing account"
-                style={styles.footerLinkTouch}
-              >
-                <Text
-                  style={[styles.footerLink, { color: tokens.colors.accent }]}
-                >
-                  Sign in
-                </Text>
-              </Pressable>
-            </Link>
-          </View>
+        <View style={styles.footerRow}>
+          <Text style={[styles.footerText, { color: tokens.colors.textMuted }]}>
+            Already have an account?{" "}
+          </Text>
+          <Link href="/(auth)/sign-in" asChild>
+            <Pressable accessibilityRole="link" hitSlop={10}>
+              <Text style={[styles.linkText, { color: tokens.colors.accent }]}>
+                Sign in
+              </Text>
+            </Pressable>
+          </Link>
         </View>
       </ScreenScroll>
     </KeyboardAvoidingView>
   );
 }
 
+function PasswordCheck({ ok, label }: { ok: boolean; label: string }) {
+  const { tokens } = useTheme();
+  return (
+    <View style={styles.checkRow}>
+      <Ionicons
+        name={ok ? "checkmark-circle" : "ellipse-outline"}
+        size={17}
+        color={ok ? tokens.colors.success : tokens.colors.outline}
+      />
+      <Text
+        style={[
+          styles.checkText,
+          { color: ok ? tokens.colors.successText : tokens.colors.textSubtle },
+        ]}
+      >
+        {label}
+      </Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  scrollContainer: {
-    paddingBottom: 36,
+  scrollContent: {
+    width: "100%",
+    maxWidth: 460,
+    alignSelf: "center",
+    paddingBottom: 32,
   },
-  headingBlock: {
-    gap: 4,
-    marginTop: 0,
-    marginBottom: 4,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: "700",
-    letterSpacing: -0.6,
-    lineHeight: 38,
-  },
-  subtitle: {
-    fontSize: 15,
-    fontWeight: "400",
-    lineHeight: 22,
-    maxWidth: 320,
-  },
-  socialBlock: {
-    gap: 10,
-  },
-  dividerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginVertical: 6,
-    gap: 12,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-  },
-  dividerText: {
-    fontSize: 13,
-    fontWeight: "500",
-  },
-  formBlock: {
-    gap: 14,
-  },
+  heading: { gap: 6, marginTop: 8, marginBottom: 4 },
+  title: { fontSize: 28, lineHeight: 35, fontWeight: "800" },
+  subtitle: { fontSize: 15, lineHeight: 22, fontWeight: "500" },
+  form: { gap: 13 },
   adornmentPress: {
     width: 48,
     height: 48,
     alignItems: "center",
     justifyContent: "center",
   },
-  termsRowContainer: {
+  checkList: { gap: 7, marginTop: -4 },
+  checkRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  checkText: { fontSize: 13, lineHeight: 18, fontWeight: "600" },
+  termsRow: {
     flexDirection: "row",
     alignItems: "flex-start",
-    gap: 8,
+    gap: 10,
     marginTop: 2,
   },
-  checkboxTouchable: {
+  checkboxTouch: {
     minWidth: 44,
-    minHeight: 48,
+    minHeight: 44,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: -10,
     marginLeft: -10,
+    marginTop: -8,
   },
   checkbox: {
     width: 22,
     height: 22,
+    borderRadius: 6,
     borderWidth: 1.5,
     alignItems: "center",
     justifyContent: "center",
   },
-  termsText: {
-    flex: 1,
-    fontSize: 13,
-    lineHeight: 19,
-  },
-  legalLink: {
-    fontWeight: "600",
-  },
+  termsText: { flex: 1, fontSize: 13, lineHeight: 19, fontWeight: "500" },
+  inlineLink: { fontWeight: "800" },
   footerRow: {
+    minHeight: 44,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 4,
   },
-  footerText: {
-    fontSize: 14,
-    fontWeight: "400",
-  },
-  footerLinkTouch: {
-    minHeight: 48,
-    justifyContent: "center",
-  },
-  footerLink: {
-    fontSize: 14,
-    fontWeight: "700",
-  },
+  footerText: { fontSize: 14, lineHeight: 20, fontWeight: "500" },
+  linkText: { fontSize: 14, lineHeight: 20, fontWeight: "800" },
 });

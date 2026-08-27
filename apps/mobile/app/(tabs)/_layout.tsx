@@ -23,14 +23,14 @@ export default function TabsLayout() {
           borderTopWidth: StyleSheet.hairlineWidth,
           borderRightColor: tokens.colors.border,
           borderRightWidth: expanded ? StyleSheet.hairlineWidth : 0,
-          width: expanded ? 88 : undefined,
-          height: expanded ? undefined : 58,
+          width: expanded ? 92 : undefined,
+          height: expanded ? undefined : 64,
           paddingBottom: expanded ? 12 : 6,
           paddingTop: 6,
           elevation: 0,
         },
         tabBarLabelStyle: {
-          fontSize: 11,
+          fontSize: 12,
           fontWeight: "600",
         },
         tabBarItemStyle: {

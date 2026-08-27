@@ -13,6 +13,7 @@ import {
   type TextInputKeyPressEventData,
 } from "react-native";
 import { Button, FormError, ScreenHeader, ScreenScroll } from "@/components";
+import { writeSettings } from "@/lib/settings";
 import { useTheme } from "@/theme/ThemeProvider";
 
 const CODE_LENGTH = 6;
@@ -51,8 +52,12 @@ export default function VerifyScreen() {
         code: codeToVerify,
       });
       if (result.status === "complete") {
+        await writeSettings({
+          authOnboardingPending: true,
+          authOnboardingCompletedAt: null,
+        });
         await setActive({ session: result.createdSessionId });
-        router.replace("/(tabs)");
+        router.replace("/onboarding/permissions");
       } else {
         setError("Verification incomplete.");
       }
@@ -136,7 +141,7 @@ export default function VerifyScreen() {
               },
             ]}
           >
-            Check your email
+            Verify your email
           </Text>
           <Text
             style={{

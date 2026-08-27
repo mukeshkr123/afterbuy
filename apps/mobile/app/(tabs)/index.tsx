@@ -6,11 +6,13 @@ import {
   AppIcon,
   AppText,
   Button,
+  CategoryArtwork,
   EmptyState,
   IconTile,
   ListItem,
   Money,
   ScreenScroll,
+  ScreenTitle,
   Skeleton,
   StatusPill,
 } from "@/components";
@@ -85,43 +87,12 @@ export default function HomeScreen() {
 
   return (
     <ScreenScroll gap={28} refreshing={isRefreshing} onRefresh={handleRefresh}>
-      {/* 1. App Header */}
-      <View style={styles.headerBlock}>
-        <AppText role="largeTitle" weight="700" style={styles.screenTitle}>
-          {name ? `Good to see you, ${name}` : "Welcome back"}
-        </AppText>
-        <AppText role="subheadline" tone="subtle" style={styles.screenSubtitle}>
-          Keep track of receipts, returns and warranties.
-        </AppText>
-      </View>
+      <ScreenTitle
+        title={name ? `Welcome back, ${name}` : "Welcome back"}
+        subtitle="Your returns and warranties, under control."
+      />
 
-      {/* 2. Action Block */}
-      <View style={{ gap: tokens.spacing.sm }}>
-        <Button
-          label="Add purchase"
-          size="lg"
-          onPress={() => router.push("/purchase/new")}
-        />
-        <View style={[styles.secondaryActions, { gap: tokens.spacing.sm }]}>
-          <SecondaryAction
-            icon="camera"
-            label="Scan receipt"
-            onPress={() =>
-              router.push({
-                pathname: "/purchase/new",
-                params: { capture: "camera" },
-              })
-            }
-          />
-          <SecondaryAction
-            icon="claims"
-            label="View claims"
-            onPress={() => router.push("/claims" as Href)}
-          />
-        </View>
-      </View>
-
-      {/* 3. Needs Attention Section */}
+      {/* Attention is intentionally first: this is the app's core promise. */}
       <View style={{ gap: tokens.spacing.md }}>
         <SectionHeading
           title="Needs attention"
@@ -195,6 +166,31 @@ export default function HomeScreen() {
         )}
       </View>
 
+      <View style={{ gap: tokens.spacing.sm }}>
+        <Button
+          label="Add purchase"
+          size="lg"
+          onPress={() => router.push("/purchase/new")}
+        />
+        <View style={[styles.secondaryActions, { gap: tokens.spacing.sm }]}>
+          <SecondaryAction
+            icon="camera"
+            label="Scan receipt"
+            onPress={() =>
+              router.push({
+                pathname: "/purchase/new",
+                params: { capture: "camera" },
+              })
+            }
+          />
+          <SecondaryAction
+            icon="claims"
+            label="View claims"
+            onPress={() => router.push("/claims" as Href)}
+          />
+        </View>
+      </View>
+
       {/* 4. Recent Purchases Section */}
       <View style={{ gap: tokens.spacing.md }}>
         <SectionHeading
@@ -234,10 +230,7 @@ export default function HomeScreen() {
                     .join(" • ")}
                   divider={index < purchases.length - 1}
                   leading={
-                    <IconTile
-                      icon={categoryIcon(purchase.category)}
-                      tone="neutral"
-                    />
+                    <CategoryArtwork category={purchase.category} size="sm" />
                   }
                   trailing={
                     <View style={styles.purchaseTrailing}>
@@ -353,15 +346,6 @@ function SecondaryAction({
 }
 
 const styles = StyleSheet.create({
-  headerBlock: {
-    gap: 6,
-  },
-  screenTitle: {
-    letterSpacing: -0.4,
-  },
-  screenSubtitle: {
-    lineHeight: 22,
-  },
   secondaryActions: {
     flexDirection: "row",
   },

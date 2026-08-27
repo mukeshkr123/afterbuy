@@ -1,10 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { useState, type ReactNode } from "react";
+import { StyleSheet, View } from "react-native";
+import type { PurchaseDetailResponse } from "@acme/shared";
 import {
   AppText,
   Button,
+  CategoryArtwork,
+  DeadlineCard,
   Dialog,
   EmptyState,
   FormError,
@@ -14,6 +17,8 @@ import {
   ScreenHeader,
   ScreenScroll,
   SectionCard,
+  SectionHeading,
+  SegmentedControl,
   Skeleton,
   StatusPill,
   UndoableToast,
@@ -24,33 +29,51 @@ import { deletePurchase, getPurchase, restorePurchase } from "@/api/purchases";
 import { fromCaught, type FormErrorState } from "@/hooks/useApiError";
 import { useTheme } from "@/theme/ThemeProvider";
 import {
-  categoryIcon,
   categoryLabel,
   deadlineState,
   deliveryDisplay,
   formatDate,
 } from "@/lib/purchaseDisplay";
-import type { PurchaseDetailResponse } from "@acme/shared";
+
+type PurchaseSection = "details" | "receipts" | "protection" | "activity";
+
+const SECTIONS: Array<{ key: PurchaseSection; label: string }> = [
+  { key: "details", label: "Details" },
+  { key: "receipts", label: "Receipts" },
+  { key: "protection", label: "Protection" },
+  { key: "activity", label: "Activity" },
+];
+
+function isPurchaseSection(
+  value: string | undefined
+): value is PurchaseSection {
+  return SECTIONS.some((item) => item.key === value);
+}
 
 export default function PurchaseDetailScreen() {
   const api = useApi();
   const qc = useQueryClient();
   const router = useRouter();
   const { tokens } = useTheme();
-  const { id } = useLocalSearchParams<{ id: string }>();
-
-  const detail = useQuery({
-    queryKey: apiKeys.purchases.detail(id ?? ""),
-    queryFn: () => getPurchase(api, id ?? ""),
-    enabled: Boolean(id),
-  });
-
+  const { id, section } = useLocalSearchParams<{
+    id: string;
+    section?: string;
+  }>();
+  const [activeSection, setActiveSection] = useState<PurchaseSection>(
+    isPurchaseSection(section) ? section : "details"
+  );
   const [error, setError] = useState<FormErrorState>({
     message: null,
     fields: {},
   });
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleted, setDeleted] = useState(false);
+
+  const detail = useQuery({
+    queryKey: apiKeys.purchases.detail(id ?? ""),
+    queryFn: () => getPurchase(api, id ?? ""),
+    enabled: Boolean(id),
+  });
 
   const softDelete = useMutation({
     mutationFn: () => deletePurchase(api, id ?? ""),
@@ -59,8 +82,8 @@ export default function PurchaseDetailScreen() {
       setConfirmDelete(false);
       setDeleted(true);
     },
-    onError: (e) => {
-      setError(fromCaught(e));
+    onError: (caught) => {
+      setError(fromCaught(caught));
       setConfirmDelete(false);
     },
   });
@@ -74,306 +97,291 @@ export default function PurchaseDetailScreen() {
       void qc.invalidateQueries({ queryKey: ["purchases"] });
       setDeleted(false);
     },
-    onError: (e) => setError(fromCaught(e)),
+    onError: (caught) => setError(fromCaught(caught)),
   });
-
-  const p: PurchaseDetailResponse | undefined = detail.data;
 
   if (detail.isLoading) {
     return (
-      <ScreenScroll gap={tokens.spacing.lg} safeTop={true}>
+      <ScreenScroll gap={tokens.spacing.lg}>
         <ScreenHeader title="Purchase" />
-        <Skeleton height={104} />
-        <Skeleton height={96} />
-        <Skeleton height={160} />
+        <Skeleton height={118} />
+        <Skeleton height={42} />
+        <Skeleton height={180} />
       </ScreenScroll>
     );
   }
 
-  if (!p) {
+  const purchase: PurchaseDetailResponse | undefined = detail.data;
+  if (!purchase) {
     return (
-      <ScreenScroll gap={tokens.spacing.lg} safeTop={true}>
+      <ScreenScroll gap={tokens.spacing.lg}>
         <ScreenHeader title="Purchase" />
-        <SectionCard>
-          <EmptyState
-            icon="alert-circle-outline"
-            title="Purchase not available"
-            message={
-              detail.isError
-                ? "We couldn't load this purchase. Check your connection and try again."
-                : "This purchase no longer exists."
-            }
-            action={{
-              label: "Try again",
-              onPress: () => void detail.refetch(),
-            }}
-          />
-        </SectionCard>
+        <EmptyState
+          icon="alert-circle-outline"
+          title="Purchase not available"
+          message={
+            detail.isError
+              ? "We couldn't load this purchase. Check your connection and try again."
+              : "This purchase no longer exists."
+          }
+          action={{ label: "Try again", onPress: () => void detail.refetch() }}
+        />
       </ScreenScroll>
     );
   }
 
-  const status = deliveryDisplay(p.deliveryStatus);
-  const purchasedOn = formatDate(p.purchaseDate);
-  const warranty = deadlineState(p.warrantyExpiresAt, "Valid till");
-  const returnWindow = deadlineState(p.returnDeadlineAt, "Eligible till");
-  const receiptCount = p.receipts.length;
+  const status = deliveryDisplay(purchase.deliveryStatus);
+  const purchasedOn = formatDate(purchase.purchaseDate);
+  const warranty = deadlineState(purchase.warrantyExpiresAt, "Coverage until");
+  const returnWindow = deadlineState(purchase.returnDeadlineAt, "Return by");
   const nextDeadline = [
-    p.returnDeadlineAt && returnWindow
-      ? { date: p.returnDeadlineAt, title: "Return window", ...returnWindow }
+    purchase.returnDeadlineAt && returnWindow
+      ? {
+          date: purchase.returnDeadlineAt,
+          title: "Return window",
+          ...returnWindow,
+        }
       : null,
-    p.warrantyExpiresAt && warranty
-      ? { date: p.warrantyExpiresAt, title: "Warranty", ...warranty }
+    purchase.warrantyExpiresAt && warranty
+      ? { date: purchase.warrantyExpiresAt, title: "Warranty", ...warranty }
       : null,
   ]
     .filter((item): item is NonNullable<typeof item> => Boolean(item))
     .filter((item) => !item.expired)
     .sort((a, b) => a.date.localeCompare(b.date))[0];
 
+  const openRoute = (
+    pathname:
+      | "/purchase/[id]/receipts"
+      | "/purchase/[id]/claims"
+      | "/purchase/[id]/track"
+  ) => router.push({ pathname, params: { id: purchase.id } });
+
   return (
     <>
-      <ScreenScroll gap={tokens.spacing.lg} safeTop={true}>
+      <ScreenScroll gap={tokens.spacing.lg}>
         <ScreenHeader
-          title={p.title || "Purchase"}
+          title="Purchase"
           action={{
             text: "Edit",
             tone: "accent",
             onPress: () =>
               router.push({
                 pathname: "/purchase/[id]/edit",
-                params: { id: id ?? "" },
+                params: { id: purchase.id },
               }),
           }}
         />
 
-        <SectionCard>
-          <View style={[styles.productRow, { gap: tokens.spacing.lg }]}>
-            <IconTile
-              icon={categoryIcon(p.category)}
-              tone="neutral"
-              size="lg"
-            />
-            <View style={{ flex: 1, gap: 4 }}>
-              <Text
-                style={{
-                  color: tokens.colors.text,
-                  fontSize: tokens.type.body.fontSize + 2,
-                  fontWeight: "700",
-                  letterSpacing: -0.3,
-                }}
-              >
-                {p.title}
-              </Text>
-              <Text
-                style={{
-                  color: tokens.colors.textMuted,
-                  fontSize: tokens.type.bodySmall.fontSize,
-                }}
-              >
-                {categoryLabel(p.category)}
-              </Text>
-              <View style={{ marginTop: 4 }}>
-                <StatusPill label={status.label} tone={status.tone} />
-              </View>
-            </View>
-          </View>
-        </SectionCard>
-
-        {nextDeadline ? (
-          <View
-            style={[
-              styles.deadline,
-              {
-                backgroundColor: nextDeadline.urgent
-                  ? tokens.colors.warningSoft
-                  : tokens.colors.accentSoft,
-                borderRadius: tokens.radius.md,
-              },
-            ]}
-          >
-            <AppText role="caption" tone="subtle" weight="700">
-              Next deadline
-            </AppText>
-            <AppText role="headline">
-              {nextDeadline.title} · {nextDeadline.label}
+        <View style={[styles.hero, { gap: tokens.spacing.lg }]}>
+          <CategoryArtwork category={purchase.category} size="lg" />
+          <View style={styles.heroCopy}>
+            <AppText role="title" tone="strong">
+              {purchase.title}
             </AppText>
             <AppText role="subheadline" tone="subtle">
-              {nextDeadline.detail}
+              {[purchase.merchant, categoryLabel(purchase.category)]
+                .filter(Boolean)
+                .join(" · ")}
             </AppText>
+            <Money
+              amountMinor={purchase.amountMinor}
+              currency={purchase.currency}
+              emphasis="strong"
+              style={{ fontSize: tokens.type.title.fontSize }}
+            />
+          </View>
+          <StatusPill label={status.label} tone={status.tone} />
+        </View>
+
+        {nextDeadline ? (
+          <DeadlineCard
+            title={nextDeadline.title}
+            dateLabel={nextDeadline.label}
+            detail={nextDeadline.detail}
+            tone={nextDeadline.urgent ? "warning" : "success"}
+            onPress={() => setActiveSection("protection")}
+          />
+        ) : null}
+
+        <SegmentedControl
+          tabs={SECTIONS}
+          activeKey={activeSection}
+          onChange={(value) => {
+            if (isPurchaseSection(value)) setActiveSection(value);
+          }}
+        />
+
+        {activeSection === "details" ? (
+          <View style={{ gap: tokens.spacing.lg }}>
+            <SectionHeading title="Purchase details" />
+            <SectionCard flush>
+              <DetailRow
+                label="Category"
+                value={categoryLabel(purchase.category)}
+              />
+              {purchase.orderNumber ? (
+                <DetailRow label="Order number" value={purchase.orderNumber} />
+              ) : null}
+              {purchasedOn ? (
+                <DetailRow label="Purchased" value={purchasedOn} />
+              ) : null}
+              <DetailRow
+                label="Amount"
+                valueNode={
+                  <Money
+                    amountMinor={purchase.amountMinor}
+                    currency={purchase.currency}
+                    emphasis="strong"
+                  />
+                }
+                last={!purchase.notes}
+              />
+              {purchase.notes ? (
+                <DetailRow label="Notes" value={purchase.notes} last />
+              ) : null}
+            </SectionCard>
+            <FormError message={error.message} />
+            <Button
+              label="Delete purchase"
+              variant="tertiary"
+              onPress={() => setConfirmDelete(true)}
+            />
           </View>
         ) : null}
 
-        {/* Purchase metadata. Every row is omitted when the server has no value. */}
-        {p.merchant || p.orderNumber || purchasedOn || p.trackingNumber ? (
-          <SectionCard
-            onPress={
-              p.trackingNumber
-                ? () =>
-                    router.push({
-                      pathname: "/purchase/[id]/track",
-                      params: { id: p.id },
-                    })
-                : undefined
-            }
-          >
-            <View style={styles.metaRow}>
-              <View style={{ gap: 6, flex: 1 }}>
-                {p.merchant ? (
-                  <Text
-                    style={{
-                      color: tokens.colors.text,
-                      fontSize: tokens.type.body.fontSize,
-                      fontWeight: "700",
-                    }}
-                  >
-                    {p.merchant}
-                  </Text>
-                ) : null}
-                {p.orderNumber ? (
-                  <Text
-                    style={{
-                      color: tokens.colors.textSubtle,
-                      fontSize: tokens.type.bodySmall.fontSize,
-                    }}
-                  >
-                    Purchase reference:{" "}
-                    <Text style={{ color: tokens.colors.text }}>
-                      {p.orderNumber}
-                    </Text>
-                  </Text>
-                ) : null}
-                {purchasedOn ? (
-                  <Text
-                    style={{
-                      color: tokens.colors.textSubtle,
-                      fontSize: tokens.type.bodySmall.fontSize,
-                    }}
-                  >
-                    Purchased on {purchasedOn}
-                  </Text>
-                ) : null}
-                {p.trackingNumber ? (
-                  <Text
-                    style={{
-                      color: tokens.colors.accent,
-                      fontSize: tokens.type.bodySmall.fontSize,
-                      fontWeight: "600",
-                    }}
-                  >
-                    Track this delivery
-                  </Text>
-                ) : null}
-              </View>
-            </View>
-          </SectionCard>
+        {activeSection === "receipts" ? (
+          <View style={{ gap: tokens.spacing.md }}>
+            <SectionHeading
+              title="Receipts"
+              detail="Keep proof of purchase with the item."
+            />
+            <SectionCard flush>
+              <ListItem
+                title={
+                  purchase.receipts.length === 0
+                    ? "No receipt attached"
+                    : purchase.receipts.length === 1
+                      ? "1 receipt attached"
+                      : `${purchase.receipts.length} receipts attached`
+                }
+                subtitle="Photograph or choose an image from your library."
+                divider={false}
+                leading={<IconTile icon="document-text-outline" tone="info" />}
+                chevron
+                onPress={() => openRoute("/purchase/[id]/receipts")}
+              />
+            </SectionCard>
+            <Button
+              label={
+                purchase.receipts.length ? "Manage receipts" : "Add receipt"
+              }
+              onPress={() => openRoute("/purchase/[id]/receipts")}
+            />
+          </View>
         ) : null}
 
-        <View style={{ gap: tokens.spacing.md - 2 }}>
-          <Text
-            style={[
-              styles.sectionTitle,
-              {
-                color: tokens.colors.text,
-                fontSize: tokens.type.body.fontSize,
-              },
-            ]}
-          >
-            Protection
-          </Text>
-          <SectionCard flush>
-            <ListItem
-              title="Warranty"
-              subtitle={warranty?.label ?? "No warranty recorded"}
-              detail={warranty?.detail ?? null}
-              leading={
-                <IconTile icon="shield-checkmark-outline" tone="success" />
-              }
-              trailing={
-                warranty?.expired ? (
-                  <StatusPill label="Expired" tone="neutral" />
-                ) : warranty?.urgent ? (
-                  <StatusPill label="Soon" tone="warning" />
-                ) : undefined
-              }
-              chevron
-              onPress={() =>
-                router.push({
-                  pathname: "/purchase/[id]/claims",
-                  params: { id: p.id },
-                })
-              }
+        {activeSection === "protection" ? (
+          <View style={{ gap: tokens.spacing.md }}>
+            <SectionHeading
+              title="Protection"
+              detail="Return, warranty, and claim coverage."
             />
-            <ListItem
-              title="Return Window"
-              subtitle={returnWindow?.label ?? "No return window recorded"}
-              detail={returnWindow?.detail ?? null}
-              divider={false}
-              leading={<IconTile icon="sync-outline" tone="accent" />}
-              trailing={
-                returnWindow?.expired ? (
-                  <StatusPill label="Closed" tone="neutral" />
-                ) : returnWindow?.urgent ? (
-                  <StatusPill label="Soon" tone="warning" />
-                ) : undefined
-              }
-              chevron
-              onPress={() => router.push("/(tabs)/reminders")}
+            <SectionCard flush>
+              <ListItem
+                title="Return window"
+                subtitle={returnWindow?.label ?? "No return window recorded"}
+                detail={returnWindow?.detail ?? null}
+                leading={
+                  <IconTile
+                    icon="sync-outline"
+                    tone={returnWindow?.urgent ? "warning" : "accent"}
+                  />
+                }
+                trailing={
+                  returnWindow?.expired ? (
+                    <StatusPill label="Closed" tone="neutral" />
+                  ) : returnWindow?.urgent ? (
+                    <StatusPill label="Soon" tone="warning" />
+                  ) : undefined
+                }
+                onPress={() => router.push("/(tabs)/reminders")}
+                chevron
+              />
+              <ListItem
+                title="Warranty"
+                subtitle={warranty?.label ?? "No warranty recorded"}
+                detail={warranty?.detail ?? null}
+                leading={
+                  <IconTile
+                    icon="shield-checkmark-outline"
+                    tone={warranty?.urgent ? "warning" : "success"}
+                  />
+                }
+                trailing={
+                  warranty?.expired ? (
+                    <StatusPill label="Expired" tone="neutral" />
+                  ) : warranty?.urgent ? (
+                    <StatusPill label="Soon" tone="warning" />
+                  ) : undefined
+                }
+                onPress={() => openRoute("/purchase/[id]/claims")}
+                chevron
+                divider={false}
+              />
+            </SectionCard>
+            <Button
+              label={purchase.claims.length ? "View claims" : "Start a claim"}
+              variant="secondary"
+              onPress={() => openRoute("/purchase/[id]/claims")}
             />
-          </SectionCard>
-        </View>
-
-        <SectionCard flush>
-          <ListItem
-            title="Receipts"
-            subtitle={
-              receiptCount === 0
-                ? "No receipt attached"
-                : receiptCount === 1
-                  ? "1 receipt"
-                  : `${receiptCount} receipts`
-            }
-            divider={false}
-            leading={<IconTile icon="document-text-outline" tone="info" />}
-            chevron
-            onPress={() =>
-              router.push({
-                pathname: "/purchase/[id]/receipts",
-                params: { id: p.id },
-              })
-            }
-          />
-        </SectionCard>
-
-        <SectionCard title="Price Details">
-          <Money
-            amountMinor={p.amountMinor}
-            currency={p.currency}
-            emphasis="strong"
-            style={{ fontSize: tokens.type.title.fontSize }}
-          />
-        </SectionCard>
-
-        {p.notes ? (
-          <SectionCard title="Notes">
-            <Text
-              style={{
-                color: tokens.colors.textSubtle,
-                fontSize: tokens.type.body.fontSize,
-                lineHeight: tokens.type.body.lineHeight,
-              }}
-            >
-              {p.notes}
-            </Text>
-          </SectionCard>
+          </View>
         ) : null}
 
-        <FormError message={error.message} />
-
-        <Button
-          label="Delete Purchase"
-          variant="ghost"
-          onPress={() => setConfirmDelete(true)}
-        />
+        {activeSection === "activity" ? (
+          <View style={{ gap: tokens.spacing.md }}>
+            <SectionHeading
+              title="Activity"
+              detail="Delivery and reminder history."
+            />
+            <SectionCard flush>
+              <ListItem
+                title="Delivery"
+                subtitle={
+                  purchase.trackingNumber
+                    ? `Tracking ${purchase.trackingNumber}`
+                    : status.label
+                }
+                leading={<IconTile icon="cube-outline" tone="neutral" />}
+                trailing={
+                  <StatusPill label={status.label} tone={status.tone} />
+                }
+                chevron={Boolean(purchase.trackingNumber)}
+                onPress={
+                  purchase.trackingNumber
+                    ? () => openRoute("/purchase/[id]/track")
+                    : undefined
+                }
+              />
+              <ListItem
+                title="Reminders"
+                subtitle={
+                  purchase.reminders.length === 0
+                    ? "No reminders recorded"
+                    : `${purchase.reminders.length} reminder${
+                        purchase.reminders.length === 1 ? "" : "s"
+                      }`
+                }
+                leading={
+                  <IconTile icon="notifications-outline" tone="accent" />
+                }
+                divider={false}
+                chevron
+                onPress={() => router.push("/(tabs)/reminders")}
+              />
+            </SectionCard>
+          </View>
+        ) : null}
       </ScreenScroll>
 
       <Dialog
@@ -386,15 +394,12 @@ export default function PurchaseDetailScreen() {
         secondaryLabel="Cancel"
         onDismiss={() => setConfirmDelete(false)}
       />
-
       <UndoableToast
         message={deleted ? "Purchase deleted" : null}
         actionLabel="Undo"
         onAction={() => undoDelete.mutate()}
         onDismiss={() => {
           setDeleted(false);
-          // The record is gone from every list; staying on its detail screen
-          // would show a "not available" shell.
           if (router.canGoBack()) router.back();
           else router.replace("/(tabs)/purchases");
         }}
@@ -403,22 +408,52 @@ export default function PurchaseDetailScreen() {
   );
 }
 
+function DetailRow({
+  label,
+  value,
+  valueNode,
+  last = false,
+}: {
+  label: string;
+  value?: string;
+  valueNode?: ReactNode;
+  last?: boolean;
+}) {
+  const { tokens } = useTheme();
+  return (
+    <View
+      style={[
+        styles.detailRow,
+        {
+          padding: tokens.spacing.lg,
+          gap: tokens.spacing.lg,
+          borderBottomColor: tokens.colors.border,
+          borderBottomWidth: last ? 0 : StyleSheet.hairlineWidth,
+        },
+      ]}
+    >
+      <AppText role="subheadline" tone="subtle">
+        {label}
+      </AppText>
+      <View style={styles.detailValue}>
+        {valueNode ?? (
+          <AppText role="subheadline" weight="600" style={styles.valueText}>
+            {value}
+          </AppText>
+        )}
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  productRow: {
+  hero: { flexDirection: "row", alignItems: "center" },
+  heroCopy: { flex: 1, gap: 3 },
+  detailRow: {
     flexDirection: "row",
-    alignItems: "center",
-  },
-  metaRow: {
-    flexDirection: "row",
+    alignItems: "flex-start",
     justifyContent: "space-between",
-    alignItems: "center",
   },
-  sectionTitle: {
-    fontWeight: "700",
-  },
-  deadline: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    gap: 2,
-  },
+  detailValue: { flex: 1, alignItems: "flex-end" },
+  valueText: { textAlign: "right" },
 });

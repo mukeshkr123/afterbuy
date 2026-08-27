@@ -13,7 +13,7 @@ export interface TabsProps {
   onChange: (key: string) => void;
 }
 
-export function Tabs({ tabs, activeKey, onChange }: TabsProps) {
+export function SegmentedControl({ tabs, activeKey, onChange }: TabsProps) {
   const { tokens, reducedMotion } = useTheme();
 
   return (
@@ -23,7 +23,6 @@ export function Tabs({ tabs, activeKey, onChange }: TabsProps) {
         styles.container,
         {
           backgroundColor: tokens.colors.surfaceMuted,
-          borderColor: tokens.colors.border,
         },
       ]}
     >
@@ -42,7 +41,7 @@ export function Tabs({ tabs, activeKey, onChange }: TabsProps) {
                 styles.selectedSegment,
                 {
                   backgroundColor: tokens.colors.surface,
-                  borderColor: tokens.colors.border,
+                  ...tokens.shadow.raised,
                 },
               ],
               pressed && !reducedMotion && { opacity: 0.8 },
@@ -53,7 +52,7 @@ export function Tabs({ tabs, activeKey, onChange }: TabsProps) {
                 styles.label,
                 {
                   color: isSelected
-                    ? tokens.colors.text
+                    ? tokens.colors.content.primary
                     : tokens.colors.textMuted,
                   fontWeight: isSelected ? "600" : "500",
                 },
@@ -68,32 +67,29 @@ export function Tabs({ tabs, activeKey, onChange }: TabsProps) {
   );
 }
 
+/** @deprecated Prefer the behavior-named SegmentedControl export. */
+export const Tabs = SegmentedControl;
+
 const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
-    height: 46,
-    borderRadius: 14,
-    borderWidth: 1,
+    minHeight: 42,
+    borderRadius: 12,
     padding: 3,
     alignItems: "center",
   },
   segment: {
     flex: 1,
-    height: "100%",
-    borderRadius: 11,
+    minHeight: 36,
+    borderRadius: 9,
     alignItems: "center",
     justifyContent: "center",
   },
   selectedSegment: {
-    borderWidth: 1,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 2,
-    elevation: 1,
+    overflow: "hidden",
   },
   label: {
-    fontSize: 15,
+    fontSize: 14,
     letterSpacing: -0.2,
   },
 });

@@ -1,8 +1,12 @@
-import { createRoute, z } from "@hono/zod-openapi";
+import { createRoute, z, type RouteHandler } from "@hono/zod-openapi";
 import { and, eq, isNull, isNotNull, desc, asc, sql } from "drizzle-orm";
-import { apiErrorResponseSchema, reminderSchema } from "@acme/shared";
+import {
+  apiErrorResponseSchema,
+  reminderSchema,
+  type Reminder,
+} from "@acme/shared";
 import { createDbClient, reminders, type ReminderRow } from "@acme/db";
-import type { AuthedContext } from "../auth";
+import type { AuthedContext, AuthedEnv } from "../auth";
 import { apiError } from "../errors";
 
 const TAG = "Reminders";
@@ -66,21 +70,12 @@ export const remindersDismissRoute = createRoute({
 
 // ---- Handlers -------------------------------------------------------------
 
-export async function handleListReminders(ctx: AuthedContext) {
+export const handleListReminders: RouteHandler<
+  typeof remindersListRoute,
+  AuthedEnv
+> = async (ctx) => {
   const user = ctx.get("user");
-  const url = new URL(ctx.req.url);
-  const querySchema = z.object({
-    scope: z.enum(["upcoming", "history"]).default("upcoming"),
-    cursor: z.string().optional(),
-    limit: z.coerce.number().int().min(1).max(50).default(20),
-  });
-
-  const parsed = querySchema.safeParse(Object.fromEntries(url.searchParams));
-  if (!parsed.success) {
-    return apiError(ctx, 422, "validation_failed", "Invalid query parameters");
-  }
-
-  const { scope, cursor, limit } = parsed.data;
+  const { scope, cursor, limit } = ctx.req.valid("query");
   const db = createDbClient(ctx.env.DB);
 
   const pageSize = limit;
@@ -137,13 +132,13 @@ export async function handleListReminders(ctx: AuthedContext) {
   const nextCursor = hasMore && lastItem ? lastItem.id : null;
 
   return ctx.json({ items, nextCursor }, 200);
-}
+};
 
-export async function handleDismissReminder(ctx: AuthedContext) {
-  const id = ctx.req.param("id");
-  if (!id) {
-    return apiError(ctx, 404, "not_found", "Reminder not found");
-  }
+export const handleDismissReminder: RouteHandler<
+  typeof remindersDismissRoute,
+  AuthedEnv
+> = async (ctx) => {
+  const { id } = ctx.req.valid("param");
   const user = ctx.get("user");
   const db = createDbClient(ctx.env.DB);
 
@@ -174,11 +169,11 @@ export async function handleDismissReminder(ctx: AuthedContext) {
   }
 
   return ctx.json(rowToReminder(updated), 200);
-}
+};
 
 // ---- Helpers --------------------------------------------------------------
 
-export function rowToReminder(row: ReminderRow) {
+export function rowToReminder(row: ReminderRow): Reminder {
   return {
     id: row.id,
     userId: row.userId,

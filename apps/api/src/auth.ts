@@ -104,7 +104,7 @@ export async function findOrProvisionUser(
   db: DbClient,
   clerkUserId: string,
   payload: { email?: string | null; timezone?: string | null }
-): Promise<AuthedUser> {
+): Promise<AuthedUser & { deletedAt: string | null }> {
   const existing = await db
     .select({
       id: users.id,
@@ -118,7 +118,11 @@ export async function findOrProvisionUser(
     if (existing.deletedAt !== null) {
       throw new ApiError(403, "forbidden", "Account has been deleted");
     }
-    return { id: existing.id, clerkUserId: existing.clerkUserId };
+    return {
+      id: existing.id,
+      clerkUserId: existing.clerkUserId,
+      deletedAt: existing.deletedAt,
+    };
   }
 
   const now = new Date().toISOString();
@@ -135,7 +139,7 @@ export async function findOrProvisionUser(
       updatedAt: now,
       deletedAt: null,
     });
-    return { id, clerkUserId };
+    return { id, clerkUserId, deletedAt: null };
   } catch {
     const winner = await db
       .select({
@@ -150,7 +154,11 @@ export async function findOrProvisionUser(
       if (winner.deletedAt !== null) {
         throw new ApiError(403, "forbidden", "Account has been deleted");
       }
-      return { id: winner.id, clerkUserId: winner.clerkUserId };
+      return {
+        id: winner.id,
+        clerkUserId: winner.clerkUserId,
+        deletedAt: winner.deletedAt,
+      };
     }
     throw new Error("Failed to provision or find user");
   }
@@ -167,11 +175,17 @@ export async function cachedFindOrProvisionUser(
     const cached = await env.APP_KV.get(cacheKey);
     if (cached) {
       try {
-        const parsed = JSON.parse(cached) as AuthedUser;
+        const parsed = JSON.parse(cached) as AuthedUser & {
+          deletedAt: string | null;
+        };
         if (parsed.clerkUserId === clerkUserId) {
-          return parsed;
+          if (parsed.deletedAt !== null) {
+            throw new ApiError(403, "forbidden", "Account has been deleted");
+          }
+          return { id: parsed.id, clerkUserId: parsed.clerkUserId };
         }
-      } catch {
+      } catch (err) {
+        if (err instanceof ApiError) throw err;
         // fall through to live lookup
       }
     }
@@ -185,7 +199,7 @@ export async function cachedFindOrProvisionUser(
     });
   }
 
-  return user;
+  return { id: user.id, clerkUserId: user.clerkUserId };
 }
 
 export const authMiddleware: MiddlewareHandler<AuthedEnv> = async (c, next) => {

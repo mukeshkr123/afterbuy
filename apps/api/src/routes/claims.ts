@@ -1,4 +1,4 @@
-import { createRoute, z } from "@hono/zod-openapi";
+import { createRoute, z, type RouteHandler } from "@hono/zod-openapi";
 import { and, desc, eq, isNull, lt } from "drizzle-orm";
 import {
   apiErrorResponseSchema,
@@ -7,6 +7,7 @@ import {
   updateClaimRequestSchema,
   claimTypeSchema,
   claimStatusSchema,
+  type Claim,
 } from "@acme/shared";
 import {
   createDbClient,
@@ -16,7 +17,7 @@ import {
   type DbClient,
   type ClaimRow,
 } from "@acme/db";
-import type { AuthedContext } from "../auth";
+import type { AuthedContext, AuthedEnv } from "../auth";
 import { apiError } from "../errors";
 
 const TAG = "Claims";
@@ -147,11 +148,11 @@ export const claimsPatchRoute = createRoute({
 
 // ---- Handlers -------------------------------------------------------------
 
-export async function handleGetClaim(ctx: AuthedContext) {
-  const id = ctx.req.param("id");
-  if (!id) {
-    return apiError(ctx, 404, "not_found", "Claim not found");
-  }
+export const handleGetClaim: RouteHandler<
+  typeof claimsGetRoute,
+  AuthedEnv
+> = async (ctx) => {
+  const { id } = ctx.req.valid("param");
   const user = ctx.get("user");
   const db = createDbClient(ctx.env.DB);
 
@@ -166,25 +167,14 @@ export async function handleGetClaim(ctx: AuthedContext) {
   }
 
   return ctx.json(rowToClaim(row), 200);
-}
+};
 
-export async function handleListClaims(ctx: AuthedContext) {
+export const handleListClaims: RouteHandler<
+  typeof claimsListRoute,
+  AuthedEnv
+> = async (ctx) => {
   const user = ctx.get("user");
-  const url = new URL(ctx.req.url);
-  const querySchema = z.object({
-    purchaseId: z.string().optional(),
-    type: claimTypeSchema.optional(),
-    status: claimStatusSchema.optional(),
-    cursor: z.string().optional(),
-    limit: z.coerce.number().int().min(1).max(50).default(20),
-  });
-
-  const parsed = querySchema.safeParse(Object.fromEntries(url.searchParams));
-  if (!parsed.success) {
-    return apiError(ctx, 422, "validation_failed", "Invalid query parameters");
-  }
-
-  const { purchaseId, type, status, cursor, limit } = parsed.data;
+  const { purchaseId, type, status, cursor, limit } = ctx.req.valid("query");
   const db = createDbClient(ctx.env.DB);
 
   const pageSize = limit;
@@ -208,15 +198,14 @@ export async function handleListClaims(ctx: AuthedContext) {
   const nextCursor = hasMore && lastItem ? lastItem.id : null;
 
   return ctx.json({ items, nextCursor }, 200);
-}
+};
 
-export async function handleCreateClaim(ctx: AuthedContext) {
+export const handleCreateClaim: RouteHandler<
+  typeof claimsCreateRoute,
+  AuthedEnv
+> = async (ctx) => {
   const user = ctx.get("user");
-  const parsed = createClaimRequestSchema.safeParse(await ctx.req.json());
-  if (!parsed.success) {
-    return apiError(ctx, 422, "validation_failed", "Invalid request body");
-  }
-  const input = parsed.data;
+  const input = ctx.req.valid("json");
   const db = createDbClient(ctx.env.DB);
 
   // Verify purchase exists, belongs to user, and is not deleted
@@ -255,7 +244,7 @@ export async function handleCreateClaim(ctx: AuthedContext) {
   await db.insert(claims).values(row);
 
   return ctx.json(rowToClaim(row), 201);
-}
+};
 
 const ALLOWED_TRANSITIONS: Record<string, string[]> = {
   draft: ["submitted", "cancelled"],
@@ -267,17 +256,13 @@ const ALLOWED_TRANSITIONS: Record<string, string[]> = {
   cancelled: [],
 };
 
-export async function handlePatchClaim(ctx: AuthedContext) {
-  const id = ctx.req.param("id");
-  if (!id) {
-    return apiError(ctx, 404, "not_found", "Claim not found");
-  }
+export const handlePatchClaim: RouteHandler<
+  typeof claimsPatchRoute,
+  AuthedEnv
+> = async (ctx) => {
+  const { id } = ctx.req.valid("param");
   const user = ctx.get("user");
-  const parsed = updateClaimRequestSchema.safeParse(await ctx.req.json());
-  if (!parsed.success) {
-    return apiError(ctx, 422, "validation_failed", "Invalid request body");
-  }
-  const input = parsed.data;
+  const input = ctx.req.valid("json");
   const db = createDbClient(ctx.env.DB);
 
   const existing = await db
@@ -325,11 +310,11 @@ export async function handlePatchClaim(ctx: AuthedContext) {
   }
 
   return ctx.json(rowToClaim(updated), 200);
-}
+};
 
 // ---- Helpers --------------------------------------------------------------
 
-export function rowToClaim(row: ClaimRow) {
+export function rowToClaim(row: ClaimRow): Claim {
   return {
     id: row.id,
     userId: row.userId,

@@ -1,4 +1,4 @@
-import { createRoute } from "@hono/zod-openapi";
+import { createRoute, type RouteHandler } from "@hono/zod-openapi";
 import { eq } from "drizzle-orm";
 import { Webhook } from "svix";
 import { z } from "zod";
@@ -7,6 +7,7 @@ import { createDbClient } from "@acme/db";
 import { apiErrorResponseSchema } from "@acme/shared";
 import type { Context } from "hono";
 import { apiError } from "../errors";
+import type { Env } from "../env";
 
 export const clerkWebhookRoute = createRoute({
   method: "post",
@@ -49,7 +50,10 @@ function extractPrimaryEmail(data: ClerkUserData): string | null {
   return data.email_addresses[0]?.email_address ?? null;
 }
 
-export async function handleClerkWebhook(c: Context) {
+export const handleClerkWebhook: RouteHandler<
+  typeof clerkWebhookRoute,
+  { Bindings: Env; Variables: { requestId: string } }
+> = async (c) => {
   if (!c.env.CLERK_WEBHOOK_SECRET) {
     return apiError(c, 503, "unavailable", "Webhook is not configured");
   }
@@ -89,7 +93,7 @@ export async function handleClerkWebhook(c: Context) {
     })
     .safeParse(event);
   if (!parsed.success) {
-    return apiError(c, 401, "unauthenticated", "Malformed event");
+    return apiError(c, 400, "validation_failed", "Malformed event");
   }
 
   const db = createDbClient(c.env.DB);
@@ -132,4 +136,4 @@ export async function handleClerkWebhook(c: Context) {
   }
 
   return c.body(null, 200);
-}
+};

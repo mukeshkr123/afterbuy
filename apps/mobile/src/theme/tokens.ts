@@ -64,6 +64,29 @@ export interface Tokens {
     danger: string;
     dangerText: string;
     dangerSurface: string;
+    /** New components should prefer these grouped semantic roles. */
+    content: {
+      primary: string;
+      secondary: string;
+      tertiary: string;
+      inverse: string;
+    };
+    action: {
+      primary: string;
+      primaryPressed: string;
+      onPrimary: string;
+      focus: string;
+    };
+    status: {
+      success: string;
+      successSurface: string;
+      warning: string;
+      warningSurface: string;
+      danger: string;
+      dangerSurface: string;
+      info: string;
+      infoSurface: string;
+    };
   };
   readonly spacing: {
     xs: number;
@@ -87,10 +110,13 @@ export interface Tokens {
   };
   readonly type: {
     largeTitle: { fontSize: number; lineHeight: number };
+    screenTitle: { fontSize: number; lineHeight: number };
     title: { fontSize: number; lineHeight: number };
+    sectionTitle: { fontSize: number; lineHeight: number };
     headline: { fontSize: number; lineHeight: number };
     body: { fontSize: number; lineHeight: number };
     subheadline: { fontSize: number; lineHeight: number };
+    label: { fontSize: number; lineHeight: number };
     caption: { fontSize: number; lineHeight: number };
     /** Backwards-compatible aliases while screens migrate to named roles. */
     bodySmall: { fontSize: number; lineHeight: number };
@@ -115,7 +141,7 @@ export interface Tokens {
 
 const SPACING = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 } as const;
 
-const RADIUS = { sm: 6, md: 10, lg: 14, xl: 18, pill: 999 } as const;
+const RADIUS = { sm: 6, md: 10, lg: 14, xl: 16, pill: 999 } as const;
 
 // Light-mode elevation. Dark mode overrides these to `{}` — on a dark canvas a
 // black shadow reads as smudge, and the border does the separating instead.
@@ -141,10 +167,13 @@ const NO_SHADOW = { card: {}, raised: {}, none: {} } as const;
 
 const TYPE = {
   largeTitle: { fontSize: 34, lineHeight: 42 },
+  screenTitle: { fontSize: 28, lineHeight: 35 },
   title: { fontSize: 22, lineHeight: 30 },
+  sectionTitle: { fontSize: 18, lineHeight: 24 },
   headline: { fontSize: 17, lineHeight: 24 },
   body: { fontSize: 17, lineHeight: 25 },
   subheadline: { fontSize: 15, lineHeight: 22 },
+  label: { fontSize: 14, lineHeight: 20 },
   caption: { fontSize: 13, lineHeight: 18 },
   bodySmall: { fontSize: 15, lineHeight: 22 },
   display: { fontSize: 34, lineHeight: 42 },
@@ -163,26 +192,26 @@ const MOTION = {
 export const light: Tokens = {
   name: "light",
   colors: {
-    canvas: "#FAFAFA",
-    bg: "#FBFBFD",
+    canvas: "#F7F8FC",
+    bg: "#F7F8FC",
     surface: "#FFFFFF",
     surfaceRaised: "#FFFFFF",
-    surfaceMuted: "#F1F1F4",
-    primary: "#4F46E5",
+    surfaceMuted: "#F1F3F8",
+    primary: "#5B46F6",
     onPrimary: "#FFFFFF",
-    text: "#0B0B10",
-    textStrong: "#0B0B10",
-    textSubtle: "#4B5563",
-    textMuted: "#52525E",
-    border: "#E4E4EA",
+    text: "#171724",
+    textStrong: "#0C0C16",
+    textSubtle: "#475569",
+    textMuted: "#596170",
+    border: "#E1E4EC",
     outline: "#737380",
     focus: "#4338CA",
     disabled: "#E5E7EB",
     disabledText: "#59606B",
     icon: "#5F6470",
-    accent: "#4F46E5",
+    accent: "#5B46F6",
     accentText: "#FFFFFF",
-    accentSoft: "#EEF2FF",
+    accentSoft: "#EFEDFF",
     successSoft: "#E7F6EC",
     warningSoft: "#FFF4D6",
     infoSoft: "#EAF2FF",
@@ -196,6 +225,28 @@ export const light: Tokens = {
     danger: "#DC2626",
     dangerText: "#991B1B",
     dangerSurface: "#FDEBEC",
+    content: {
+      primary: "#171724",
+      secondary: "#475569",
+      tertiary: "#596170",
+      inverse: "#FFFFFF",
+    },
+    action: {
+      primary: "#5B46F6",
+      primaryPressed: "#4934DE",
+      onPrimary: "#FFFFFF",
+      focus: "#4338CA",
+    },
+    status: {
+      success: "#166534",
+      successSurface: "#E7F6EC",
+      warning: "#7C4A03",
+      warningSurface: "#FFF4D6",
+      danger: "#B4232C",
+      dangerSurface: "#FDEBEC",
+      info: "#1E3A8A",
+      infoSurface: "#EAF2FF",
+    },
   },
   spacing: SPACING,
   radius: RADIUS,
@@ -211,12 +262,12 @@ export const dark: Tokens = {
   name: "dark",
   shadow: NO_SHADOW,
   colors: {
-    canvas: "#0B0B10",
-    bg: "#0B0B10",
-    surface: "#14141B",
-    surfaceRaised: "#1A1A22",
-    surfaceMuted: "#1C1C25",
-    primary: "#A5B4FC",
+    canvas: "#0C0C14",
+    bg: "#0C0C14",
+    surface: "#15151F",
+    surfaceRaised: "#1B1B27",
+    surfaceMuted: "#20202C",
+    primary: "#A99EFF",
     onPrimary: "#15123A",
     text: "#F5F5F7",
     textStrong: "#FFFFFF",
@@ -224,11 +275,11 @@ export const dark: Tokens = {
     textMuted: "#B4B4C0",
     border: "#34343F",
     outline: "#8A8A98",
-    focus: "#A5B4FC",
+    focus: "#B8AFFF",
     disabled: "#30303A",
     disabledText: "#A0A0AC",
     icon: "#B4B4C0",
-    accent: "#818CF8",
+    accent: "#A99EFF",
     accentText: "#0B0B10",
     accentSoft: "#1E1B4B",
     successSoft: "#123524",
@@ -244,5 +295,27 @@ export const dark: Tokens = {
     danger: "#F87171",
     dangerText: "#FCA5A5",
     dangerSurface: "#3F1D1D",
+    content: {
+      primary: "#F7F7FA",
+      secondary: "#C4C4CF",
+      tertiary: "#ABABB8",
+      inverse: "#11111A",
+    },
+    action: {
+      primary: "#A99EFF",
+      primaryPressed: "#C2BAFF",
+      onPrimary: "#15123A",
+      focus: "#B8AFFF",
+    },
+    status: {
+      success: "#86EFAC",
+      successSurface: "#123524",
+      warning: "#FDE68A",
+      warningSurface: "#3A2B0C",
+      danger: "#FCA5A5",
+      dangerSurface: "#3F1D1D",
+      info: "#BFDBFE",
+      infoSurface: "#142B46",
+    },
   },
 };

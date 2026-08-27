@@ -30,6 +30,9 @@ export function StatusPill({ label, tone = "neutral" }: StatusPillProps) {
             : tokens.colors.text;
   return (
     <View
+      accessible
+      accessibilityRole="text"
+      accessibilityLabel={label}
       style={[
         styles.pill,
         {

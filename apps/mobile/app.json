@@ -54,7 +54,8 @@
           "photosPermission": "AfterBuy needs photo library access to attach receipt images."
         }
       ],
-      "expo-font"
+      "expo-font",
+      "expo-image"
     ],
     "experiments": {
       "typedRoutes": true

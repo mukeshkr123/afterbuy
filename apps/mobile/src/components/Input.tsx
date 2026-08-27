@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { forwardRef, useState, type ReactNode } from "react";
 import { Platform, StyleSheet, Text, TextInput, View } from "react-native";
 import type { KeyboardTypeOptions, TextInputProps } from "react-native";
 import { useTheme } from "../theme/ThemeProvider";
@@ -27,26 +27,29 @@ export interface InputProps {
   labelAccessory?: ReactNode;
 }
 
-export function Input({
-  label,
-  value,
-  onChangeText,
-  placeholder,
-  secureTextEntry,
-  autoCapitalize = "sentences",
-  autoCorrect,
-  keyboardType,
-  textContentType,
-  autoComplete,
-  returnKeyType,
-  onSubmitEditing,
-  error,
-  multiline = false,
-  numberOfLines,
-  adornment,
-  hint,
-  labelAccessory,
-}: InputProps) {
+export const Input = forwardRef<TextInput, InputProps>(function Input(
+  {
+    label,
+    value,
+    onChangeText,
+    placeholder,
+    secureTextEntry,
+    autoCapitalize = "sentences",
+    autoCorrect,
+    keyboardType,
+    textContentType,
+    autoComplete,
+    returnKeyType,
+    onSubmitEditing,
+    error,
+    multiline = false,
+    numberOfLines,
+    adornment,
+    hint,
+    labelAccessory,
+  },
+  ref
+) {
   const { tokens } = useTheme();
   const [focused, setFocused] = useState(false);
   const minHeight = multiline
@@ -76,6 +79,7 @@ export function Input({
 
       <View style={styles.fieldWrap}>
         <TextInput
+          ref={ref}
           value={value}
           onChangeText={onChangeText}
           onFocus={() => setFocused(true)}
@@ -100,7 +104,7 @@ export function Input({
               color: tokens.colors.text,
               borderColor,
               backgroundColor: tokens.colors.surface,
-              borderRadius: 14,
+              borderRadius: tokens.radius.lg,
               paddingLeft: tokens.spacing.lg,
               paddingRight: adornment ? 48 : tokens.spacing.lg,
               fontSize: tokens.type.body.fontSize,
@@ -134,7 +138,7 @@ export function Input({
       ) : null}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   labelRow: {

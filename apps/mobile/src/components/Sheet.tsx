@@ -94,8 +94,8 @@ const styles = StyleSheet.create({
   },
   sheetContainer: {
     width: "100%",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
     borderTopWidth: StyleSheet.hairlineWidth,
     overflow: "hidden",
   },

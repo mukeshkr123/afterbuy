@@ -2,7 +2,6 @@ import { useOAuth, useSignIn } from "@clerk/clerk-expo";
 import { Link, useRouter } from "expo-router";
 import React, { useRef, useState } from "react";
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -26,7 +25,6 @@ export default function SignInScreen() {
   const { signIn, setActive, isLoaded } = useSignIn();
   const router = useRouter();
   const { tokens } = useTheme();
-
   const { startOAuthFlow: startAppleOAuth } = useOAuth({
     strategy: "oauth_apple",
   });
@@ -42,17 +40,13 @@ export default function SignInScreen() {
     null
   );
   const [error, setError] = useState<string | null>(null);
-
   const passwordInputRef = useRef<TextInput>(null);
-
-  const isValidEmail = (val: string) =>
-    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val.trim());
 
   const handleSocialSignIn = async (
     strategy: "oauth_apple" | "oauth_google"
   ) => {
-    const providerKey = strategy === "oauth_apple" ? "apple" : "google";
-    setSocialLoading(providerKey);
+    const provider = strategy === "oauth_apple" ? "apple" : "google";
+    setSocialLoading(provider);
     setError(null);
     try {
       const flow =
@@ -70,30 +64,6 @@ export default function SignInScreen() {
       );
     } finally {
       setSocialLoading(null);
-    }
-  };
-
-  const handleForgotPassword = async () => {
-    if (!email.trim()) {
-      setError("Enter your email address first to reset your password.");
-      return;
-    }
-    setError(null);
-    try {
-      if (signIn && isLoaded) {
-        await signIn.create({
-          strategy: "reset_password_email_code",
-          identifier: email.trim(),
-        });
-        Alert.alert(
-          "Password Reset Sent",
-          `A password reset code has been sent to ${email.trim()}.`
-        );
-      }
-    } catch (e: unknown) {
-      setError(
-        e instanceof Error ? e.message : "Unable to initiate password reset."
-      );
     }
   };
 
@@ -133,8 +103,7 @@ export default function SignInScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       style={{ flex: 1 }}
     >
-      <ScreenScroll gap={12} contentStyle={styles.scrollContainer}>
-        {/* Top Header */}
+      <ScreenScroll gap={tokens.spacing.lg} contentStyle={styles.scrollContent}>
         <ScreenHeader
           title=""
           onBack={() =>
@@ -142,70 +111,19 @@ export default function SignInScreen() {
           }
         />
 
-        {/* Heading & Supporting Text */}
-        <View style={styles.headingBlock}>
+        <View style={styles.heading}>
           <Text
             accessibilityRole="header"
-            style={[
-              styles.title,
-              {
-                color: tokens.colors.text,
-              },
-            ]}
+            style={[styles.title, { color: tokens.colors.textStrong }]}
           >
             Welcome back
           </Text>
-          <Text
-            style={[
-              styles.subtitle,
-              {
-                color: tokens.colors.textSubtle,
-              },
-            ]}
-          >
-            Sign in to manage your purchases, returns, and warranties.
+          <Text style={[styles.subtitle, { color: tokens.colors.textSubtle }]}>
+            Sign in to continue to AfterBuy.
           </Text>
         </View>
 
-        {/* Social Authentication Section */}
-        <View style={styles.socialBlock}>
-          <SocialAuthButton
-            provider="apple"
-            onPress={() => void handleSocialSignIn("oauth_apple")}
-            loading={socialLoading === "apple"}
-            disabled={pending || socialLoading !== null}
-          />
-          <SocialAuthButton
-            provider="google"
-            onPress={() => void handleSocialSignIn("oauth_google")}
-            loading={socialLoading === "google"}
-            disabled={pending || socialLoading !== null}
-          />
-        </View>
-
-        {/* Section Divider */}
-        <View style={styles.dividerRow}>
-          <View
-            style={[
-              styles.dividerLine,
-              { backgroundColor: tokens.colors.border },
-            ]}
-          />
-          <Text
-            style={[styles.dividerText, { color: tokens.colors.textMuted }]}
-          >
-            or continue with email
-          </Text>
-          <View
-            style={[
-              styles.dividerLine,
-              { backgroundColor: tokens.colors.border },
-            ]}
-          />
-        </View>
-
-        {/* Email & Password Form */}
-        <View style={styles.formBlock}>
+        <View style={styles.form}>
           <Input
             label="Email"
             value={email}
@@ -221,33 +139,17 @@ export default function SignInScreen() {
           />
 
           <Input
+            ref={passwordInputRef}
             label="Password"
             value={password}
             onChangeText={setPassword}
-            placeholder="Your password"
+            placeholder="Enter your password"
             secureTextEntry={!showPassword}
             autoCapitalize="none"
             textContentType="password"
             autoComplete="current-password"
             returnKeyType="go"
             onSubmitEditing={() => void onSubmit()}
-            labelAccessory={
-              <Pressable
-                onPress={() => void handleForgotPassword()}
-                hitSlop={8}
-                accessibilityRole="button"
-                accessibilityLabel="Forgot password?"
-              >
-                <Text
-                  style={[
-                    styles.forgotPasswordText,
-                    { color: tokens.colors.accent },
-                  ]}
-                >
-                  Forgot password?
-                </Text>
-              </Pressable>
-            }
             adornment={
               <Pressable
                 onPress={() => setShowPassword((v) => !v)}
@@ -267,35 +169,85 @@ export default function SignInScreen() {
             }
           />
 
+          <Pressable
+            onPress={() => {
+              const trimmed = email.trim();
+              router.push(
+                trimmed
+                  ? {
+                      pathname: "/(auth)/forgot-password",
+                      params: { email: trimmed },
+                    }
+                  : "/(auth)/forgot-password"
+              );
+            }}
+            accessibilityRole="link"
+            accessibilityLabel="Forgot password?"
+            hitSlop={10}
+            style={styles.forgotTouch}
+          >
+            <Text style={[styles.linkText, { color: tokens.colors.accent }]}>
+              Forgot password?
+            </Text>
+          </Pressable>
+
           <FormError message={error} />
 
           <Button
-            label={pending ? "Signing in…" : "Sign in"}
+            label={pending ? "Signing in..." : "Sign in"}
             disabled={pending || socialLoading !== null}
+            busy={pending}
+            size="lg"
             onPress={() => void onSubmit()}
           />
+        </View>
 
-          <View style={styles.footerRow}>
-            <Text
-              style={[styles.footerText, { color: tokens.colors.textMuted }]}
-            >
-              Don&apos;t have an account?{" "}
-            </Text>
-            <Link href="/(auth)/sign-up" asChild>
-              <Pressable
-                hitSlop={8}
-                accessibilityRole="link"
-                accessibilityLabel="Create account"
-                style={styles.footerLinkTouch}
-              >
-                <Text
-                  style={[styles.footerLink, { color: tokens.colors.accent }]}
-                >
-                  Create account
-                </Text>
-              </Pressable>
-            </Link>
-          </View>
+        <View style={styles.dividerRow}>
+          <View
+            style={[
+              styles.dividerLine,
+              { backgroundColor: tokens.colors.border },
+            ]}
+          />
+          <Text
+            style={[styles.dividerText, { color: tokens.colors.textMuted }]}
+          >
+            or continue with
+          </Text>
+          <View
+            style={[
+              styles.dividerLine,
+              { backgroundColor: tokens.colors.border },
+            ]}
+          />
+        </View>
+
+        <View style={styles.socialBlock}>
+          <SocialAuthButton
+            provider="apple"
+            onPress={() => void handleSocialSignIn("oauth_apple")}
+            loading={socialLoading === "apple"}
+            disabled={pending || socialLoading !== null}
+          />
+          <SocialAuthButton
+            provider="google"
+            onPress={() => void handleSocialSignIn("oauth_google")}
+            loading={socialLoading === "google"}
+            disabled={pending || socialLoading !== null}
+          />
+        </View>
+
+        <View style={styles.footerRow}>
+          <Text style={[styles.footerText, { color: tokens.colors.textMuted }]}>
+            Don&apos;t have an account?{" "}
+          </Text>
+          <Link href="/(auth)/sign-up" asChild>
+            <Pressable accessibilityRole="link" hitSlop={10}>
+              <Text style={[styles.linkText, { color: tokens.colors.accent }]}>
+                Create account
+              </Text>
+            </Pressable>
+          </Link>
         </View>
       </ScreenScroll>
     </KeyboardAvoidingView>
@@ -303,72 +255,42 @@ export default function SignInScreen() {
 }
 
 const styles = StyleSheet.create({
-  scrollContainer: {
-    paddingBottom: 36,
+  scrollContent: {
+    width: "100%",
+    maxWidth: 460,
+    alignSelf: "center",
+    paddingBottom: 32,
   },
-  headingBlock: {
-    gap: 4,
-    marginTop: 0,
-    marginBottom: 4,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: "700",
-    letterSpacing: -0.6,
-    lineHeight: 38,
-  },
-  subtitle: {
-    fontSize: 15,
-    fontWeight: "400",
-    lineHeight: 22,
-    maxWidth: 320,
-  },
-  socialBlock: {
-    gap: 10,
-  },
-  dividerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginVertical: 6,
-    gap: 12,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-  },
-  dividerText: {
-    fontSize: 13,
-    fontWeight: "500",
-  },
-  formBlock: {
-    gap: 14,
-  },
-  forgotPasswordText: {
-    fontSize: 13,
-    fontWeight: "600",
-  },
+  heading: { gap: 6, marginTop: 8, marginBottom: 8 },
+  title: { fontSize: 28, lineHeight: 35, fontWeight: "800" },
+  subtitle: { fontSize: 15, lineHeight: 22, fontWeight: "500" },
+  form: { gap: 13 },
   adornmentPress: {
     width: 48,
     height: 48,
     alignItems: "center",
     justifyContent: "center",
   },
+  forgotTouch: {
+    minHeight: 34,
+    alignSelf: "flex-start",
+    justifyContent: "center",
+  },
+  linkText: { fontSize: 14, lineHeight: 20, fontWeight: "800" },
+  dividerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginVertical: 6,
+  },
+  dividerLine: { flex: 1, height: StyleSheet.hairlineWidth },
+  dividerText: { fontSize: 13, lineHeight: 18, fontWeight: "600" },
+  socialBlock: { gap: 10 },
   footerRow: {
+    minHeight: 44,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 4,
   },
-  footerText: {
-    fontSize: 14,
-    fontWeight: "400",
-  },
-  footerLinkTouch: {
-    minHeight: 48,
-    justifyContent: "center",
-  },
-  footerLink: {
-    fontSize: 14,
-    fontWeight: "700",
-  },
+  footerText: { fontSize: 14, lineHeight: 20, fontWeight: "500" },
 });

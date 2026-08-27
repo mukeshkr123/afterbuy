@@ -1,4 +1,4 @@
-import { createRoute, z } from "@hono/zod-openapi";
+import { createRoute, z, type RouteHandler } from "@hono/zod-openapi";
 import { and, eq, isNull } from "drizzle-orm";
 import { apiErrorResponseSchema, receiptSchema } from "@acme/shared";
 import {
@@ -9,7 +9,7 @@ import {
   type DbClient,
   type ReceiptRow,
 } from "@acme/db";
-import type { AuthedContext } from "../auth";
+import type { AuthedContext, AuthedEnv } from "../auth";
 import type { Env } from "../env";
 import { apiError } from "../errors";
 import type { Context } from "hono";
@@ -144,11 +144,11 @@ const ALLOWED_CONTENT_TYPES = [
 ] as const;
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 
-export async function handleUploadReceipt(ctx: AuthedContext) {
-  const purchaseId = ctx.req.param("id");
-  if (!purchaseId) {
-    return apiError(ctx, 400, "validation_failed", "Missing purchase ID");
-  }
+export const handleUploadReceipt: RouteHandler<
+  typeof receiptsUploadRoute,
+  AuthedEnv
+> = async (ctx) => {
+  const { id: purchaseId } = ctx.req.valid("param");
   const user = ctx.get("user");
   const db = createDbClient(ctx.env.DB);
 
@@ -248,13 +248,13 @@ export async function handleUploadReceipt(ctx: AuthedContext) {
 
   const response = receiptSchema.parse(row);
   return ctx.json(response, 201);
-}
+};
 
-export async function handleGetReceipt(ctx: AuthedContext) {
-  const id = ctx.req.param("id");
-  if (!id) {
-    return apiError(ctx, 404, "not_found", "Receipt not found");
-  }
+export const handleGetReceipt: RouteHandler<
+  typeof receiptsGetRoute,
+  AuthedEnv
+> = async (ctx) => {
+  const { id } = ctx.req.valid("param");
   const user = ctx.get("user");
   const db = createDbClient(ctx.env.DB);
 
@@ -286,21 +286,19 @@ export async function handleGetReceipt(ctx: AuthedContext) {
   const viewUrl = `${origin}/v1/receipts/${receipt.id}/view?token=${token}&expires=${expires}`;
 
   return ctx.redirect(viewUrl, 302);
-}
+};
 
-export async function handleViewReceipt(ctx: Context) {
-  const id = ctx.req.param("id");
-  const token = ctx.req.query("token");
-  const expiresStr = ctx.req.query("expires");
-
-  if (!id || !token || !expiresStr) {
-    return apiError(ctx as any, 400, "validation_failed", "Missing parameters");
-  }
+export const handleViewReceipt: RouteHandler<
+  typeof receiptsViewRoute,
+  { Bindings: Env; Variables: { requestId: string } }
+> = async (ctx) => {
+  const { id } = ctx.req.valid("param");
+  const { token, expires: expiresStr } = ctx.req.valid("query");
 
   const expires = parseInt(expiresStr, 10);
   const now = Math.floor(Date.now() / 1000);
   if (isNaN(expires) || now > expires) {
-    return apiError(ctx as any, 410, "validation_failed", "URL has expired");
+    return apiError(ctx, 410, "validation_failed", "URL has expired");
   }
 
   // Verify signature
@@ -308,7 +306,7 @@ export async function handleViewReceipt(ctx: Context) {
   const secret = getReceiptSigningSecret(env);
   if (!secret) {
     return apiError(
-      ctx as any,
+      ctx,
       503,
       "unavailable",
       "Receipt viewing is not configured"
@@ -317,7 +315,7 @@ export async function handleViewReceipt(ctx: Context) {
   const message = `${id}:${expires}`;
   const verified = await verifySignature(message, token, secret);
   if (!verified) {
-    return apiError(ctx as any, 400, "validation_failed", "Invalid signature");
+    return apiError(ctx, 400, "validation_failed", "Invalid signature");
   }
 
   const db = createDbClient(env.DB);
@@ -328,13 +326,13 @@ export async function handleViewReceipt(ctx: Context) {
     .get();
 
   if (!receipt) {
-    return apiError(ctx as any, 404, "not_found", "Receipt not found");
+    return apiError(ctx, 404, "not_found", "Receipt not found");
   }
 
   // Fetch from R2
   const object = await env.STORAGE.get(receipt.r2Key);
   if (!object) {
-    return apiError(ctx as any, 404, "not_found", "File not found in storage");
+    return apiError(ctx, 404, "not_found", "File not found in storage");
   }
 
   return new Response(object.body, {
@@ -347,13 +345,13 @@ export async function handleViewReceipt(ctx: Context) {
       "Content-Disposition": "inline",
     },
   });
-}
+};
 
-export async function handleDeleteReceipt(ctx: AuthedContext) {
-  const id = ctx.req.param("id");
-  if (!id) {
-    return apiError(ctx, 404, "not_found", "Receipt not found");
-  }
+export const handleDeleteReceipt: RouteHandler<
+  typeof receiptsDeleteRoute,
+  AuthedEnv
+> = async (ctx) => {
+  const { id } = ctx.req.valid("param");
   const user = ctx.get("user");
   const db = createDbClient(ctx.env.DB);
 
@@ -378,7 +376,7 @@ export async function handleDeleteReceipt(ctx: AuthedContext) {
   await db.delete(receipts).where(eq(receipts.id, id));
 
   return ctx.body(null, 204);
-}
+};
 
 // ---- Cryptographic Helpers ------------------------------------------------
 
