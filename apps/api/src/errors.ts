@@ -26,7 +26,7 @@ export function apiError(
   });
   return c.json(
     body,
-    status as 400 | 401 | 403 | 404 | 409 | 422 | 429 | 500 | 503
+    status as 400 | 401 | 403 | 404 | 409 | 410 | 422 | 429 | 500 | 503
   );
 }
 

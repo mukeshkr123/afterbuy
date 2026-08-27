@@ -13,14 +13,14 @@ export function OnboardingHubIllustration({
 
   return (
     <View style={[styles.container, compact && styles.compact]}>
-      {/* Subtle lavender ambient shape */}
+      {/* Ultra-subtle ambient glow */}
       <View
         style={[
           styles.ambientGlow,
           {
             backgroundColor: isLight
-              ? "rgba(79, 70, 229, 0.06)"
-              : "rgba(129, 140, 248, 0.08)",
+              ? "rgba(79, 70, 229, 0.03)"
+              : "rgba(129, 140, 248, 0.04)",
           },
         ]}
       />
@@ -34,7 +34,7 @@ export function OnboardingHubIllustration({
             styles.returnBannerPos,
             {
               backgroundColor: tokens.colors.surface,
-              borderColor: isLight ? "#FDE68A" : "#78350F",
+              borderColor: tokens.colors.border,
               ...tokens.shadow.raised,
             },
           ]}
@@ -47,7 +47,7 @@ export function OnboardingHubIllustration({
           />
           <Ionicons
             name="time-outline"
-            size={14}
+            size={13}
             color={tokens.colors.warning}
           />
           <Text style={[styles.bannerText, { color: tokens.colors.text }]}>
@@ -55,7 +55,7 @@ export function OnboardingHubIllustration({
           </Text>
         </View>
 
-        {/* Top Header Card - Main Order Status */}
+        {/* Main Purchase Card */}
         <View
           style={[
             styles.mainCard,
@@ -70,12 +70,12 @@ export function OnboardingHubIllustration({
             <View
               style={[
                 styles.iconBox,
-                { backgroundColor: isLight ? "#EEF2FF" : "#1E1B4B" },
+                { backgroundColor: tokens.colors.accentSoft },
               ]}
             >
               <Ionicons
                 name="laptop-outline"
-                size={20}
+                size={18}
                 color={tokens.colors.accent}
               />
             </View>
@@ -105,7 +105,7 @@ export function OnboardingHubIllustration({
             >
               <Ionicons
                 name="checkmark-circle"
-                size={13}
+                size={12}
                 color={tokens.colors.success}
               />
               <Text
@@ -125,7 +125,6 @@ export function OnboardingHubIllustration({
 
           {/* Sub-features grid inside card */}
           <View style={styles.cardGrid}>
-            {/* Delivery status */}
             <View
               style={[
                 styles.gridPill,
@@ -134,8 +133,8 @@ export function OnboardingHubIllustration({
             >
               <Ionicons
                 name="cube-outline"
-                size={14}
-                color={tokens.colors.accent}
+                size={13}
+                color={tokens.colors.textSubtle}
               />
               <Text
                 style={[styles.gridPillText, { color: tokens.colors.text }]}
@@ -144,7 +143,6 @@ export function OnboardingHubIllustration({
               </Text>
             </View>
 
-            {/* Receipt status */}
             <View
               style={[
                 styles.gridPill,
@@ -153,8 +151,8 @@ export function OnboardingHubIllustration({
             >
               <Ionicons
                 name="receipt-outline"
-                size={14}
-                color={tokens.colors.accent}
+                size={13}
+                color={tokens.colors.textSubtle}
               />
               <Text
                 style={[styles.gridPillText, { color: tokens.colors.text }]}
@@ -165,7 +163,7 @@ export function OnboardingHubIllustration({
           </View>
         </View>
 
-        {/* Floating Stack Card 2: Warranty Shield Banner (Bottom-Left) */}
+        {/* Floating Stack Card 2: Warranty Banner (Bottom-Left) */}
         <View
           style={[
             styles.floatingBanner,
@@ -185,7 +183,7 @@ export function OnboardingHubIllustration({
           >
             <Ionicons
               name="shield-checkmark"
-              size={13}
+              size={12}
               color={tokens.colors.accent}
             />
           </View>
@@ -201,35 +199,35 @@ export function OnboardingHubIllustration({
 const styles = StyleSheet.create({
   container: {
     width: "100%",
-    height: 250,
+    height: 240,
     alignItems: "center",
     justifyContent: "center",
     position: "relative",
   },
   compact: {
-    transform: [{ scale: 0.72 }],
+    transform: [{ scale: 0.76 }],
   },
   ambientGlow: {
     position: "absolute",
-    width: 240,
-    height: 240,
-    borderRadius: 120,
+    width: 220,
+    height: 220,
+    borderRadius: 110,
   },
   deckContainer: {
     width: "100%",
-    maxWidth: 328,
-    height: 240,
+    maxWidth: 324,
+    height: 230,
     alignItems: "center",
     justifyContent: "center",
     position: "relative",
   },
   mainCard: {
-    width: "94%",
-    padding: 16,
+    width: "95%",
+    padding: 15,
     borderRadius: 16,
     borderWidth: 1,
     zIndex: 2,
-    marginTop: 10,
+    marginTop: 6,
   },
   cardHeaderRow: {
     flexDirection: "row",
@@ -237,9 +235,9 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   iconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: 38,
+    height: 38,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -249,29 +247,29 @@ const styles = StyleSheet.create({
   },
   itemTitle: {
     fontSize: 15,
-    fontWeight: "700",
+    fontWeight: "600",
     letterSpacing: -0.2,
   },
   itemSubtitle: {
     fontSize: 12,
-    fontWeight: "500",
+    fontWeight: "400",
     marginTop: 2,
   },
   verifiedBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 10,
+    paddingHorizontal: 7,
+    paddingVertical: 3.5,
+    borderRadius: 8,
   },
   verifiedText: {
     fontSize: 11,
-    fontWeight: "700",
+    fontWeight: "600",
   },
   divider: {
     height: 1,
-    marginVertical: 12,
+    marginVertical: 11,
   },
   cardGrid: {
     flexDirection: "row",
@@ -283,31 +281,31 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
-    paddingVertical: 8,
+    paddingVertical: 7,
     paddingHorizontal: 8,
-    borderRadius: 10,
+    borderRadius: 8,
   },
   gridPillText: {
     fontSize: 12,
-    fontWeight: "600",
+    fontWeight: "500",
   },
   floatingBanner: {
     position: "absolute",
     flexDirection: "row",
     alignItems: "center",
-    gap: 7,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
+    gap: 6,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    borderRadius: 10,
     borderWidth: 1,
     zIndex: 3,
   },
   returnBannerPos: {
-    top: 2,
+    top: 4,
     right: 6,
   },
   warrantyBannerPos: {
-    bottom: 4,
+    bottom: 6,
     left: 6,
   },
   statusDot: {
@@ -316,17 +314,17 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   shieldIconBox: {
-    width: 22,
-    height: 22,
-    borderRadius: 7,
+    width: 20,
+    height: 20,
+    borderRadius: 6,
     alignItems: "center",
     justifyContent: "center",
   },
   bannerText: {
     fontSize: 12,
-    fontWeight: "500",
+    fontWeight: "400",
   },
   boldText: {
-    fontWeight: "700",
+    fontWeight: "600",
   },
 });

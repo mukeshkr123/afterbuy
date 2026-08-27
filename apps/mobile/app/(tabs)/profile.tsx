@@ -1,7 +1,8 @@
 import { useClerk, useUser } from "@clerk/clerk-expo";
 import { useRouter, type Href } from "expo-router";
 import React, { useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   Button,
   Dialog,
@@ -13,6 +14,8 @@ import {
 import { useTheme } from "@/theme/ThemeProvider";
 import { useApi } from "@/api/ApiProvider";
 import { unregisterCurrentDevice } from "@/notifications/PushRegistration";
+import { useQueryClient } from "@tanstack/react-query";
+import { outbox } from "@/offline/outbox";
 
 // Only destinations that exist. The screen previously listed "Connected
 // Accounts", "Address Book", "Payment Methods" and "Notification Preferences",
@@ -52,7 +55,7 @@ const MENU: ReadonlyArray<{
   {
     id: "lead-days",
     title: "Reminder Timing",
-    subtitle: "How far ahead we warn you",
+    subtitle: "Choose how early reminders arrive",
     icon: "time-outline",
     href: "/settings/lead-days",
   },
@@ -63,7 +66,9 @@ export default function ProfileScreen() {
   const { user } = useUser();
   const api = useApi();
   const router = useRouter();
-  const { tokens } = useTheme();
+  const qc = useQueryClient();
+  const { tokens, reducedMotion } = useTheme();
+  const insets = useSafeAreaInsets();
   const [confirmSignOut, setConfirmSignOut] = useState(false);
 
   const userEmail =
@@ -89,22 +94,28 @@ export default function ProfileScreen() {
 
   return (
     <>
-      <ScreenScroll gap={tokens.spacing.xl - 2}>
-        <View style={[styles.userHeaderRow, { gap: tokens.spacing.lg }]}>
+      <ScreenScroll
+        gap={tokens.spacing.lg + 2}
+        contentStyle={{
+          paddingTop: Math.max(insets.top + tokens.spacing.md, 24),
+          paddingBottom: Math.max(insets.bottom + 88, 112),
+        }}
+      >
+        <View style={[styles.userHeaderRow, { gap: tokens.spacing.md + 2 }]}>
           <View
             accessibilityElementsHidden
             importantForAccessibility="no-hide-descendants"
             style={[
               styles.avatarCircle,
-              { backgroundColor: tokens.colors.accent },
+              { backgroundColor: tokens.colors.primary },
             ]}
           >
             <Text
               style={[
                 styles.avatarText,
                 {
-                  color: tokens.colors.accentText,
-                  fontSize: tokens.type.title.fontSize,
+                  color: tokens.colors.onPrimary,
+                  fontSize: 22,
                 },
               ]}
             >
@@ -112,14 +123,14 @@ export default function ProfileScreen() {
             </Text>
           </View>
 
-          <View style={{ gap: 3, flex: 1 }}>
+          <View style={{ gap: 2, flex: 1, justifyContent: "center" }}>
             <Text
               numberOfLines={1}
               style={[
                 styles.userNameText,
                 {
                   color: tokens.colors.text,
-                  fontSize: tokens.type.title.fontSize - 2,
+                  fontSize: 22,
                 },
               ]}
             >
@@ -130,7 +141,7 @@ export default function ProfileScreen() {
                 numberOfLines={1}
                 style={{
                   color: tokens.colors.textMuted,
-                  fontSize: tokens.type.bodySmall.fontSize,
+                  fontSize: 15,
                 }}
               >
                 {userEmail}
@@ -153,18 +164,40 @@ export default function ProfileScreen() {
           ))}
         </SectionCard>
 
-        <Button
-          label="Sign Out"
-          variant="ghost"
-          onPress={() => setConfirmSignOut(true)}
-        />
+        <View style={{ marginTop: 6, gap: 16 }}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Sign out"
+            onPress={() => setConfirmSignOut(true)}
+            style={({ pressed }) => [
+              styles.signOutButton,
+              {
+                backgroundColor: tokens.colors.surfaceMuted,
+                borderColor: tokens.colors.border,
+                opacity: pressed ? 0.82 : 1,
+                transform: [{ scale: pressed && !reducedMotion ? 0.98 : 1 }],
+              },
+            ]}
+          >
+            <Text style={[styles.signOutText, { color: tokens.colors.text }]}>
+              Sign out
+            </Text>
+          </Pressable>
+
+          <Text
+            style={[styles.versionText, { color: tokens.colors.textMuted }]}
+          >
+            AfterBuy 1.0.0
+          </Text>
+        </View>
       </ScreenScroll>
 
       <Dialog
         visible={confirmSignOut}
         title="Sign out?"
-        description="Your purchases stay saved to your account. You'll need to sign in again to see them."
+        description="You'll need to sign in again to access your purchases."
         primaryLabel="Sign out"
+        destructive
         onPrimary={() => {
           setConfirmSignOut(false);
           void (async () => {
@@ -173,6 +206,12 @@ export default function ProfileScreen() {
             } catch {
               // Signing out must still work if the API is unavailable.
             }
+            try {
+              await outbox.reset();
+            } catch {
+              // Outbox reset failure shouldn't block sign out.
+            }
+            qc.clear();
             await signOut();
           })();
         }}
@@ -187,20 +226,39 @@ const styles = StyleSheet.create({
   userHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginVertical: 4,
+    marginBottom: 4,
   },
   avatarCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 62,
+    height: 62,
+    borderRadius: 31,
     alignItems: "center",
     justifyContent: "center",
   },
   avatarText: {
-    fontWeight: "800",
+    fontWeight: "700",
+    letterSpacing: -0.2,
   },
   userNameText: {
-    fontWeight: "800",
+    fontWeight: "700",
     letterSpacing: -0.3,
+  },
+  signOutButton: {
+    width: "100%",
+    height: 50,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  signOutText: {
+    fontSize: 16,
+    fontWeight: "600",
+    letterSpacing: -0.2,
+  },
+  versionText: {
+    textAlign: "center",
+    fontSize: 13,
+    fontWeight: "500",
   },
 });

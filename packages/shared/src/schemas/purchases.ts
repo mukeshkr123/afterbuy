@@ -59,18 +59,18 @@ export type PurchaseDetailResponse = z.infer<
 export const createPurchaseRequestSchema = z
   .object({
     title: z.string().min(1).max(200),
-    merchant: z.string().max(200).optional(),
+    merchant: z.string().max(200).nullable().optional(),
     category: purchaseCategorySchema.optional(),
     purchaseDate: isoDate.optional(),
-    amountMinor: z.number().int().nonnegative().optional(),
+    amountMinor: z.number().int().nonnegative().nullable().optional(),
     currency: z.string().length(3).optional(),
-    orderNumber: z.string().max(200).optional(),
-    notes: z.string().max(5000).optional(),
+    orderNumber: z.string().max(200).nullable().optional(),
+    notes: z.string().max(5000).nullable().optional(),
     deliveryStatus: deliveryStatusSchema.optional(),
-    trackingNumber: z.string().max(200).optional(),
-    carrier: z.string().max(100).optional(),
-    warrantyExpiresAt: isoDate.optional(),
-    returnDeadlineAt: isoDate.optional(),
+    trackingNumber: z.string().max(200).nullable().optional(),
+    carrier: z.string().max(100).nullable().optional(),
+    warrantyExpiresAt: isoDate.nullable().optional(),
+    returnDeadlineAt: isoDate.nullable().optional(),
   })
   .strict();
 

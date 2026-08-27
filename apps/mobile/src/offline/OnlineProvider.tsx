@@ -74,7 +74,8 @@ export function OfflineBanner() {
         styles.banner,
         {
           backgroundColor: tone,
-          paddingTop: insets.top + 2,
+          paddingTop: insets.top + 4,
+          paddingBottom: 6,
         },
       ]}
       accessibilityLiveRegion="polite"
@@ -98,7 +99,6 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: BANNER_HEIGHT + 30,
     alignItems: "center",
     justifyContent: "center",
     zIndex: 100,

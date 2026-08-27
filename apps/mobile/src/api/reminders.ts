@@ -18,10 +18,13 @@ export async function getReminders(
   }) as Promise<{ items: Reminder[] }>;
 }
 
-export function dismissReminder(api: ApiRequest, id: string): Promise<void> {
+export function dismissReminder(
+  api: ApiRequest,
+  id: string
+): Promise<Reminder> {
   return api({
     method: "POST",
     path: `/v1/reminders/${encodeURIComponent(id)}/dismiss`,
-    schema: z.void(),
-  }) as Promise<void>;
+    schema: reminderSchema,
+  }) as Promise<Reminder>;
 }

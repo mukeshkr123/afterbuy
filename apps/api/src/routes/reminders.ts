@@ -1,5 +1,5 @@
 import { createRoute, z } from "@hono/zod-openapi";
-import { and, eq, isNull, isNotNull, desc, asc } from "drizzle-orm";
+import { and, eq, isNull, isNotNull, desc, asc, sql } from "drizzle-orm";
 import { apiErrorResponseSchema, reminderSchema } from "@acme/shared";
 import { createDbClient, reminders, type ReminderRow } from "@acme/db";
 import type { AuthedContext } from "../auth";
@@ -25,10 +25,7 @@ export const remindersListRoute = createRoute({
     query: z.object({
       scope: z.enum(["upcoming", "history"]).default("upcoming"),
       cursor: z.string().optional(),
-      limit: z
-        .string()
-        .optional()
-        .transform((v) => (v ? parseInt(v, 10) : 20)),
+      limit: z.coerce.number().int().min(1).max(50).default(20),
     }),
   },
   responses: {
@@ -75,10 +72,7 @@ export async function handleListReminders(ctx: AuthedContext) {
   const querySchema = z.object({
     scope: z.enum(["upcoming", "history"]).default("upcoming"),
     cursor: z.string().optional(),
-    limit: z
-      .string()
-      .optional()
-      .transform((v) => (v ? parseInt(v, 10) : 20)),
+    limit: z.coerce.number().int().min(1).max(50).default(20),
   });
 
   const parsed = querySchema.safeParse(Object.fromEntries(url.searchParams));
@@ -89,7 +83,7 @@ export async function handleListReminders(ctx: AuthedContext) {
   const { scope, cursor, limit } = parsed.data;
   const db = createDbClient(ctx.env.DB);
 
-  const pageSize = Math.min(limit, 50);
+  const pageSize = limit;
 
   const conditions = [eq(reminders.userId, user.id)];
 
@@ -100,9 +94,29 @@ export async function handleListReminders(ctx: AuthedContext) {
     conditions.push(isNotNull(reminders.sentAt));
   }
 
-  // Basic keyset/cursor implementation
   if (cursor) {
-    conditions.push(eq(reminders.id, cursor));
+    const cursorRow = await db
+      .select({
+        fireOn: reminders.fireOn,
+        sentAt: reminders.sentAt,
+        id: reminders.id,
+      })
+      .from(reminders)
+      .where(and(eq(reminders.id, cursor), eq(reminders.userId, user.id)))
+      .get();
+
+    if (cursorRow) {
+      if (scope === "upcoming") {
+        conditions.push(
+          sql`(${reminders.fireOn} > ${cursorRow.fireOn} OR (${reminders.fireOn} = ${cursorRow.fireOn} AND ${reminders.id} > ${cursorRow.id}))`
+        );
+      } else {
+        const sentAt = cursorRow.sentAt ?? "";
+        conditions.push(
+          sql`(${reminders.sentAt} < ${sentAt} OR (${reminders.sentAt} = ${sentAt} AND ${reminders.id} < ${cursorRow.id}))`
+        );
+      }
+    }
   }
 
   const orderBy =

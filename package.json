@@ -13,6 +13,7 @@
     "api:local:init": "tsx scripts/api-local-init.ts",
     "api:openapi": "tsx scripts/write-openapi.ts && prettier --write docs/openapi.json",
     "bootstrap:github-env": "tsx scripts/bootstrap-github-env.ts",
+    "bootstrap:mobile-release": "tsx scripts/bootstrap-mobile-release.ts",
     "build": "pnpm -r build",
     "ci": "pnpm build && pnpm typecheck && pnpm lint && pnpm verify:ids && pnpm verify:skills && pnpm verify:template && pnpm verify:migrations && pnpm api:openapi && echo 'Tests skipped per repo policy'",
     "db:backup": "tsx scripts/d1-backup.ts",

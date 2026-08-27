@@ -1,10 +1,12 @@
 import { useRouter } from "expo-router";
 import React from "react";
-import { Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Constants from "expo-constants";
 import {
   IconTile,
   ListItem,
+  ScreenHeader,
   ScreenScroll,
   SectionCard,
   Tabs,
@@ -20,14 +22,34 @@ const THEMES: ReadonlyArray<{ value: ThemePreference; label: string }> = [
 
 export default function SettingsScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { tokens, preference, setPreference } = useTheme();
 
   const version =
     Constants.expoConfig?.version ?? Constants.nativeAppVersion ?? null;
 
   return (
-    <>
-      <ScreenScroll gap={tokens.spacing.xl - 4} safeTop={false}>
+    <View style={{ flex: 1, backgroundColor: tokens.colors.canvas }}>
+      <View
+        style={{
+          paddingTop: Math.max(insets.top, 12),
+          paddingHorizontal: tokens.spacing.xl - 4,
+          backgroundColor: tokens.colors.canvas,
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          borderBottomColor: tokens.colors.border,
+        }}
+      >
+        <ScreenHeader title="Settings" />
+      </View>
+
+      <ScreenScroll
+        gap={tokens.spacing.lg}
+        safeTop={false}
+        contentStyle={{
+          paddingTop: tokens.spacing.lg,
+          paddingBottom: Math.max(insets.bottom + 24, 32),
+        }}
+      >
         <View style={{ gap: tokens.spacing.md - 2 }}>
           <SectionLabel>Appearance</SectionLabel>
           <SectionCard>
@@ -108,7 +130,7 @@ export default function SettingsScreen() {
           </Text>
         ) : null}
       </ScreenScroll>
-    </>
+    </View>
   );
 }
 

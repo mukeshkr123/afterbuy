@@ -520,7 +520,7 @@ export async function handleRestorePurchase(ctx: AuthedContext) {
 
   const body = purchaseDetailResponseSchema.parse({
     ...rowToPurchase(restored),
-    receipts: restoredReceipts,
+    receipts: restoredReceipts.map(rowToReceipt),
     claims: restoredClaims.map(rowToClaim),
     reminders: restoredReminders.map(rowToReminder),
   });
@@ -590,8 +590,11 @@ function buildPurchasePageWhere(args: BuildArgs): {
   const bindArgs: unknown[] = [args.userId];
 
   if (args.q) {
-    conditions.push("(title LIKE ? OR merchant LIKE ?)");
-    bindArgs.push(`%${args.q}%`, `%${args.q}%`);
+    const escaped = args.q.replace(/[%_\\]/g, "\\$&");
+    conditions.push(
+      "(title LIKE ? ESCAPE '\\' OR merchant LIKE ? ESCAPE '\\')"
+    );
+    bindArgs.push(`%${escaped}%`, `%${escaped}%`);
   }
   if (args.category) {
     conditions.push("category = ?");
@@ -665,6 +668,15 @@ export async function onPurchaseMutated(
     .get();
 
   if (!purchase) return;
+
+  if (purchase.deletedAt !== null) {
+    await db
+      .delete(reminders)
+      .where(
+        and(eq(reminders.purchaseId, purchaseId), isNull(reminders.sentAt))
+      );
+    return;
+  }
 
   const user = await db
     .select()

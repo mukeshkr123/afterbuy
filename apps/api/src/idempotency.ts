@@ -54,13 +54,14 @@ export const idempotencyMiddleware: MiddlewareHandler<AuthedEnv> = async (
   const db = createDbClient(c.env.DB);
   const path = new URL(c.req.url).pathname;
   const requestHash = await sha256Hex(await c.req.raw.clone().arrayBuffer());
+  const dbKey = `${user.id}:${key}`;
 
   // Check D1 for persisted idempotency key
   const existingRecord = await db
     .select()
     .from(idempotencyKeys)
     .where(
-      and(eq(idempotencyKeys.key, key), eq(idempotencyKeys.userId, user.id))
+      and(eq(idempotencyKeys.key, dbKey), eq(idempotencyKeys.userId, user.id))
     )
     .get();
 
@@ -77,18 +78,39 @@ export const idempotencyMiddleware: MiddlewareHandler<AuthedEnv> = async (
       );
     }
     if (existingRecord.status === "completed" && existingRecord.responseCode) {
+      if (existingRecord.responseCode === 204) {
+        return new Response(null, {
+          status: 204,
+          headers: { "idempotency-replay": "true" },
+        });
+      }
       return new Response(existingRecord.responseBody ?? "", {
         status: existingRecord.responseCode,
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "idempotency-replay": "true",
+        },
       });
     }
     if (existingRecord.status === "processing") {
-      return apiError(
-        c,
-        409,
-        "conflict",
-        "A request with this Idempotency-Key is currently processing"
-      );
+      const isStale =
+        Date.now() - new Date(existingRecord.createdAt).getTime() > 60_000;
+      if (!isStale) {
+        return apiError(
+          c,
+          409,
+          "conflict",
+          "A request with this Idempotency-Key is currently processing"
+        );
+      }
+      await db
+        .delete(idempotencyKeys)
+        .where(
+          and(
+            eq(idempotencyKeys.key, dbKey),
+            eq(idempotencyKeys.userId, user.id)
+          )
+        );
     }
   }
 
@@ -98,7 +120,7 @@ export const idempotencyMiddleware: MiddlewareHandler<AuthedEnv> = async (
 
   try {
     await db.insert(idempotencyKeys).values({
-      key,
+      key: dbKey,
       userId: user.id,
       path,
       requestHash,
@@ -116,19 +138,51 @@ export const idempotencyMiddleware: MiddlewareHandler<AuthedEnv> = async (
     );
   }
 
-  await next();
+  try {
+    await next();
+  } catch (err) {
+    try {
+      await db
+        .delete(idempotencyKeys)
+        .where(
+          and(
+            eq(idempotencyKeys.key, dbKey),
+            eq(idempotencyKeys.userId, user.id)
+          )
+        );
+    } catch {
+      // Ignore deletion failure
+    }
+    throw err;
+  }
 
   try {
     const res = c.res as Response;
-    const bodyText = await res.clone().text();
-    await db
-      .update(idempotencyKeys)
-      .set({
-        status: "completed",
-        responseCode: res.status,
-        responseBody: bodyText,
-      })
-      .where(eq(idempotencyKeys.key, key));
+    if (res.status < 500) {
+      const bodyText = res.status === 204 ? "" : await res.clone().text();
+      await db
+        .update(idempotencyKeys)
+        .set({
+          status: "completed",
+          responseCode: res.status,
+          responseBody: bodyText,
+        })
+        .where(
+          and(
+            eq(idempotencyKeys.key, dbKey),
+            eq(idempotencyKeys.userId, user.id)
+          )
+        );
+    } else {
+      await db
+        .delete(idempotencyKeys)
+        .where(
+          and(
+            eq(idempotencyKeys.key, dbKey),
+            eq(idempotencyKeys.userId, user.id)
+          )
+        );
+    }
   } catch {
     // Ignore updates failure
   }

@@ -13,14 +13,14 @@ export function OnboardingDeadlineIllustration({
 
   return (
     <View style={[styles.container, compact && styles.compact]}>
-      {/* Subtle ambient glow */}
+      {/* Ultra-subtle ambient glow */}
       <View
         style={[
           styles.ambientGlow,
           {
             backgroundColor: isLight
-              ? "rgba(79, 70, 229, 0.06)"
-              : "rgba(129, 140, 248, 0.08)",
+              ? "rgba(79, 70, 229, 0.03)"
+              : "rgba(129, 140, 248, 0.04)",
           },
         ]}
       />
@@ -47,7 +47,7 @@ export function OnboardingDeadlineIllustration({
             >
               <Ionicons
                 name="shield-checkmark"
-                size={16}
+                size={15}
                 color={tokens.colors.accent}
               />
             </View>
@@ -61,7 +61,7 @@ export function OnboardingDeadlineIllustration({
                   { color: tokens.colors.textMuted },
                 ]}
               >
-                Automatic notifications active
+                Active reminders
               </Text>
             </View>
           </View>
@@ -76,7 +76,7 @@ export function OnboardingDeadlineIllustration({
             <View
               style={[
                 styles.verticalLine,
-                { backgroundColor: isLight ? "#E0E7FF" : "#312E81" },
+                { backgroundColor: isLight ? "#E5E7EB" : "#272732" },
               ]}
             />
 
@@ -91,14 +91,14 @@ export function OnboardingDeadlineIllustration({
                   },
                 ]}
               >
-                <Ionicons name="time" size={11} color={tokens.colors.warning} />
+                <Ionicons name="time" size={10} color={tokens.colors.warning} />
               </View>
               <View style={styles.stepContent}>
                 <View style={styles.stepTitleRow}>
                   <Text
                     style={[styles.stepTitle, { color: tokens.colors.text }]}
                   >
-                    Return Window Ends
+                    Return window
                   </Text>
                   <View
                     style={[
@@ -112,14 +112,14 @@ export function OnboardingDeadlineIllustration({
                         { color: tokens.colors.warning },
                       ]}
                     >
-                      3 Days Left
+                      3 days left
                     </Text>
                   </View>
                 </View>
                 <Text
                   style={[styles.stepDate, { color: tokens.colors.textMuted }]}
                 >
-                  Oct 28 · Amazon purchase #1049
+                  Oct 28 · Store return deadline
                 </Text>
               </View>
             </View>
@@ -137,13 +137,13 @@ export function OnboardingDeadlineIllustration({
               >
                 <Ionicons
                   name="shield-checkmark"
-                  size={11}
+                  size={10}
                   color={tokens.colors.accent}
                 />
               </View>
               <View style={styles.stepContent}>
                 <Text style={[styles.stepTitle, { color: tokens.colors.text }]}>
-                  Warranty Protection
+                  Warranty
                 </Text>
                 <Text
                   style={[styles.stepDate, { color: tokens.colors.textMuted }]}
@@ -155,7 +155,7 @@ export function OnboardingDeadlineIllustration({
           </View>
         </View>
 
-        {/* Floating Smart Alert Notification Card (Positioned below without covering content) */}
+        {/* Floating Reminder Banner */}
         <View
           style={[
             styles.notificationBanner,
@@ -173,17 +173,17 @@ export function OnboardingDeadlineIllustration({
             ]}
           >
             <Ionicons
-              name="notifications"
-              size={14}
+              name="notifications-outline"
+              size={13}
               color={tokens.colors.accent}
             />
           </View>
           <View style={styles.notificationTextCol}>
             <Text style={[styles.notifTitle, { color: tokens.colors.text }]}>
-              Smart Alert Scheduled
+              Reminder set
             </Text>
             <Text style={[styles.notifSub, { color: tokens.colors.textMuted }]}>
-              Push reminder 48h before expiry
+              2 days before expiry
             </Text>
           </View>
         </View>
@@ -195,36 +195,36 @@ export function OnboardingDeadlineIllustration({
 const styles = StyleSheet.create({
   container: {
     width: "100%",
-    height: 250,
+    height: 240,
     alignItems: "center",
     justifyContent: "center",
     position: "relative",
   },
   compact: {
-    transform: [{ scale: 0.72 }],
+    transform: [{ scale: 0.76 }],
   },
   ambientGlow: {
     position: "absolute",
-    width: 240,
-    height: 240,
-    borderRadius: 120,
+    width: 220,
+    height: 220,
+    borderRadius: 110,
   },
   deckContainer: {
     width: "100%",
-    maxWidth: 328,
-    height: 240,
+    maxWidth: 324,
+    height: 230,
     alignItems: "center",
     justifyContent: "center",
     position: "relative",
   },
   timelineCard: {
-    width: "94%",
-    padding: 14,
+    width: "95%",
+    padding: 15,
     borderRadius: 16,
     borderWidth: 1,
     zIndex: 2,
-    marginTop: -20,
-    paddingBottom: 24,
+    marginTop: -16,
+    paddingBottom: 22,
   },
   headerRow: {
     flexDirection: "row",
@@ -232,9 +232,9 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   shieldBadge: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 9,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -243,12 +243,13 @@ const styles = StyleSheet.create({
   },
   titleText: {
     fontSize: 14,
-    fontWeight: "700",
+    fontWeight: "600",
     letterSpacing: -0.2,
   },
   subtitleText: {
     fontSize: 11,
-    fontWeight: "500",
+    fontWeight: "400",
+    marginTop: 1,
   },
   divider: {
     height: 1,
@@ -261,21 +262,21 @@ const styles = StyleSheet.create({
   },
   verticalLine: {
     position: "absolute",
-    left: 9,
+    left: 8,
     top: 6,
     bottom: 8,
-    width: 2,
+    width: 1.5,
     borderRadius: 1,
   },
   timelineStep: {
     flexDirection: "row",
     alignItems: "flex-start",
-    gap: 10,
+    gap: 9,
   },
   stepNode: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     borderWidth: 1.5,
     alignItems: "center",
     justifyContent: "center",
@@ -292,7 +293,7 @@ const styles = StyleSheet.create({
   },
   stepTitle: {
     fontSize: 13,
-    fontWeight: "700",
+    fontWeight: "600",
   },
   alertBadge: {
     paddingHorizontal: 6,
@@ -301,11 +302,11 @@ const styles = StyleSheet.create({
   },
   alertText: {
     fontSize: 10,
-    fontWeight: "800",
+    fontWeight: "700",
   },
   stepDate: {
     fontSize: 11,
-    fontWeight: "500",
+    fontWeight: "400",
     marginTop: 1,
   },
   notificationBanner: {
@@ -314,29 +315,32 @@ const styles = StyleSheet.create({
     width: "88%",
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
+    gap: 8,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    borderRadius: 10,
     borderWidth: 1,
     zIndex: 4,
   },
   bellBox: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
+    width: 24,
+    height: 24,
+    borderRadius: 6,
     alignItems: "center",
     justifyContent: "center",
   },
   notificationTextCol: {
     flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
   },
   notifTitle: {
     fontSize: 12,
-    fontWeight: "700",
+    fontWeight: "600",
   },
   notifSub: {
     fontSize: 11,
-    fontWeight: "500",
+    fontWeight: "400",
   },
 });

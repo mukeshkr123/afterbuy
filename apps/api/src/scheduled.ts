@@ -1,5 +1,11 @@
-import { and, eq, isNull } from "drizzle-orm";
-import { createDbClient, reminders, users } from "@acme/db";
+import { and, eq, isNull, lt } from "drizzle-orm";
+import {
+  createDbClient,
+  reminders,
+  users,
+  purchases,
+  idempotencyKeys,
+} from "@acme/db";
 import type { Env } from "./env";
 
 type ScheduledEventLike = Pick<ScheduledEvent, "cron" | "scheduledTime">;
@@ -19,6 +25,16 @@ export async function handleScheduled(
       name: "heartbeat",
       cron: env.DAILY_CRON_EXPRESSION,
       run: () => env.APP_KV.put("last-heartbeat", new Date().toISOString()),
+    },
+    {
+      name: "prune-idempotency-keys",
+      cron: env.DAILY_CRON_EXPRESSION,
+      run: async () => {
+        const db = createDbClient(env.DB);
+        await db
+          .delete(idempotencyKeys)
+          .where(lt(idempotencyKeys.expiresAt, new Date().toISOString()));
+      },
     },
     {
       name: "scan-reminders",
@@ -55,6 +71,7 @@ async function scanAndQueueReminders(env: Env): Promise<void> {
   // - dismissed_at IS NULL
   // - user has push_enabled = 1
   // - user is not deleted
+  // - purchase is not deleted
   const activeReminders = await db
     .select({
       reminder: reminders,
@@ -62,12 +79,14 @@ async function scanAndQueueReminders(env: Env): Promise<void> {
     })
     .from(reminders)
     .innerJoin(users, eq(reminders.userId, users.id))
+    .innerJoin(purchases, eq(reminders.purchaseId, purchases.id))
     .where(
       and(
         isNull(reminders.sentAt),
         isNull(reminders.dismissedAt),
         eq(users.pushEnabled, 1),
-        isNull(users.deletedAt)
+        isNull(users.deletedAt),
+        isNull(purchases.deletedAt)
       )
     );
 

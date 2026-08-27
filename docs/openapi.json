@@ -1135,6 +1135,7 @@
                   },
                   "merchant": {
                     "type": "string",
+                    "nullable": true,
                     "maxLength": 200
                   },
                   "category": {
@@ -1156,6 +1157,7 @@
                   },
                   "amountMinor": {
                     "type": "integer",
+                    "nullable": true,
                     "minimum": 0
                   },
                   "currency": {
@@ -1165,10 +1167,12 @@
                   },
                   "orderNumber": {
                     "type": "string",
+                    "nullable": true,
                     "maxLength": 200
                   },
                   "notes": {
                     "type": "string",
+                    "nullable": true,
                     "maxLength": 5000
                   },
                   "deliveryStatus": {
@@ -1177,18 +1181,22 @@
                   },
                   "trackingNumber": {
                     "type": "string",
+                    "nullable": true,
                     "maxLength": 200
                   },
                   "carrier": {
                     "type": "string",
+                    "nullable": true,
                     "maxLength": 100
                   },
                   "warrantyExpiresAt": {
                     "type": "string",
+                    "nullable": true,
                     "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
                   },
                   "returnDeadlineAt": {
                     "type": "string",
+                    "nullable": true,
                     "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
                   }
                 },
@@ -2034,6 +2042,7 @@
                   },
                   "merchant": {
                     "type": "string",
+                    "nullable": true,
                     "maxLength": 200
                   },
                   "category": {
@@ -2055,6 +2064,7 @@
                   },
                   "amountMinor": {
                     "type": "integer",
+                    "nullable": true,
                     "minimum": 0
                   },
                   "currency": {
@@ -2064,10 +2074,12 @@
                   },
                   "orderNumber": {
                     "type": "string",
+                    "nullable": true,
                     "maxLength": 200
                   },
                   "notes": {
                     "type": "string",
+                    "nullable": true,
                     "maxLength": 5000
                   },
                   "deliveryStatus": {
@@ -2076,18 +2088,22 @@
                   },
                   "trackingNumber": {
                     "type": "string",
+                    "nullable": true,
                     "maxLength": 200
                   },
                   "carrier": {
                     "type": "string",
+                    "nullable": true,
                     "maxLength": 100
                   },
                   "warrantyExpiresAt": {
                     "type": "string",
+                    "nullable": true,
                     "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
                   },
                   "returnDeadlineAt": {
                     "type": "string",
+                    "nullable": true,
                     "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
                   }
                 },
@@ -3566,7 +3582,10 @@
           },
           {
             "schema": {
-              "type": "string"
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20
             },
             "required": false,
             "name": "limit",
@@ -4510,7 +4529,10 @@
           },
           {
             "schema": {
-              "type": "string"
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20
             },
             "required": false,
             "name": "limit",

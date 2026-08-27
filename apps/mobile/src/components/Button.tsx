@@ -1,4 +1,13 @@
-import { Platform, Pressable, StyleSheet, Text } from "react-native";
+import {
+  ActivityIndicator,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from "react-native";
 import { useTheme } from "../theme/ThemeProvider";
 
 export interface ButtonProps {
@@ -7,6 +16,8 @@ export interface ButtonProps {
   disabled?: boolean;
   busy?: boolean;
   variant?: "primary" | "secondary" | "ghost" | "danger";
+  size?: "md" | "lg";
+  style?: StyleProp<ViewStyle>;
 }
 
 export function Button({
@@ -15,10 +26,13 @@ export function Button({
   disabled,
   busy = false,
   variant = "primary",
+  size = "md",
+  style,
 }: ButtonProps) {
   const { tokens, reducedMotion } = useTheme();
+  const isDisabled = Boolean(disabled || busy);
 
-  const backgroundColor = disabled
+  const backgroundColor = isDisabled
     ? tokens.colors.disabled
     : variant === "primary"
       ? tokens.colors.accent
@@ -28,7 +42,7 @@ export function Button({
           ? tokens.colors.surface
           : "transparent";
 
-  const textColor = disabled
+  const textColor = isDisabled
     ? tokens.colors.disabledText
     : variant === "primary"
       ? tokens.colors.accentText
@@ -36,34 +50,52 @@ export function Button({
         ? tokens.colors.accentText
         : tokens.colors.text;
 
+  const minHeight =
+    size === "lg" ? 54 : Platform.select({ ios: 44, android: 48, default: 44 });
+  const borderRadius = size === "lg" ? tokens.radius.lg : tokens.radius.md;
+
   return (
     <Pressable
       onPress={onPress}
-      disabled={disabled}
+      disabled={isDisabled}
       accessibilityRole="button"
-      accessibilityState={{ disabled: Boolean(disabled), busy }}
+      accessibilityState={{ disabled: isDisabled, busy }}
       style={({ pressed }) => [
         styles.base,
         {
+          minHeight,
           backgroundColor,
           borderColor:
             variant === "secondary" ? tokens.colors.border : "transparent",
-          borderRadius: tokens.radius.md,
-          paddingVertical: tokens.spacing.sm + 2,
+          borderRadius,
+          paddingVertical:
+            size === "lg" ? tokens.spacing.md : tokens.spacing.sm + 2,
           paddingHorizontal: tokens.spacing.lg,
-          opacity: pressed ? 0.85 : 1,
-          transform: [{ scale: pressed && !reducedMotion ? 0.98 : 1 }],
+          opacity: pressed && !isDisabled ? 0.85 : 1,
+          transform: [
+            { scale: pressed && !isDisabled && !reducedMotion ? 0.98 : 1 },
+          ],
         },
+        style,
       ]}
     >
-      <Text
-        style={[
-          styles.label,
-          { color: textColor, fontSize: tokens.type.body.fontSize },
-        ]}
-      >
-        {label}
-      </Text>
+      <View style={styles.contentRow}>
+        {busy && (
+          <ActivityIndicator
+            size="small"
+            color={textColor}
+            style={styles.spinner}
+          />
+        )}
+        <Text
+          style={[
+            styles.label,
+            { color: textColor, fontSize: tokens.type.body.fontSize },
+          ]}
+        >
+          {label}
+        </Text>
+      </View>
     </Pressable>
   );
 }
@@ -74,6 +106,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     minHeight: Platform.select({ ios: 44, android: 48, default: 44 }),
+  },
+  contentRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  spinner: {
+    marginRight: 8,
   },
   label: {
     fontWeight: "600",

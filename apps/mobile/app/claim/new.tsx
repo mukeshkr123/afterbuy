@@ -11,6 +11,7 @@ import {
   IconTile,
   Input,
   ListItem,
+  ScreenHeader,
   ScreenScroll,
   SectionCard,
   SkeletonGroup,
@@ -81,7 +82,9 @@ export default function NewClaimScreen() {
 
   return (
     <>
-      <ScreenScroll gap={tokens.spacing.lg + 2} safeTop={false}>
+      <ScreenScroll gap={tokens.spacing.lg} safeTop={true}>
+        <ScreenHeader title="File a Claim" />
+
         <SectionCard>
           {purchase.isLoading ? (
             <SkeletonGroup count={2} />
@@ -197,6 +200,7 @@ export default function NewClaimScreen() {
         <Button
           label={mutation.isPending ? "Submitting…" : "Submit Claim"}
           disabled={mutation.isPending}
+          busy={mutation.isPending}
           onPress={() => mutation.mutate()}
         />
       </ScreenScroll>
@@ -235,16 +239,28 @@ function ChooseOrder() {
           flexGrow: items.length === 0 ? 1 : undefined,
         }}
         ListHeaderComponent={
-          <Text
+          <View
             style={{
-              color: tokens.colors.textMuted,
-              fontSize: tokens.type.body.fontSize,
-              lineHeight: tokens.type.body.lineHeight,
-              padding: tokens.spacing.xl,
+              paddingTop: Math.max(
+                insets.top + tokens.spacing.sm,
+                tokens.spacing.md
+              ),
+              paddingHorizontal: tokens.spacing.xl - 4,
+              paddingBottom: tokens.spacing.md,
+              gap: tokens.spacing.sm,
             }}
           >
-            Which purchase is this claim about?
-          </Text>
+            <ScreenHeader title="Choose Purchase" />
+            <Text
+              style={{
+                color: tokens.colors.textMuted,
+                fontSize: tokens.type.body.fontSize,
+                lineHeight: tokens.type.body.lineHeight,
+              }}
+            >
+              Which purchase is this claim about?
+            </Text>
+          </View>
         }
         ListEmptyComponent={
           <View style={{ padding: tokens.spacing.xl }}>

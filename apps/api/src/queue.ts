@@ -8,6 +8,8 @@ import {
   claims,
   users,
   accountDeletionJobs,
+  reminderDeliveries,
+  idempotencyKeys,
 } from "@acme/db";
 import { retryPolicy } from "@acme/shared";
 import type { Env } from "./env";
@@ -91,10 +93,11 @@ export async function handleQueueBatch(
       if (msg.attempts >= retryPolicy.maxAttempts) {
         try {
           await env.REMINDER_DLQ.send(msg.body);
+          msg.ack();
         } catch (dlqErr) {
           console.error("Failed to send message to DLQ:", dlqErr);
+          msg.retry({ delaySeconds: 60 });
         }
-        msg.ack();
         continue;
       }
 
@@ -149,6 +152,10 @@ async function handleAccountDeletion(
   try {
     await handlePurgeReceipts(env, userId);
 
+    await db
+      .delete(reminderDeliveries)
+      .where(eq(reminderDeliveries.userId, userId));
+    await db.delete(idempotencyKeys).where(eq(idempotencyKeys.userId, userId));
     await db.delete(claims).where(eq(claims.userId, userId));
     await db.delete(reminders).where(eq(reminders.userId, userId));
     await db.delete(purchases).where(eq(purchases.userId, userId));
@@ -159,12 +166,18 @@ async function handleAccountDeletion(
 
     if (env.CLERK_SECRET_KEY && clerkUserId) {
       try {
-        await fetch(`https://api.clerk.com/v1/users/${clerkUserId}`, {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${env.CLERK_SECRET_KEY}`,
-          },
-        });
+        const clerkRes = await fetch(
+          `https://api.clerk.com/v1/users/${clerkUserId}`,
+          {
+            method: "DELETE",
+            headers: {
+              Authorization: `Bearer ${env.CLERK_SECRET_KEY}`,
+            },
+          }
+        );
+        if (!clerkRes.ok && clerkRes.status !== 404) {
+          console.error(`Clerk user deletion returned ${clerkRes.status}`);
+        }
       } catch (clerkErr) {
         console.error("Failed to delete Clerk user identity:", clerkErr);
       }
@@ -215,7 +228,7 @@ async function handleSendReminder(
     .where(eq(purchases.id, reminderRow.purchaseId))
     .get();
 
-  if (!purchaseRow) {
+  if (!purchaseRow || purchaseRow.deletedAt !== null) {
     return;
   }
 

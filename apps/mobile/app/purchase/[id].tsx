@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import {
   AppText,
   Button,
@@ -11,6 +11,7 @@ import {
   IconTile,
   ListItem,
   Money,
+  ScreenHeader,
   ScreenScroll,
   SectionCard,
   Skeleton,
@@ -78,68 +79,37 @@ export default function PurchaseDetailScreen() {
 
   const p: PurchaseDetailResponse | undefined = detail.data;
 
-  const headerOptions = {
-    headerShown: true,
-    title: p?.title ?? "Purchase",
-    headerRight: () =>
-      p ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Edit purchase"
-          onPress={() =>
-            router.push({
-              pathname: "/purchase/[id]/edit",
-              params: { id: id ?? "" },
-            })
-          }
-          style={({ pressed }) => ({
-            minHeight: 48,
-            justifyContent: "center",
-            opacity: pressed ? 0.7 : 1,
-          })}
-        >
-          <AppText role="subheadline" tone="accent" weight="700">
-            Edit
-          </AppText>
-        </Pressable>
-      ) : null,
-  } as const;
-
   if (detail.isLoading) {
     return (
-      <>
-        <Stack.Screen options={headerOptions} />
-        <ScreenScroll gap={tokens.spacing.lg + 2} safeTop={false}>
-          <Skeleton height={104} />
-          <Skeleton height={96} />
-          <Skeleton height={160} />
-        </ScreenScroll>
-      </>
+      <ScreenScroll gap={tokens.spacing.lg} safeTop={true}>
+        <ScreenHeader title="Purchase" />
+        <Skeleton height={104} />
+        <Skeleton height={96} />
+        <Skeleton height={160} />
+      </ScreenScroll>
     );
   }
 
   if (!p) {
     return (
-      <>
-        <Stack.Screen options={headerOptions} />
-        <ScreenScroll gap={tokens.spacing.lg + 2} safeTop={false}>
-          <SectionCard>
-            <EmptyState
-              icon="alert-circle-outline"
-              title="Purchase not available"
-              message={
-                detail.isError
-                  ? "We couldn't load this purchase. Check your connection and try again."
-                  : "This purchase no longer exists."
-              }
-              action={{
-                label: "Try again",
-                onPress: () => void detail.refetch(),
-              }}
-            />
-          </SectionCard>
-        </ScreenScroll>
-      </>
+      <ScreenScroll gap={tokens.spacing.lg} safeTop={true}>
+        <ScreenHeader title="Purchase" />
+        <SectionCard>
+          <EmptyState
+            icon="alert-circle-outline"
+            title="Purchase not available"
+            message={
+              detail.isError
+                ? "We couldn't load this purchase. Check your connection and try again."
+                : "This purchase no longer exists."
+            }
+            action={{
+              label: "Try again",
+              onPress: () => void detail.refetch(),
+            }}
+          />
+        </SectionCard>
+      </ScreenScroll>
     );
   }
 
@@ -162,8 +132,20 @@ export default function PurchaseDetailScreen() {
 
   return (
     <>
-      <Stack.Screen options={headerOptions} />
-      <ScreenScroll gap={tokens.spacing.lg + 2} safeTop={false}>
+      <ScreenScroll gap={tokens.spacing.lg} safeTop={true}>
+        <ScreenHeader
+          title={p.title || "Purchase"}
+          action={{
+            text: "Edit",
+            tone: "accent",
+            onPress: () =>
+              router.push({
+                pathname: "/purchase/[id]/edit",
+                params: { id: id ?? "" },
+              }),
+          }}
+        />
+
         <SectionCard>
           <View style={[styles.productRow, { gap: tokens.spacing.lg }]}>
             <IconTile

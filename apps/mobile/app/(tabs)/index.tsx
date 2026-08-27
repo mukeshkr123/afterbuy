@@ -9,6 +9,7 @@ import {
   EmptyState,
   IconTile,
   ListItem,
+  Money,
   ScreenScroll,
   Skeleton,
   StatusPill,
@@ -45,7 +46,7 @@ const REMINDER_KIND = {
 export default function HomeScreen() {
   const api = useApi();
   const router = useRouter();
-  const { tokens } = useTheme();
+  const { tokens, reducedMotion } = useTheme();
   const me = useQuery({ queryKey: apiKeys.me(), queryFn: () => getMe(api) });
   const recent = useQuery({
     queryKey: apiKeys.purchases.list({ sort: "createdAt", limit: 5 }),
@@ -55,10 +56,12 @@ export default function HomeScreen() {
     queryKey: apiKeys.reminders("upcoming"),
     queryFn: () => getReminders(api, "upcoming"),
   });
+
   const emailName = me.data?.email?.split("@")[0];
   const name = emailName
     ? `${emailName.charAt(0).toUpperCase()}${emailName.slice(1)}`
     : null;
+
   const purchases: PurchaseListResponse["items"] = recent.data?.items ?? [];
   const attention = useMemo<Reminder[]>(
     () =>
@@ -72,20 +75,31 @@ export default function HomeScreen() {
     [purchases]
   );
 
+  const isRefreshing =
+    (recent.isRefetching && !recent.isLoading) ||
+    (reminders.isRefetching && !reminders.isLoading);
+
+  const handleRefresh = () => {
+    void Promise.all([recent.refetch(), reminders.refetch(), me.refetch()]);
+  };
+
   return (
-    <ScreenScroll gap={tokens.spacing.xl}>
-      <View style={{ gap: tokens.spacing.xs }}>
-        <AppText role="largeTitle">
+    <ScreenScroll gap={28} refreshing={isRefreshing} onRefresh={handleRefresh}>
+      {/* 1. App Header */}
+      <View style={styles.headerBlock}>
+        <AppText role="largeTitle" weight="700" style={styles.screenTitle}>
           {name ? `Good to see you, ${name}` : "Welcome back"}
         </AppText>
-        <AppText role="body" tone="subtle">
-          Keep the proof. Never miss the date.
+        <AppText role="subheadline" tone="subtle" style={styles.screenSubtitle}>
+          Keep track of receipts, returns and warranties.
         </AppText>
       </View>
 
+      {/* 2. Action Block */}
       <View style={{ gap: tokens.spacing.sm }}>
         <Button
           label="Add purchase"
+          size="lg"
           onPress={() => router.push("/purchase/new")}
         />
         <View style={[styles.secondaryActions, { gap: tokens.spacing.sm }]}>
@@ -107,120 +121,168 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      <SectionHeading
-        title="Needs attention"
-        actionLabel={attention.length ? "All reminders" : undefined}
-        onAction={() => router.push("/(tabs)/reminders")}
-      />
-      {reminders.isLoading ? (
-        <View style={{ gap: tokens.spacing.sm }}>
-          <Skeleton height={72} />
-          <Skeleton height={72} />
-        </View>
-      ) : attention.length === 0 ? (
-        <View
-          style={[
-            styles.quietState,
-            {
-              backgroundColor: tokens.colors.successSoft,
-              borderRadius: tokens.radius.md,
-            },
-          ]}
-        >
-          <AppIcon name="check" size={24} color={tokens.colors.successText} />
-          <View style={{ flex: 1 }}>
-            <AppText role="headline">You’re all caught up</AppText>
-            <AppText role="subheadline" tone="subtle">
-              No return or warranty dates are close.
-            </AppText>
-          </View>
-        </View>
-      ) : (
-        <View>
-          {attention.map((reminder, index) => {
-            const kind = REMINDER_KIND[reminder.kind];
-            const state = deadlineState(reminder.fireOn, kind.prefix);
-            return (
-              <ListItem
-                key={reminder.id}
-                title={purchaseTitle.get(reminder.purchaseId) ?? kind.title}
-                subtitle={kind.title}
-                detail={
-                  state ? `${state.label} · ${state.detail}` : reminder.fireOn
-                }
-                divider={index < attention.length - 1}
-                leading={<IconTile icon={kind.icon} tone={kind.tone} />}
-                trailing={
-                  state?.urgent ? (
-                    <StatusPill label="Soon" tone="warning" />
-                  ) : undefined
-                }
-                onPress={() =>
-                  router.push({
-                    pathname: "/purchase/[id]",
-                    params: { id: reminder.purchaseId },
-                  })
-                }
-              />
-            );
-          })}
-        </View>
-      )}
-
-      <SectionHeading
-        title="Recent purchases"
-        actionLabel={purchases.length ? "View all" : undefined}
-        onAction={() => router.push("/(tabs)/purchases")}
-      />
-      {recent.isLoading ? (
-        <View style={{ gap: tokens.spacing.sm }}>
-          <Skeleton height={72} />
-          <Skeleton height={72} />
-          <Skeleton height={72} />
-        </View>
-      ) : purchases.length === 0 ? (
-        <EmptyState
-          icon="receipt-outline"
-          title="Your purchases will live here"
-          message="Add one with or without a receipt, then fill in protection details when you have them."
-          action={{
-            label: "Add a purchase",
-            onPress: () => router.push("/purchase/new"),
-          }}
+      {/* 3. Needs Attention Section */}
+      <View style={{ gap: tokens.spacing.md }}>
+        <SectionHeading
+          title="Needs attention"
+          actionLabel={attention.length > 0 ? "See all" : undefined}
+          onAction={() => router.push("/(tabs)/reminders")}
         />
-      ) : (
-        <View>
-          {purchases.map((purchase, index) => {
-            const status = deliveryDisplay(purchase.deliveryStatus);
-            const date = formatDate(purchase.purchaseDate);
-            return (
-              <ListItem
-                key={purchase.id}
-                title={purchase.title}
-                subtitle={[purchase.merchant, date ? `Purchased ${date}` : null]
-                  .filter(Boolean)
-                  .join(" • ")}
-                divider={index < purchases.length - 1}
-                leading={
-                  <IconTile
-                    icon={categoryIcon(purchase.category)}
-                    tone="neutral"
-                  />
-                }
-                trailing={
-                  <StatusPill label={status.label} tone={status.tone} />
-                }
-                onPress={() =>
-                  router.push({
-                    pathname: "/purchase/[id]",
-                    params: { id: purchase.id },
-                  })
-                }
-              />
-            );
-          })}
-        </View>
-      )}
+
+        {reminders.isLoading ? (
+          <Skeleton height={68} style={{ borderRadius: tokens.radius.lg }} />
+        ) : attention.length > 0 ? (
+          <View
+            style={[
+              styles.cardContainer,
+              {
+                backgroundColor: tokens.colors.surface,
+                borderColor: tokens.colors.border,
+                borderRadius: tokens.radius.lg,
+              },
+            ]}
+          >
+            {attention.map((reminder, index) => {
+              const kind = REMINDER_KIND[reminder.kind];
+              const state = deadlineState(reminder.fireOn, kind.prefix);
+              return (
+                <ListItem
+                  key={reminder.id}
+                  title={purchaseTitle.get(reminder.purchaseId) ?? kind.title}
+                  subtitle={kind.title}
+                  detail={
+                    state ? `${state.label} · ${state.detail}` : reminder.fireOn
+                  }
+                  divider={index < attention.length - 1}
+                  chevron
+                  leading={<IconTile icon={kind.icon} tone={kind.tone} />}
+                  trailing={
+                    state?.urgent ? (
+                      <StatusPill label="Soon" tone="warning" />
+                    ) : undefined
+                  }
+                  onPress={() =>
+                    router.push({
+                      pathname: "/purchase/[id]",
+                      params: { id: reminder.purchaseId },
+                    })
+                  }
+                />
+              );
+            })}
+          </View>
+        ) : (
+          <View
+            style={[
+              styles.quietState,
+              {
+                backgroundColor: tokens.colors.successSoft,
+                borderColor: tokens.colors.border,
+                borderRadius: tokens.radius.lg,
+              },
+            ]}
+          >
+            <AppIcon name="check" size={20} color={tokens.colors.successText} />
+            <View style={{ flex: 1, gap: 2 }}>
+              <AppText role="headline" weight="700">
+                All caught up
+              </AppText>
+              <AppText role="subheadline" tone="subtle">
+                No return or warranty deadlines are coming up.
+              </AppText>
+            </View>
+          </View>
+        )}
+      </View>
+
+      {/* 4. Recent Purchases Section */}
+      <View style={{ gap: tokens.spacing.md }}>
+        <SectionHeading
+          title="Recent purchases"
+          actionLabel={purchases.length > 0 ? "See all" : undefined}
+          onAction={() => router.push("/(tabs)/purchases")}
+        />
+
+        {recent.isLoading ? (
+          <View style={{ gap: tokens.spacing.sm }}>
+            <Skeleton height={68} style={{ borderRadius: tokens.radius.lg }} />
+            <Skeleton height={68} style={{ borderRadius: tokens.radius.lg }} />
+          </View>
+        ) : purchases.length > 0 ? (
+          <View
+            style={[
+              styles.cardContainer,
+              {
+                backgroundColor: tokens.colors.surface,
+                borderColor: tokens.colors.border,
+                borderRadius: tokens.radius.lg,
+              },
+            ]}
+          >
+            {purchases.map((purchase, index) => {
+              const status = deliveryDisplay(purchase.deliveryStatus);
+              const date = formatDate(purchase.purchaseDate);
+              return (
+                <ListItem
+                  key={purchase.id}
+                  title={purchase.title}
+                  subtitle={[
+                    purchase.merchant,
+                    date ? `Purchased ${date}` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" • ")}
+                  divider={index < purchases.length - 1}
+                  leading={
+                    <IconTile
+                      icon={categoryIcon(purchase.category)}
+                      tone="neutral"
+                    />
+                  }
+                  trailing={
+                    <View style={styles.purchaseTrailing}>
+                      <StatusPill label={status.label} tone={status.tone} />
+                      {purchase.amountMinor != null &&
+                      purchase.amountMinor > 0 ? (
+                        <Money
+                          amountMinor={purchase.amountMinor}
+                          currency={purchase.currency}
+                          emphasis="strong"
+                          style={{ fontSize: tokens.type.caption.fontSize }}
+                        />
+                      ) : null}
+                    </View>
+                  }
+                  onPress={() =>
+                    router.push({
+                      pathname: "/purchase/[id]",
+                      params: { id: purchase.id },
+                    })
+                  }
+                />
+              );
+            })}
+          </View>
+        ) : (
+          <View
+            style={[
+              styles.emptyCardWrap,
+              {
+                backgroundColor: tokens.colors.surface,
+                borderColor: tokens.colors.border,
+                borderRadius: tokens.radius.lg,
+              },
+            ]}
+          >
+            <EmptyState
+              compact
+              icon="receipt-outline"
+              title="No purchases yet"
+              message="Your recent purchases will appear here after you add them."
+            />
+          </View>
+        )}
+      </View>
     </ScreenScroll>
   );
 }
@@ -234,27 +296,25 @@ function SectionHeading({
   actionLabel?: string | undefined;
   onAction: () => void;
 }) {
-  const { tokens } = useTheme();
   return (
     <View style={styles.sectionHeading}>
-      <AppText role="title">{title}</AppText>
+      <AppText role="title" weight="700">
+        {title}
+      </AppText>
       {actionLabel ? (
         <Pressable
           onPress={onAction}
           accessibilityRole="button"
-          style={({ pressed }) => ({
-            minHeight: 48,
-            justifyContent: "center",
-            opacity: pressed ? 0.7 : 1,
-          })}
+          style={({ pressed }) => [
+            styles.sectionAction,
+            { opacity: pressed ? 0.7 : 1 },
+          ]}
         >
-          <AppText role="subheadline" tone="accent" weight="700">
+          <AppText role="subheadline" tone="accent" weight="600">
             {actionLabel}
           </AppText>
         </Pressable>
-      ) : (
-        <View style={{ height: tokens.spacing.xs }} />
-      )}
+      ) : null}
     </View>
   );
 }
@@ -268,7 +328,7 @@ function SecondaryAction({
   label: string;
   onPress: () => void;
 }) {
-  const { tokens } = useTheme();
+  const { tokens, reducedMotion } = useTheme();
   return (
     <Pressable
       onPress={onPress}
@@ -276,14 +336,16 @@ function SecondaryAction({
       style={({ pressed }) => [
         styles.secondaryAction,
         {
-          borderColor: tokens.colors.outline,
-          borderRadius: tokens.radius.md,
-          opacity: pressed ? 0.78 : 1,
+          backgroundColor: tokens.colors.surface,
+          borderColor: tokens.colors.border,
+          borderRadius: tokens.radius.lg,
+          opacity: pressed ? 0.82 : 1,
+          transform: [{ scale: pressed && !reducedMotion ? 0.98 : 1 }],
         },
       ]}
     >
-      <AppIcon name={icon} size={20} color={tokens.colors.primary} />
-      <AppText role="subheadline" weight="700">
+      <AppIcon name={icon} size={17} color={tokens.colors.primary} />
+      <AppText role="subheadline" weight="600">
         {label}
       </AppText>
     </Pressable>
@@ -291,7 +353,18 @@ function SecondaryAction({
 }
 
 const styles = StyleSheet.create({
-  secondaryActions: { flexDirection: "row" },
+  headerBlock: {
+    gap: 6,
+  },
+  screenTitle: {
+    letterSpacing: -0.4,
+  },
+  screenSubtitle: {
+    lineHeight: 22,
+  },
+  secondaryActions: {
+    flexDirection: "row",
+  },
   secondaryAction: {
     flex: 1,
     minHeight: 48,
@@ -306,13 +379,43 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    minHeight: 32,
+  },
+  sectionAction: {
+    minHeight: 36,
+    justifyContent: "center",
+    paddingHorizontal: 4,
   },
   quietState: {
-    minHeight: 76,
+    minHeight: 64,
+    borderWidth: 1,
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 14,
+  },
+  cardContainer: {
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  emptyCardWrap: {
+    borderWidth: 1,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  purchaseTrailing: {
+    alignItems: "flex-end",
+    gap: 4,
+  },
+  errorCard: {
+    borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 14,
+    gap: 12,
   },
 });

@@ -10,7 +10,7 @@ import { createDbClient } from "@acme/db";
 import { authMiddleware, type AuthedEnv } from "./auth";
 import { corsMiddleware } from "./cors";
 import type { Env } from "./env";
-import { apiError } from "./errors";
+import { apiError, ApiError } from "./errors";
 import { getHealth } from "./health";
 import { idempotencyMiddleware } from "./idempotency";
 import {
@@ -92,8 +92,13 @@ export function createApp() {
   app.onError((error, c) => {
     const requestId = getRequestId(c);
     logError(error, requestId);
+    if (error instanceof ApiError) {
+      return error.toResponse(c);
+    }
     return apiError(c, 500, "internal", "Internal Server Error");
   });
+
+  app.notFound((c) => apiError(c, 404, "not_found", "Route not found"));
 
   app.openAPIRegistry.registerComponent("securitySchemes", "bearerAuth", {
     type: "http",
@@ -192,5 +197,3 @@ export function createApp() {
 
   return app;
 }
-
-import { eq } from "drizzle-orm";

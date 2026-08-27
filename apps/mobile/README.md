@@ -20,7 +20,7 @@ pnpm mobile:web          # boots the web target
 
 ## Required env
 
-Set in `apps/mobile/.env` (gitignored) or via EAS env profiles:
+Set in `apps/mobile/.env` (gitignored):
 
 ```sh
 EXPO_PUBLIC_API_BASE_URL=http://localhost:8787
@@ -28,8 +28,77 @@ EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_xxx
 ```
 
 The API base URL defaults to `http://localhost:8787`, which matches
-`wrangler dev` for the API. Phase 6+ swaps in per-stage URLs from
-`eas.json`'s `env` blocks.
+`wrangler dev` for the API.
+
+Optional public env used by release builds and notification wiring:
+
+```sh
+EXPO_PUBLIC_PUSH_ENABLED=false
+EXPO_PUBLIC_EAS_PROJECT_ID=
+EXPO_PUBLIC_SUPPORT_EMAIL=support@afterbuy.app
+```
+
+If `EXPO_PUBLIC_PUSH_ENABLED=true`, then `EXPO_PUBLIC_EAS_PROJECT_ID` must also
+be set so Expo push token registration can resolve the project ID.
+
+## Release CI
+
+GitHub Actions builds signed native release artifacts through the manual
+`mobile-release` workflow in the repo root. It does not use EAS Build.
+
+Bootstrap local runtime values and GitHub mobile release secrets with:
+
+```sh
+pnpm bootstrap:mobile-release production
+MOBILE_CLERK_PUBLISHABLE_KEY=pk_live_xxx pnpm bootstrap:mobile-release production --apply
+```
+
+All required values must be configured on the GitHub `production`
+environment. Repo-level vars and secrets are ignored by jobs that declare
+`environment: production`.
+
+Required production environment vars:
+
+```sh
+EXPO_PUBLIC_API_BASE_URL=https://api.afterbuy.app
+EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_live_xxx
+IOS_TEAM_ID=ABCDE12345
+IOS_PROVISIONING_PROFILE_NAME=AfterBuy App Store
+```
+
+Conditionally required vars:
+
+```sh
+EXPO_PUBLIC_PUSH_ENABLED=true
+EXPO_PUBLIC_EAS_PROJECT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+```
+
+Optional vars:
+
+```sh
+EXPO_PUBLIC_SUPPORT_EMAIL=support@afterbuy.app
+IOS_EXPORT_METHOD=app-store
+```
+
+Required production environment secrets:
+
+```sh
+ANDROID_KEYSTORE_BASE64=...
+ANDROID_KEYSTORE_PASSWORD=...
+ANDROID_KEY_ALIAS=...
+ANDROID_KEY_PASSWORD=...
+IOS_DIST_CERT_BASE64=...
+IOS_DIST_CERT_PASSWORD=...
+IOS_PROVISIONING_PROFILE_BASE64=...
+```
+
+Run the workflow manually and choose `all`, `android`, or `ios`. Successful
+runs upload:
+
+- signed Android `.aab`
+- signed Android `.apk`
+- signed iOS `.ipa`
+- iOS `.xcarchive`
 
 ## Layout
 

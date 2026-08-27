@@ -65,10 +65,7 @@ export const claimsListRoute = createRoute({
       type: claimTypeSchema.optional(),
       status: claimStatusSchema.optional(),
       cursor: z.string().optional(),
-      limit: z
-        .string()
-        .optional()
-        .transform((v) => (v ? parseInt(v, 10) : 20)),
+      limit: z.coerce.number().int().min(1).max(50).default(20),
     }),
   },
   responses: {
@@ -179,10 +176,7 @@ export async function handleListClaims(ctx: AuthedContext) {
     type: claimTypeSchema.optional(),
     status: claimStatusSchema.optional(),
     cursor: z.string().optional(),
-    limit: z
-      .string()
-      .optional()
-      .transform((v) => (v ? parseInt(v, 10) : 20)),
+    limit: z.coerce.number().int().min(1).max(50).default(20),
   });
 
   const parsed = querySchema.safeParse(Object.fromEntries(url.searchParams));
@@ -193,7 +187,7 @@ export async function handleListClaims(ctx: AuthedContext) {
   const { purchaseId, type, status, cursor, limit } = parsed.data;
   const db = createDbClient(ctx.env.DB);
 
-  const pageSize = Math.min(limit, 50);
+  const pageSize = limit;
 
   const conditions = [eq(claims.userId, user.id)];
   if (purchaseId) conditions.push(eq(claims.purchaseId, purchaseId));

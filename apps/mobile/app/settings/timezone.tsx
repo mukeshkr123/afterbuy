@@ -11,7 +11,12 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Button, EmptyState, useAdaptiveLayout } from "@/components";
+import {
+  Button,
+  EmptyState,
+  ScreenHeader,
+  useAdaptiveLayout,
+} from "@/components";
 import { useApi } from "@/api/ApiProvider";
 import { apiKeys } from "@/api/apiKeys";
 import { getMe } from "@/api/auth";
@@ -76,7 +81,8 @@ export default function TimezoneScreen() {
     }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: apiKeys.me() });
-      router.back();
+      if (router.canGoBack()) router.back();
+      else router.replace("/(tabs)/profile");
     },
   });
 
@@ -105,11 +111,17 @@ export default function TimezoneScreen() {
         ListHeaderComponent={
           <View
             style={{
-              padding: tokens.spacing.xl,
-              gap: tokens.spacing.lg,
+              paddingTop: Math.max(
+                insets.top + tokens.spacing.sm,
+                tokens.spacing.md
+              ),
+              paddingHorizontal: tokens.spacing.xl - 4,
+              paddingBottom: tokens.spacing.md,
+              gap: tokens.spacing.md,
               backgroundColor: tokens.colors.canvas,
             }}
           >
+            <ScreenHeader title="Time Zone" />
             <Text
               style={{
                 color: tokens.colors.textMuted,

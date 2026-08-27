@@ -9,20 +9,23 @@ import {
 import { z } from "zod";
 import type { ApiRequest } from "./client";
 
-const listResponse = z.object({ items: z.array(claimSchema) });
+const listResponse = z.object({
+  items: z.array(claimSchema),
+  nextCursor: z.string().nullable(),
+});
 
 export type { Claim, CreateClaimRequest, UpdateClaimRequest };
 
 export function listClaims(
   api: ApiRequest,
   q: { purchaseId?: string | undefined } = {}
-): Promise<{ items: Claim[] }> {
+): Promise<{ items: Claim[]; nextCursor: string | null }> {
   return api({
     method: "GET",
     path: "/v1/claims",
     query: q,
     schema: listResponse,
-  }) as Promise<{ items: Claim[] }>;
+  }) as Promise<{ items: Claim[]; nextCursor: string | null }>;
 }
 
 export function getClaim(api: ApiRequest, id: string): Promise<Claim> {

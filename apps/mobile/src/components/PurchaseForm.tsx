@@ -47,7 +47,12 @@ function AmountField({
 
   return (
     <Input
-      label="Amount paid (optional)"
+      label="Amount paid"
+      labelAccessory={
+        <AppText role="caption" tone="subtle">
+          Optional
+        </AppText>
+      }
       value={text}
       placeholder="0.00"
       keyboardType="decimal-pad"
@@ -74,6 +79,7 @@ export interface PurchaseFormProps {
   initial?: Partial<CreatePurchaseRequest>;
   onSubmit: (data: CreatePurchaseRequest) => Promise<PurchaseDetailResponse>;
   submitLabel: string;
+  onDirtyChange?: (isDirty: boolean) => void;
   /**
    * Render the fields bare, without the surrounding ScrollView and Card. Use
    * when the caller already provides a scrolling page — nesting two scroll
@@ -86,6 +92,7 @@ export function PurchaseForm({
   initial,
   onSubmit,
   submitLabel,
+  onDirtyChange,
   embedded = false,
 }: PurchaseFormProps) {
   const api = useApi();
@@ -135,6 +142,10 @@ export function PurchaseForm({
       },
     });
 
+  useEffect(() => {
+    onDirtyChange?.(formState.isDirty);
+  }, [formState.isDirty, onDirtyChange]);
+
   // Category-default date prefill: when category changes and the user has
   // not touched returnDeadlineAt, populate it from the server defaults.
   const category = watch("category");
@@ -160,6 +171,7 @@ export function PurchaseForm({
           <Input
             label="Title"
             value={field.value ?? ""}
+            placeholder="e.g. Wireless Headphones"
             onChangeText={field.onChange}
             error={fieldState.error?.message ?? serverError.fields["title"]}
           />
@@ -172,6 +184,7 @@ export function PurchaseForm({
           <Input
             label="Merchant"
             value={field.value ?? ""}
+            placeholder="e.g. Best Buy"
             onChangeText={field.onChange}
             error={fieldState.error?.message ?? serverError.fields["merchant"]}
           />
@@ -222,30 +235,43 @@ export function PurchaseForm({
           />
         )}
       />
+
       <Pressable
         onPress={() => setShowOptional((current) => !current)}
         accessibilityRole="button"
         accessibilityState={{ expanded: showOptional }}
-        style={({ pressed }) => ({
-          minHeight: 48,
-          justifyContent: "center",
-          borderTopWidth: 1,
-          borderBottomWidth: showOptional ? 1 : 0,
-          borderColor: tokens.colors.border,
-          opacity: pressed ? 0.75 : 1,
-        })}
+        style={({ pressed }) => [
+          {
+            minHeight: 52,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            backgroundColor: tokens.colors.surface,
+            borderColor: tokens.colors.border,
+            borderWidth: 1,
+            borderRadius: 14,
+            paddingHorizontal: tokens.spacing.lg,
+            paddingVertical: tokens.spacing.md,
+            marginTop: 4,
+          },
+          pressed && { opacity: 0.8 },
+        ]}
       >
-        <AppText role="headline">
-          {showOptional
-            ? "Hide optional details"
-            : "Add protection and delivery"}
-        </AppText>
-        <AppText role="caption" tone="subtle">
-          Delivery status, return date, warranty, and notes
+        <View style={{ flex: 1, gap: 2 }}>
+          <AppText role="headline" weight="600">
+            Protection & delivery
+          </AppText>
+          <AppText role="caption" tone="subtle">
+            Return deadline, warranty, delivery and notes
+          </AppText>
+        </View>
+        <AppText role="subheadline" tone="accent" weight="600">
+          {showOptional ? "Hide" : "Add details"}
         </AppText>
       </Pressable>
+
       {showOptional ? (
-        <>
+        <View style={{ gap: tokens.spacing.md, marginTop: 4 }}>
           <Controller
             control={control}
             name="deliveryStatus"
@@ -305,6 +331,7 @@ export function PurchaseForm({
               <Input
                 label="Notes"
                 value={field.value ?? ""}
+                placeholder="Serial number, order notes, return policy, etc."
                 onChangeText={field.onChange}
                 multiline
                 numberOfLines={3}
@@ -312,21 +339,26 @@ export function PurchaseForm({
               />
             )}
           />
-        </>
+        </View>
       ) : null}
+
       <FormError message={serverError.message} />
-      <Button
-        label={formState.isSubmitting ? "Saving…" : submitLabel}
-        onPress={handleSubmit(async (data) => {
-          try {
-            await onSubmit(data);
-          } catch (e) {
-            setServerError(fromCaught(e));
-          }
-        })}
-        disabled={formState.isSubmitting}
-        busy={formState.isSubmitting}
-      />
+
+      <View style={{ marginTop: 8 }}>
+        <Button
+          label={formState.isSubmitting ? "Saving…" : submitLabel}
+          size="lg"
+          onPress={handleSubmit(async (data) => {
+            try {
+              await onSubmit(data);
+            } catch (e) {
+              setServerError(fromCaught(e));
+            }
+          })}
+          disabled={formState.isSubmitting}
+          busy={formState.isSubmitting}
+        />
+      </View>
     </View>
   );
 

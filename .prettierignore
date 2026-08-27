@@ -5,7 +5,11 @@ dist
 coverage
 pnpm-lock.yaml
 agent-skills
--e 
+# Mobile / Native
+apps/mobile/ios/Pods
+apps/mobile/ios/build
+apps/mobile/android/build
+apps/mobile/android/.gradle
 # Expo generated
 expo-env.d.ts
 .expo/

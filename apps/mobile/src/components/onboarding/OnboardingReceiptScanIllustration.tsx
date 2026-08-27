@@ -13,14 +13,14 @@ export function OnboardingReceiptScanIllustration({
 
   return (
     <View style={[styles.container, compact && styles.compact]}>
-      {/* Subtle ambient glow */}
+      {/* Ultra-subtle ambient glow */}
       <View
         style={[
           styles.ambientGlow,
           {
             backgroundColor: isLight
-              ? "rgba(79, 70, 229, 0.06)"
-              : "rgba(129, 140, 248, 0.08)",
+              ? "rgba(79, 70, 229, 0.03)"
+              : "rgba(129, 140, 248, 0.04)",
           },
         ]}
       />
@@ -31,7 +31,7 @@ export function OnboardingReceiptScanIllustration({
           style={[
             styles.paperReceipt,
             {
-              backgroundColor: isLight ? "#F3F3F7" : "#1A1A24",
+              backgroundColor: isLight ? "#F4F4F7" : "#1A1A24",
               borderColor: tokens.colors.border,
             },
           ]}
@@ -40,13 +40,13 @@ export function OnboardingReceiptScanIllustration({
             <View
               style={[
                 styles.receiptBar,
-                { backgroundColor: tokens.colors.icon, opacity: 0.35 },
+                { backgroundColor: tokens.colors.icon, opacity: 0.3 },
               ]}
             />
             <View
               style={[
                 styles.receiptBarShort,
-                { backgroundColor: tokens.colors.icon, opacity: 0.25 },
+                { backgroundColor: tokens.colors.icon, opacity: 0.2 },
               ]}
             />
           </View>
@@ -54,19 +54,19 @@ export function OnboardingReceiptScanIllustration({
             <View
               style={[
                 styles.receiptLine,
-                { backgroundColor: tokens.colors.icon, opacity: 0.2 },
+                { backgroundColor: tokens.colors.icon, opacity: 0.15 },
               ]}
             />
             <View
               style={[
                 styles.receiptLine,
-                { backgroundColor: tokens.colors.icon, opacity: 0.2 },
+                { backgroundColor: tokens.colors.icon, opacity: 0.15 },
               ]}
             />
             <View
               style={[
                 styles.receiptLineShort,
-                { backgroundColor: tokens.colors.icon, opacity: 0.2 },
+                { backgroundColor: tokens.colors.icon, opacity: 0.15 },
               ]}
             />
           </View>
@@ -83,26 +83,15 @@ export function OnboardingReceiptScanIllustration({
             },
           ]}
         >
-          {/* Laser Scanning Indicator Badge on Top Border */}
-          <View
-            style={[
-              styles.scanLabelBadge,
-              { backgroundColor: tokens.colors.accent },
-            ]}
-          >
-            <Ionicons name="sparkles" size={10} color="#FFFFFF" />
-            <Text style={styles.scanLabelText}>AUTO-SCAN</Text>
-          </View>
-
           <View style={styles.cardTopRow}>
             <View
               style={[
                 styles.merchantIcon,
-                { backgroundColor: isLight ? "#EEF2FF" : "#1E1B4B" },
+                { backgroundColor: tokens.colors.accentSoft },
               ]}
             >
               <Ionicons
-                name="cart-outline"
+                name="receipt-outline"
                 size={18}
                 color={tokens.colors.accent}
               />
@@ -119,20 +108,24 @@ export function OnboardingReceiptScanIllustration({
                   { color: tokens.colors.textMuted },
                 ]}
               >
-                Auto-extracted receipt
+                Purchase receipt
               </Text>
             </View>
             <View
               style={[
-                styles.autoParsedTag,
+                styles.savedTag,
                 { backgroundColor: tokens.colors.accentSoft },
               ]}
             >
-              <Ionicons name="flash" size={11} color={tokens.colors.accent} />
+              <Ionicons
+                name="checkmark-circle"
+                size={12}
+                color={tokens.colors.accent}
+              />
               <Text
-                style={[styles.autoParsedText, { color: tokens.colors.accent }]}
+                style={[styles.savedTagText, { color: tokens.colors.accent }]}
               >
-                Instant
+                Saved
               </Text>
             </View>
           </View>
@@ -173,7 +166,7 @@ export function OnboardingReceiptScanIllustration({
             <Text
               style={[styles.totalLabel, { color: tokens.colors.textMuted }]}
             >
-              Total Stored
+              Total stored
             </Text>
             <Text style={[styles.totalAmount, { color: tokens.colors.text }]}>
               $762.11
@@ -188,100 +181,80 @@ export function OnboardingReceiptScanIllustration({
 const styles = StyleSheet.create({
   container: {
     width: "100%",
-    height: 250,
+    height: 240,
     alignItems: "center",
     justifyContent: "center",
     position: "relative",
   },
   compact: {
-    transform: [{ scale: 0.72 }],
+    transform: [{ scale: 0.76 }],
   },
   ambientGlow: {
     position: "absolute",
-    width: 240,
-    height: 240,
-    borderRadius: 120,
+    width: 220,
+    height: 220,
+    borderRadius: 110,
   },
   deckContainer: {
     width: "100%",
-    maxWidth: 328,
-    height: 240,
+    maxWidth: 324,
+    height: 230,
     alignItems: "center",
     justifyContent: "center",
     position: "relative",
   },
   paperReceipt: {
     position: "absolute",
-    top: 14,
-    width: 220,
-    height: 140,
+    top: 10,
+    width: 210,
+    height: 135,
     borderRadius: 12,
     borderWidth: 1,
     padding: 12,
     transform: [{ rotate: "-4deg" }],
-    opacity: 0.65,
+    opacity: 0.6,
   },
   receiptHeader: {
     alignItems: "center",
-    gap: 6,
-    marginBottom: 12,
+    gap: 5,
+    marginBottom: 10,
   },
   receiptBar: {
-    width: 80,
-    height: 8,
-    borderRadius: 4,
+    width: 70,
+    height: 7,
+    borderRadius: 3.5,
   },
   receiptBarShort: {
-    width: 50,
-    height: 6,
-    borderRadius: 3,
+    width: 44,
+    height: 5,
+    borderRadius: 2.5,
   },
   receiptLines: {
-    gap: 8,
+    gap: 7,
   },
   receiptLine: {
     width: "100%",
-    height: 5,
-    borderRadius: 3,
+    height: 4.5,
+    borderRadius: 2.5,
   },
   receiptLineShort: {
-    width: "60%",
-    height: 5,
-    borderRadius: 3,
+    width: "55%",
+    height: 4.5,
+    borderRadius: 2.5,
   },
   digitalCard: {
-    width: "94%",
-    padding: 16,
+    width: "95%",
+    padding: 15,
     borderRadius: 16,
     borderWidth: 1,
-    marginTop: 26,
+    marginTop: 20,
     zIndex: 3,
-    position: "relative",
-  },
-  scanLabelBadge: {
-    position: "absolute",
-    top: -11,
-    alignSelf: "center",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-    zIndex: 5,
-  },
-  scanLabelText: {
-    fontSize: 9,
-    fontWeight: "800",
-    color: "#FFFFFF",
-    letterSpacing: 0.5,
   },
   cardTopRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    marginBottom: 14,
-    marginTop: 4,
+    marginBottom: 12,
   },
   merchantIcon: {
     width: 36,
@@ -295,24 +268,25 @@ const styles = StyleSheet.create({
   },
   merchantName: {
     fontSize: 15,
-    fontWeight: "700",
+    fontWeight: "600",
     letterSpacing: -0.2,
   },
   parsedTimestamp: {
-    fontSize: 11,
-    fontWeight: "500",
+    fontSize: 12,
+    fontWeight: "400",
+    marginTop: 1,
   },
-  autoParsedTag: {
+  savedTag: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 3,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 10,
+    gap: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 3.5,
+    borderRadius: 8,
   },
-  autoParsedText: {
+  savedTagText: {
     fontSize: 11,
-    fontWeight: "700",
+    fontWeight: "600",
   },
   itemRow: {
     flexDirection: "row",
@@ -322,29 +296,29 @@ const styles = StyleSheet.create({
   },
   itemName: {
     fontSize: 13,
-    fontWeight: "600",
+    fontWeight: "500",
     flex: 1,
     marginRight: 8,
   },
   itemPrice: {
     fontSize: 13,
-    fontWeight: "700",
+    fontWeight: "600",
   },
   totalBar: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-    marginTop: 8,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    borderRadius: 8,
+    marginTop: 6,
   },
   totalLabel: {
     fontSize: 12,
-    fontWeight: "600",
+    fontWeight: "500",
   },
   totalAmount: {
     fontSize: 14,
-    fontWeight: "800",
+    fontWeight: "700",
   },
 });

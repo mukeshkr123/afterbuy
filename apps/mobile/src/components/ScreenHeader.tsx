@@ -1,14 +1,18 @@
+import type { ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useTheme } from "../theme/ThemeProvider";
 
 export interface ScreenHeaderAction {
-  /** Ionicons glyph name, e.g. "add" or "ellipsis-horizontal". */
-  icon: keyof typeof Ionicons.glyphMap;
-  /** Required — icon-only controls are invisible to screen readers without it. */
-  label: string;
+  /** Optional Ionicons glyph name, e.g. "add" or "ellipsis-horizontal". */
+  icon?: keyof typeof Ionicons.glyphMap | undefined;
+  /** Text label, e.g. "Edit" or "Cancel". */
+  text?: string | undefined;
+  /** Required accessibility label if icon is used without text. */
+  label?: string | undefined;
   onPress: () => void;
+  tone?: "accent" | "danger" | "neutral" | undefined;
 }
 
 export interface ScreenHeaderProps {
@@ -17,19 +21,21 @@ export interface ScreenHeaderProps {
   onBack?: (() => void) | undefined;
   showBack?: boolean | undefined;
   action?: ScreenHeaderAction | undefined;
+  rightNode?: ReactNode | undefined;
 }
 
 /**
  * The back / title / action bar repeated across every non-root screen.
  *
- * Controls are 44×44 to satisfy WCAG 2.5.5; the visual glyph stays small, the
- * hit area does not.
+ * Controls are at least 44×44 to satisfy WCAG 2.5.5; the visual glyph stays small,
+ * the hit area does not.
  */
 export function ScreenHeader({
   title,
   onBack,
   showBack = true,
   action,
+  rightNode,
 }: ScreenHeaderProps) {
   const { tokens } = useTheme();
   const router = useRouter();
@@ -53,7 +59,7 @@ export function ScreenHeader({
           hitSlop={8}
           style={({ pressed }) => [styles.control, pressed && { opacity: 0.6 }]}
         >
-          <Ionicons name="chevron-back" size={24} color={tokens.colors.text} />
+          <Ionicons name="chevron-back" size={22} color={tokens.colors.text} />
         </Pressable>
       ) : (
         <View style={styles.control} />
@@ -65,18 +71,20 @@ export function ScreenHeader({
           styles.title,
           {
             color: tokens.colors.text,
-            fontSize: tokens.type.body.fontSize + 2,
+            fontSize: tokens.type.headline.fontSize + 1,
           },
         ]}
       >
         {title}
       </Text>
 
-      {action ? (
+      {rightNode ? (
+        <View style={[styles.control, styles.controlEnd]}>{rightNode}</View>
+      ) : action ? (
         <Pressable
           onPress={action.onPress}
           accessibilityRole="button"
-          accessibilityLabel={action.label}
+          accessibilityLabel={action.label ?? action.text ?? "Action"}
           hitSlop={8}
           style={({ pressed }) => [
             styles.control,
@@ -84,7 +92,24 @@ export function ScreenHeader({
             pressed && { opacity: 0.6 },
           ]}
         >
-          <Ionicons name={action.icon} size={22} color={tokens.colors.text} />
+          {action.text ? (
+            <Text
+              style={{
+                color:
+                  action.tone === "accent"
+                    ? tokens.colors.accent
+                    : action.tone === "danger"
+                      ? tokens.colors.danger
+                      : tokens.colors.text,
+                fontSize: tokens.type.bodySmall.fontSize + 1,
+                fontWeight: "600",
+              }}
+            >
+              {action.text}
+            </Text>
+          ) : action.icon ? (
+            <Ionicons name={action.icon} size={22} color={tokens.colors.text} />
+          ) : null}
         </Pressable>
       ) : (
         <View style={styles.control} />
@@ -95,13 +120,14 @@ export function ScreenHeader({
 
 const styles = StyleSheet.create({
   row: {
+    minHeight: 48,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
   control: {
-    width: 48,
-    height: 48,
+    minWidth: 44,
+    minHeight: 44,
     justifyContent: "center",
   },
   controlEnd: {

@@ -50,14 +50,14 @@ export function Input({
   const { tokens } = useTheme();
   const [focused, setFocused] = useState(false);
   const minHeight = multiline
-    ? Math.max(54, (numberOfLines ?? 3) * 22 + 16)
-    : Platform.select({ ios: 50, android: 56, default: 50 });
+    ? Math.max(56, (numberOfLines ?? 3) * 22 + 16)
+    : Platform.select({ ios: 52, android: 54, default: 52 });
 
   const borderColor = error
     ? tokens.colors.danger
     : focused
       ? tokens.colors.focus
-      : tokens.colors.outline;
+      : tokens.colors.border;
 
   return (
     <View style={{ gap: tokens.spacing.xs }}>
@@ -100,7 +100,7 @@ export function Input({
               color: tokens.colors.text,
               borderColor,
               backgroundColor: tokens.colors.surface,
-              borderRadius: 16,
+              borderRadius: 14,
               paddingLeft: tokens.spacing.lg,
               paddingRight: adornment ? 48 : tokens.spacing.lg,
               fontSize: tokens.type.body.fontSize,

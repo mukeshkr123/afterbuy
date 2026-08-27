@@ -1,11 +1,14 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { AppState, Linking, Text, View } from "react-native";
+import { AppState, Linking, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Notifications from "expo-notifications";
 import * as ImagePicker from "expo-image-picker";
 import {
+  AppText,
   Button,
   IconTile,
   ListItem,
+  ScreenHeader,
   ScreenScroll,
   SectionCard,
   StatusPill,
@@ -61,6 +64,7 @@ function toGrant(status: string, granted: boolean): Grant {
 
 export default function PermissionsScreen() {
   const { tokens } = useTheme();
+  const insets = useSafeAreaInsets();
   const [state, setState] = useState<Record<PermissionRow["id"], Grant>>({
     notifications: "undetermined",
     camera: "undetermined",
@@ -99,29 +103,32 @@ export default function PermissionsScreen() {
   };
 
   return (
-    <>
-      <ScreenScroll gap={tokens.spacing.lg + 2} safeTop={false}>
+    <View style={{ flex: 1, backgroundColor: tokens.colors.canvas }}>
+      <View
+        style={{
+          paddingTop: Math.max(insets.top, 12),
+          paddingHorizontal: tokens.spacing.xl - 4,
+          backgroundColor: tokens.colors.canvas,
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          borderBottomColor: tokens.colors.border,
+        }}
+      >
+        <ScreenHeader title="Permissions" />
+      </View>
+
+      <ScreenScroll
+        gap={tokens.spacing.lg}
+        safeTop={false}
+        contentStyle={{
+          paddingTop: tokens.spacing.lg,
+          paddingBottom: Math.max(insets.bottom + 24, 32),
+        }}
+      >
         <View style={{ gap: tokens.spacing.xs }}>
-          <Text
-            accessibilityRole="header"
-            style={{
-              color: tokens.colors.text,
-              fontSize: tokens.type.title.fontSize,
-              fontWeight: "800",
-              letterSpacing: -0.3,
-            }}
-          >
-            Permissions
-          </Text>
-          <Text
-            style={{
-              color: tokens.colors.textMuted,
-              fontSize: tokens.type.body.fontSize,
-              lineHeight: tokens.type.body.lineHeight,
-            }}
-          >
+          <AppText role="headline">App access</AppText>
+          <AppText role="body" tone="subtle">
             We only ask for what AfterBuy actually uses.
-          </Text>
+          </AppText>
         </View>
 
         <SectionCard flush>
@@ -161,6 +168,6 @@ export default function PermissionsScreen() {
           onPress={() => void Linking.openSettings()}
         />
       </ScreenScroll>
-    </>
+    </View>
   );
 }

@@ -5,7 +5,7 @@ import { users, uuidv7 } from "@acme/db";
 import type { DbClient } from "@acme/db";
 import { createDbClient } from "@acme/db";
 import type { Env } from "./env";
-import { apiError } from "./errors";
+import { apiError, ApiError } from "./errors";
 
 export interface AuthedUser {
   id: string;
@@ -24,26 +24,31 @@ export type AuthedEnv = {
 
 export type AuthedContext = Context<AuthedEnv>;
 
-interface JwtVerifyOk {
-  ok: true;
-  payload: JWTPayload;
-}
-
-interface JwtVerifyErr {
+export type JwtVerifyOk = { ok: true; payload: JWTPayload };
+export type JwtVerifyErr = {
   ok: false;
-  reason: "missing_token" | "verification_failed" | "azp_denied";
-}
+  reason:
+    "missing_token" | "verification_failed" | "azp_denied" | "user_deleted";
+};
 
-const JWKS_CACHE_MAX_AGE_MS = 60 * 60 * 1000;
+const JWKS_CACHE_MAX_AGE_MS = 1000 * 60 * 60; // 1 hr
 const USER_CACHE_TTL_SECONDS = 60 * 5;
+
+const jwksCache = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
 
 function jwksFor(
   env: Pick<Env, "CLERK_JWKS_URL">
 ): ReturnType<typeof createRemoteJWKSet> {
-  return createRemoteJWKSet(new URL(env.CLERK_JWKS_URL), {
-    cacheMaxAge: JWKS_CACHE_MAX_AGE_MS,
-    cooldownDuration: 30_000,
-  });
+  const url = env.CLERK_JWKS_URL;
+  let jwks = jwksCache.get(url);
+  if (!jwks) {
+    jwks = createRemoteJWKSet(new URL(url), {
+      cacheMaxAge: JWKS_CACHE_MAX_AGE_MS,
+      cooldownDuration: 30_000,
+    });
+    jwksCache.set(url, jwks);
+  }
+  return jwks;
 }
 
 export function extractBearerToken(request: Request): string | null {
@@ -101,17 +106,23 @@ export async function findOrProvisionUser(
   payload: { email?: string | null; timezone?: string | null }
 ): Promise<AuthedUser> {
   const existing = await db
-    .select({ id: users.id, clerkUserId: users.clerkUserId })
+    .select({
+      id: users.id,
+      clerkUserId: users.clerkUserId,
+      deletedAt: users.deletedAt,
+    })
     .from(users)
-    .where(and(eq(users.clerkUserId, clerkUserId), isNull(users.deletedAt)))
+    .where(eq(users.clerkUserId, clerkUserId))
     .get();
   if (existing) {
+    if (existing.deletedAt !== null) {
+      throw new ApiError(403, "forbidden", "Account has been deleted");
+    }
     return { id: existing.id, clerkUserId: existing.clerkUserId };
   }
 
   const now = new Date().toISOString();
   const id = crypto.randomUUID();
-  // TODO(phase2): replace with uuidv7 once purchases need ordered cursors.
   try {
     await db.insert(users).values({
       id,
@@ -127,11 +138,18 @@ export async function findOrProvisionUser(
     return { id, clerkUserId };
   } catch {
     const winner = await db
-      .select({ id: users.id, clerkUserId: users.clerkUserId })
+      .select({
+        id: users.id,
+        clerkUserId: users.clerkUserId,
+        deletedAt: users.deletedAt,
+      })
       .from(users)
-      .where(and(eq(users.clerkUserId, clerkUserId), isNull(users.deletedAt)))
+      .where(eq(users.clerkUserId, clerkUserId))
       .get();
     if (winner) {
+      if (winner.deletedAt !== null) {
+        throw new ApiError(403, "forbidden", "Account has been deleted");
+      }
       return { id: winner.id, clerkUserId: winner.clerkUserId };
     }
     throw new Error("Failed to provision or find user");

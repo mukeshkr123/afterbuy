@@ -18,6 +18,7 @@ import { fromCaught, type FormErrorState } from "@/hooks/useApiError";
 import { useTheme } from "@/theme/ThemeProvider";
 import { unregisterCurrentDevice } from "@/notifications/PushRegistration";
 import { useAuth } from "@/auth/useAuth";
+import { outbox } from "@/offline/outbox";
 
 const CONFIRM_WORD = "delete";
 const SUPPORT_EMAIL =
@@ -39,20 +40,26 @@ export default function DeleteAccountScreen() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: () => deleteMe(api),
-    onSuccess: async () => {
+    mutationFn: async () => {
       try {
         await unregisterCurrentDevice(api);
       } catch {
-        // The server may have already revoked this account; local cleanup
-        // still happens inside unregisterCurrentDevice.
+        // The server may be unreachable or user unregistered; proceed with deletion.
       }
+      return await deleteMe(api);
+    },
+    onSuccess: async () => {
+      try {
+        await outbox.reset();
+      } catch {
+        // Best-effort outbox reset
+      }
+      qc.clear();
       try {
         await signOut();
       } catch {
         // Best-effort: the server-side account is already gone.
       }
-      qc.clear();
       router.replace("/welcome");
     },
     // A failed deletion used to leave the button spinning with no explanation.
@@ -196,7 +203,12 @@ export default function DeleteAccountScreen() {
                     : "Permanently delete account"
                 }
                 variant="danger"
-                disabled={!canDelete || deleteMutation.isPending}
+                disabled={
+                  !canDelete ||
+                  deleteMutation.isPending ||
+                  deleteMutation.isSuccess
+                }
+                busy={deleteMutation.isPending}
                 onPress={() => deleteMutation.mutate()}
               />
             </View>

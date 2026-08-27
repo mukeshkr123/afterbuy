@@ -9,6 +9,7 @@ import {
   EmptyState,
   IconTile,
   ListItem,
+  ScreenHeader,
   SkeletonGroup,
   StatusPill,
   useAdaptiveLayout,
@@ -41,6 +42,18 @@ export default function PurchaseClaimsScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: tokens.colors.canvas }}>
+      <View
+        style={{
+          paddingTop: Math.max(insets.top, 12),
+          paddingHorizontal: tokens.spacing.xl - 4,
+          backgroundColor: tokens.colors.canvas,
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          borderBottomColor: tokens.colors.border,
+        }}
+      >
+        <ScreenHeader title="Claims" />
+      </View>
+
       <FlatList
         data={items}
         keyExtractor={(item) => item.id}
@@ -49,7 +62,6 @@ export default function PurchaseClaimsScreen() {
           maxWidth: contentWidth,
           alignSelf: "center",
           paddingBottom: Math.max(insets.bottom + 24, 32),
-          flexGrow: items.length === 0 ? 1 : undefined,
         }}
         refreshControl={
           <RefreshControl
@@ -64,25 +76,10 @@ export default function PurchaseClaimsScreen() {
               <SkeletonGroup count={4} gap={tokens.spacing.sm} />
             ) : (
               <EmptyState
-                icon={
-                  list.isError
-                    ? "alert-circle-outline"
-                    : "shield-checkmark-outline"
-                }
-                title={list.isError ? "Couldn't load claims" : "No claims yet"}
-                message={
-                  list.isError
-                    ? (fromCaught(list.error).message ?? "Try again.")
-                    : "Open a return or warranty claim when something goes wrong with this purchase."
-                }
-                {...(list.isError
-                  ? {
-                      action: {
-                        label: "Try again",
-                        onPress: () => void list.refetch(),
-                      },
-                    }
-                  : {})}
+                compact
+                icon="shield-checkmark-outline"
+                title="No claims yet"
+                message="Open a return or warranty claim when something goes wrong with this purchase."
               />
             )}
           </View>
@@ -118,6 +115,7 @@ export default function PurchaseClaimsScreen() {
           <View style={{ padding: tokens.spacing.xl }}>
             <Button
               label="Open a claim"
+              size="lg"
               onPress={() =>
                 router.push({
                   pathname: "/claim/new",
@@ -134,8 +132,8 @@ export default function PurchaseClaimsScreen() {
 
 const styles = StyleSheet.create({
   emptyWrap: {
-    flex: 1,
-    justifyContent: "center",
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingTop: 48,
+    paddingBottom: 32,
   },
 });

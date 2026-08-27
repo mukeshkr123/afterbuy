@@ -9,6 +9,7 @@ import {
   FormError,
   IconTile,
   Money,
+  ScreenHeader,
   ScreenScroll,
   SectionCard,
   Skeleton,
@@ -85,7 +86,8 @@ export default function ClaimDetailScreen() {
 
   if (claim.isLoading) {
     return (
-      <ScreenScroll gap={tokens.spacing.lg + 2} safeTop={false}>
+      <ScreenScroll gap={tokens.spacing.lg} safeTop={true}>
+        <ScreenHeader title="Claim Details" />
         <Skeleton height={96} />
         <Skeleton height={200} />
       </ScreenScroll>
@@ -95,7 +97,8 @@ export default function ClaimDetailScreen() {
   const c: Claim | undefined = claim.data;
   if (!c) {
     return (
-      <ScreenScroll gap={tokens.spacing.lg + 2} safeTop={false}>
+      <ScreenScroll gap={tokens.spacing.lg} safeTop={true}>
+        <ScreenHeader title="Claim Details" />
         <SectionCard>
           <EmptyState
             icon="alert-circle-outline"
@@ -117,7 +120,8 @@ export default function ClaimDetailScreen() {
 
   return (
     <>
-      <ScreenScroll gap={tokens.spacing.lg + 2} safeTop={false}>
+      <ScreenScroll gap={tokens.spacing.lg} safeTop={true}>
+        <ScreenHeader title="Claim Details" />
         <SectionCard
           onPress={
             purchase.data

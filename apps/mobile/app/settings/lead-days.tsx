@@ -2,8 +2,15 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { Button, IconTile, ScreenScroll, SectionCard } from "@/components";
+import {
+  AppText,
+  Button,
+  ScreenHeader,
+  ScreenScroll,
+  SectionCard,
+} from "@/components";
 import { useApi } from "@/api/ApiProvider";
 import { apiKeys } from "@/api/apiKeys";
 import { getMe } from "@/api/auth";
@@ -23,12 +30,11 @@ export default function LeadDaysScreen() {
   const api = useApi();
   const qc = useQueryClient();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { tokens } = useTheme();
 
   const me = useQuery({ queryKey: apiKeys.me(), queryFn: () => getMe(api) });
 
-  // `useState(me.data?…)` captured the value before the query resolved and
-  // never caught up, so the saved setting appeared unselected on open.
   const [picked, setPicked] = useState<number | null>(null);
   const selectedDays = picked ?? me.data?.reminderLeadDays ?? DEFAULT_LEAD_DAYS;
 
@@ -55,29 +61,40 @@ export default function LeadDaysScreen() {
     }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: apiKeys.me() });
-      router.back();
+      if (router.canGoBack()) router.back();
+      else router.replace("/(tabs)/profile");
     },
   });
 
   return (
-    <>
-      <ScreenScroll gap={tokens.spacing.lg + 2} safeTop={false}>
-        <SectionCard>
-          <View style={[styles.infoRow, { gap: tokens.spacing.md + 2 }]}>
-            <IconTile icon="alarm-outline" tone="accent" />
-            <Text
-              style={{
-                flex: 1,
-                color: tokens.colors.textMuted,
-                fontSize: tokens.type.bodySmall.fontSize,
-                lineHeight: tokens.type.bodySmall.lineHeight,
-              }}
-            >
-              How far ahead we warn you that a warranty or return window is
-              about to end.
-            </Text>
-          </View>
-        </SectionCard>
+    <View style={{ flex: 1, backgroundColor: tokens.colors.canvas }}>
+      <View
+        style={{
+          paddingTop: Math.max(insets.top, 12),
+          paddingHorizontal: tokens.spacing.xl - 4,
+          backgroundColor: tokens.colors.canvas,
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          borderBottomColor: tokens.colors.border,
+        }}
+      >
+        <ScreenHeader title="Reminder Timing" />
+      </View>
+
+      <ScreenScroll
+        gap={tokens.spacing.lg}
+        safeTop={false}
+        contentStyle={{
+          paddingTop: tokens.spacing.lg,
+          paddingBottom: Math.max(insets.bottom + 24, 32),
+        }}
+      >
+        <View style={{ gap: tokens.spacing.xs }}>
+          <AppText role="headline">Remind me</AppText>
+          <AppText role="body" tone="subtle">
+            Choose how early reminders arrive before a return or warranty
+            deadline.
+          </AppText>
+        </View>
 
         <SectionCard flush>
           {LEAD_PRESETS.map((preset, idx) => {
@@ -93,7 +110,7 @@ export default function LeadDaysScreen() {
                 style={({ pressed }) => [
                   styles.presetRow,
                   {
-                    paddingVertical: tokens.spacing.lg + 2,
+                    paddingVertical: tokens.spacing.lg,
                     paddingHorizontal: tokens.spacing.xl - 4,
                     borderBottomWidth: isLast ? 0 : StyleSheet.hairlineWidth,
                     borderBottomColor: tokens.colors.border,
@@ -107,7 +124,7 @@ export default function LeadDaysScreen() {
                       ? tokens.colors.accent
                       : tokens.colors.text,
                     fontSize: tokens.type.body.fontSize,
-                    fontWeight: "700",
+                    fontWeight: isSelected ? "700" : "500",
                   }}
                 >
                   {preset.label}
@@ -125,22 +142,19 @@ export default function LeadDaysScreen() {
         </SectionCard>
 
         <Button
-          label={saveMutation.isPending ? "Saving…" : "Save setting"}
+          label={saveMutation.isPending ? "Saving…" : "Save changes"}
           disabled={saveMutation.isPending}
+          busy={saveMutation.isPending}
           onPress={() =>
             saveMutation.mutate({ reminderLeadDays: selectedDays })
           }
         />
       </ScreenScroll>
-    </>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  infoRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
   presetRow: {
     flexDirection: "row",
     alignItems: "center",

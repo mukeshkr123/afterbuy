@@ -30,14 +30,14 @@ const SLIDES: OnboardingSlide[] = [
     id: "1",
     headline: "Every purchase in one place.",
     supportingCopy:
-      "Keep receipts, delivery details, returns, warranties, and claims together.",
+      "Receipts, deliveries, returns, and warranties — always easy to find.",
     IllustrationComponent: OnboardingHubIllustration,
   },
   {
     id: "2",
     headline: "Receipts, ready when needed.",
     supportingCopy:
-      "Photograph or attach a receipt and find it with the purchase.",
+      "Save a photo or attach a receipt directly to your purchase.",
     IllustrationComponent: OnboardingReceiptScanIllustration,
   },
   {
@@ -105,31 +105,29 @@ export default function WelcomeScreen() {
       style={[
         styles.container,
         {
-          paddingTop: Math.max(insets.top + 4, 16),
+          paddingTop: Math.max(insets.top + 6, 16),
           paddingBottom: Math.max(insets.bottom + 8, 20),
           backgroundColor: tokens.colors.canvas,
         },
       ]}
     >
-      {/* Top Header & Brand Bar (Identical 44px height across all slides) */}
+      {/* Top Header & Brand Bar (Identical across all slides) */}
       <View
         style={[
           styles.headerContainer,
           { width: "100%", maxWidth: 960, alignSelf: "center" },
         ]}
       >
-        {/* Brand mark: Icon + subtle wordmark on slide 1, Icon only on slide 2 & 3 */}
+        {/* Brand mark: Icon + wordmark consistently across slides */}
         <View style={styles.brandMarkContainer}>
           <Image
             source={require("../assets/logo_icon.png")}
             style={styles.logoIcon}
             resizeMode="contain"
           />
-          {activeIndex === 0 && (
-            <Text style={[styles.brandTitle, { color: tokens.colors.text }]}>
-              AfterBuy
-            </Text>
-          )}
+          <Text style={[styles.brandTitle, { color: tokens.colors.text }]}>
+            AfterBuy
+          </Text>
         </View>
 
         {/* Top Right Action: "Skip" on slides 1 & 2, empty layout placeholder on slide 3 */}
@@ -206,9 +204,8 @@ export default function WelcomeScreen() {
                       {
                         color: tokens.colors.text,
                         textAlign: expanded ? "left" : "center",
-                        fontSize: short ? 28 : 32,
-                        lineHeight: short ? 34 : 38,
-                        marginBottom: short ? 6 : 10,
+                        fontSize: short ? 25 : 29,
+                        lineHeight: short ? 31 : 35,
                       },
                     ]}
                   >
@@ -232,7 +229,7 @@ export default function WelcomeScreen() {
         </ScrollView>
       </View>
 
-      {/* Segmented Progress Bar */}
+      {/* Segmented Progress Indicator */}
       <View style={[styles.paginationRow, short && styles.paginationRowShort]}>
         {SLIDES.map((_, index) => {
           const inputRange = [
@@ -243,13 +240,13 @@ export default function WelcomeScreen() {
 
           const dotWidth = scrollX.interpolate({
             inputRange,
-            outputRange: [8, 24, 8],
+            outputRange: [7, 20, 7],
             extrapolate: "clamp",
           });
 
           const dotOpacity = scrollX.interpolate({
             inputRange,
-            outputRange: [0.3, 1, 0.3],
+            outputRange: [0.25, 1, 0.25],
             extrapolate: "clamp",
           });
 
@@ -282,7 +279,7 @@ export default function WelcomeScreen() {
         style={[
           styles.footerContainer,
           short && styles.footerShort,
-          { maxWidth: 560, alignSelf: "center" },
+          { maxWidth: 440, alignSelf: "center" },
         ]}
       >
         <Pressable
@@ -296,7 +293,7 @@ export default function WelcomeScreen() {
             styles.primaryButton,
             {
               backgroundColor: accentColor,
-              borderRadius: 16,
+              borderRadius: 14,
               ...tokens.shadow.raised,
             },
             pressed && {
@@ -349,7 +346,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 24,
-    height: 48,
+    height: 44,
   },
   brandMarkContainer: {
     flexDirection: "row",
@@ -357,29 +354,29 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   logoIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 7,
   },
   brandTitle: {
-    fontSize: 20,
+    fontSize: 19,
     fontWeight: "700",
-    letterSpacing: -0.4,
+    letterSpacing: -0.3,
   },
   skipButton: {
     paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    minHeight: 48,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    minHeight: 44,
     justifyContent: "center",
   },
   skipText: {
     fontSize: 14,
-    fontWeight: "600",
+    fontWeight: "500",
   },
   headerPlaceholder: {
-    width: 48,
-    height: 48,
+    width: 44,
+    height: 44,
   },
   carouselContainer: {
     flex: 1,
@@ -395,25 +392,25 @@ const styles = StyleSheet.create({
   },
   illustrationWrapper: {
     width: "100%",
-    height: 250,
+    height: 240,
     alignItems: "center",
     justifyContent: "center",
   },
   illustrationShort: {
-    height: 180,
+    height: 185,
   },
   illustrationExpanded: {
     flex: 1,
     maxWidth: 440,
-    height: 320,
+    height: 280,
   },
   textBlock: {
     alignItems: "center",
     paddingHorizontal: 8,
-    marginTop: 24,
+    marginTop: 20,
   },
   textBlockShort: {
-    marginTop: 10,
+    marginTop: 8,
   },
   textBlockExpanded: {
     flex: 1,
@@ -421,12 +418,12 @@ const styles = StyleSheet.create({
     maxWidth: 420,
   },
   headlineText: {
-    fontSize: 32,
+    fontSize: 29,
     fontWeight: "700",
     textAlign: "center",
-    lineHeight: 38,
+    lineHeight: 35,
     letterSpacing: -0.5,
-    marginBottom: 10,
+    marginBottom: 8,
     maxWidth: 330,
   },
   supportingCopyText: {
@@ -440,33 +437,35 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    marginVertical: 14,
+    gap: 7,
+    marginTop: 12,
+    marginBottom: 16,
   },
   paginationRowShort: {
-    marginVertical: 6,
+    marginTop: 6,
+    marginBottom: 10,
   },
   dot: {
-    height: 7,
-    borderRadius: 4,
+    height: 6,
+    borderRadius: 3,
   },
   footerContainer: {
     paddingHorizontal: 24,
-    gap: 16,
+    gap: 18,
     alignItems: "center",
     width: "100%",
   },
   footerShort: {
-    gap: 8,
+    gap: 10,
   },
   primaryButton: {
     width: "100%",
-    height: 54,
+    height: 52,
     alignItems: "center",
     justifyContent: "center",
   },
   primaryButtonText: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "600",
     letterSpacing: 0.1,
   },
@@ -480,11 +479,11 @@ const styles = StyleSheet.create({
     fontWeight: "400",
   },
   signInLinkTouchTarget: {
-    minHeight: 48,
+    minHeight: 44,
     justifyContent: "center",
   },
   signInLink: {
     fontSize: 14,
-    fontWeight: "700",
+    fontWeight: "600",
   },
 });

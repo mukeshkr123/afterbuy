@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import type { PurchaseDeliveryStatus } from "@acme/shared";
 import {
   EmptyState,
+  ScreenHeader,
   ScreenScroll,
   SectionCard,
   Skeleton,
@@ -57,32 +58,30 @@ export default function TrackOrderScreen() {
 
   if (detail.isLoading) {
     return (
-      <>
-        <ScreenScroll gap={tokens.spacing.lg + 2} safeTop={false}>
-          <Skeleton height={88} />
-          <Skeleton height={220} />
-        </ScreenScroll>
-      </>
+      <ScreenScroll gap={tokens.spacing.lg} safeTop={true}>
+        <ScreenHeader title="Delivery" />
+        <Skeleton height={88} />
+        <Skeleton height={220} />
+      </ScreenScroll>
     );
   }
 
   if (!p) {
     return (
-      <>
-        <ScreenScroll gap={tokens.spacing.lg + 2} safeTop={false}>
-          <SectionCard>
-            <EmptyState
-              icon="alert-circle-outline"
-              title="Purchase not available"
-              message="We couldn't load this purchase. Check your connection and try again."
-              action={{
-                label: "Try again",
-                onPress: () => void detail.refetch(),
-              }}
-            />
-          </SectionCard>
-        </ScreenScroll>
-      </>
+      <ScreenScroll gap={tokens.spacing.lg} safeTop={true}>
+        <ScreenHeader title="Delivery" />
+        <SectionCard>
+          <EmptyState
+            icon="alert-circle-outline"
+            title="Purchase not available"
+            message="We couldn't load this purchase. Check your connection and try again."
+            action={{
+              label: "Try again",
+              onPress: () => void detail.refetch(),
+            }}
+          />
+        </SectionCard>
+      </ScreenScroll>
     );
   }
 
@@ -95,7 +94,8 @@ export default function TrackOrderScreen() {
 
   return (
     <>
-      <ScreenScroll gap={tokens.spacing.lg + 2} safeTop={false}>
+      <ScreenScroll gap={tokens.spacing.lg} safeTop={true}>
+        <ScreenHeader title="Delivery" />
         <SectionCard>
           <View style={{ gap: 6 }}>
             <View style={[styles.titleRow, { gap: tokens.spacing.md }]}>

@@ -96,15 +96,24 @@ export async function handleClerkWebhook(c: Context) {
 
   switch (parsed.data.type) {
     case "user.deleted": {
+      const clerkUserId = parsed.data.data.id;
+      const userRow = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.clerkUserId, clerkUserId))
+        .get();
       const now = new Date().toISOString();
       await db
         .update(users)
         .set({ deletedAt: now, updatedAt: now })
-        .where(eq(users.clerkUserId, parsed.data.data.id));
-      await c.env.REMINDER_QUEUE.send({
-        type: "receipts.purge",
-        userId: parsed.data.data.id,
-      });
+        .where(eq(users.clerkUserId, clerkUserId));
+      await c.env.APP_KV.delete(`user:by-clerk-id:${clerkUserId}`);
+      if (userRow) {
+        await c.env.REMINDER_QUEUE.send({
+          type: "receipts.purge",
+          userId: userRow.id,
+        });
+      }
       break;
     }
     case "user.updated": {

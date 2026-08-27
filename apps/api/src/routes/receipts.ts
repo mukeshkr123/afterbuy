@@ -340,7 +340,11 @@ export async function handleViewReceipt(ctx: Context) {
   return new Response(object.body, {
     headers: {
       "Content-Type": receipt.contentType,
-      "Cache-Control": "public, max-age=3600",
+      "Cache-Control": "private, no-cache, no-store, must-revalidate",
+      Pragma: "no-cache",
+      "X-Content-Type-Options": "nosniff",
+      "Content-Security-Policy": "default-src 'none'",
+      "Content-Disposition": "inline",
     },
   });
 }
@@ -488,5 +492,10 @@ async function verifySignature(
   secret: string
 ): Promise<boolean> {
   const calculated = await generateSignature(message, secret);
-  return calculated === token;
+  if (calculated.length !== token.length) return false;
+  let diff = 0;
+  for (let i = 0; i < calculated.length; i++) {
+    diff |= calculated.charCodeAt(i) ^ token.charCodeAt(i);
+  }
+  return diff === 0;
 }

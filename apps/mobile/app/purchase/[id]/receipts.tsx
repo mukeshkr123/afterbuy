@@ -11,6 +11,7 @@ import {
   FormError,
   IconTile,
   ListItem,
+  ScreenHeader,
   SkeletonGroup,
   useAdaptiveLayout,
 } from "@/components";
@@ -125,11 +126,17 @@ export default function ReceiptsScreen() {
         ListHeaderComponent={
           <View
             style={{
-              padding: tokens.spacing.xl,
+              paddingTop: Math.max(
+                insets.top + tokens.spacing.sm,
+                tokens.spacing.md
+              ),
+              paddingHorizontal: tokens.spacing.xl - 4,
+              paddingBottom: tokens.spacing.md,
               gap: tokens.spacing.sm,
               backgroundColor: tokens.colors.canvas,
             }}
           >
+            <ScreenHeader title="Receipts" />
             <Button
               label={capture.isPending ? "Uploading…" : "Photograph receipt"}
               disabled={capture.isPending}

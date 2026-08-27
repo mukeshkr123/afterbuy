@@ -12,6 +12,8 @@ interface ApiArgs {
 
 export function createApi({ storage, queues }: ApiArgs) {
   const clerkWebhookSecret = new sst.Secret("ClerkWebhookSecret");
+  const clerkSecretKey = new sst.Secret("ClerkSecretKey");
+  const receiptSigningSecret = new sst.Secret("ReceiptSigningSecret");
 
   const worker = new sst.cloudflare.Worker("ApiWorker", {
     handler: "apps/api/src/index.ts",
@@ -23,6 +25,8 @@ export function createApi({ storage, queues }: ApiArgs) {
       queues.reminder,
       queues.reminderDlq,
       clerkWebhookSecret,
+      clerkSecretKey,
+      receiptSigningSecret,
     ],
     environment: {
       ALLOWED_ORIGINS: optionalEnv("ALLOWED_ORIGINS"),
@@ -34,6 +38,8 @@ export function createApi({ storage, queues }: ApiArgs) {
       CLERK_JWKS_URL: optionalEnv("CLERK_JWKS_URL"),
       CLERK_ALLOWED_AZP: optionalEnv("CLERK_ALLOWED_AZP"),
       CLERK_WEBHOOK_SECRET: clerkWebhookSecret.value,
+      CLERK_SECRET_KEY: clerkSecretKey.value,
+      RECEIPT_SIGNING_SECRET: receiptSigningSecret.value,
       RATE_LIMIT_ENABLED: optionalEnv("RATE_LIMIT_ENABLED", "true"),
       RATE_LIMIT_WINDOW_SECONDS: optionalEnv("RATE_LIMIT_WINDOW_SECONDS", "60"),
       RATE_LIMIT_MAX_REQUESTS: optionalEnv("RATE_LIMIT_MAX_REQUESTS", "120"),

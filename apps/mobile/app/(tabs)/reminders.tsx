@@ -83,7 +83,16 @@ export default function RemindersScreen() {
       void qc.invalidateQueries({ queryKey: ["reminders"] });
     },
   });
-  const items: Reminder[] = list.data?.items ?? [];
+
+  const rawItems: Reminder[] = list.data?.items ?? [];
+  const items = useMemo(() => {
+    return [...rawItems].sort((a, b) => {
+      if (scope === "upcoming") {
+        return a.fireOn.localeCompare(b.fireOn);
+      }
+      return b.fireOn.localeCompare(a.fireOn);
+    });
+  }, [rawItems, scope]);
 
   return (
     <View style={{ flex: 1, backgroundColor: tokens.colors.canvas }}>
@@ -95,7 +104,6 @@ export default function RemindersScreen() {
           maxWidth: contentWidth,
           alignSelf: "center",
           paddingBottom: Math.max(insets.bottom + 88, 112),
-          flexGrow: items.length === 0 ? 1 : undefined,
         }}
         refreshControl={
           <RefreshControl
@@ -112,13 +120,15 @@ export default function RemindersScreen() {
               paddingTop: Math.max(insets.top + tokens.spacing.md, 24),
               paddingHorizontal: tokens.spacing.xl - 4,
               paddingBottom: tokens.spacing.md,
-              gap: tokens.spacing.lg,
+              gap: tokens.spacing.lg + 2,
             }}
           >
-            <View style={{ gap: 2 }}>
-              <AppText role="largeTitle">Reminders</AppText>
+            <View style={{ gap: 4 }}>
+              <AppText role="largeTitle" weight="700">
+                Reminders
+              </AppText>
               <AppText role="subheadline" tone="subtle">
-                The dates worth acting on, in chronological order.
+                Return and warranty deadlines in one place.
               </AppText>
             </View>
             <Tabs
@@ -135,8 +145,20 @@ export default function RemindersScreen() {
           <View style={styles.emptyWrap}>
             {list.isLoading ? (
               <SkeletonGroup count={5} gap={tokens.spacing.sm} />
+            ) : list.isError ? (
+              <EmptyState
+                compact
+                icon="alert-circle-outline"
+                title="Couldn't load reminders"
+                message="Check your connection and try again."
+                action={{
+                  label: "Try again",
+                  onPress: () => void list.refetch(),
+                }}
+              />
             ) : (
               <EmptyState
+                compact
                 icon={scope === "upcoming" ? "alarm-outline" : "time-outline"}
                 title={
                   scope === "upcoming"
@@ -145,13 +167,13 @@ export default function RemindersScreen() {
                 }
                 message={
                   scope === "upcoming"
-                    ? "Return and warranty dates will appear here as they approach."
+                    ? "Upcoming return and warranty deadlines will appear here."
                     : "Dismissed and completed reminders will appear here."
                 }
                 {...(scope === "upcoming"
                   ? {
                       action: {
-                        label: "Add a purchase",
+                        label: "Add purchase",
                         onPress: () => router.push("/purchase/new"),
                       },
                     }
@@ -189,18 +211,27 @@ export default function RemindersScreen() {
             >
               <ListItem
                 title={title ?? kind.label}
-                subtitle={title ? kind.label : null}
-                detail={
+                subtitle={
                   state ? `${state.label} · ${state.detail}` : item.fireOn
                 }
                 divider={false}
-                leading={<IconTile icon={kind.icon} tone={kind.tone} />}
+                leading={
+                  <IconTile
+                    icon={kind.icon}
+                    tone={state?.urgent ? "warning" : "neutral"}
+                  />
+                }
                 trailing={
                   state?.urgent ? (
-                    <StatusPill label="Soon" tone="warning" />
+                    <StatusPill label={state.detail} tone="warning" />
                   ) : state?.expired ? (
                     <StatusPill label="Passed" tone="neutral" />
-                  ) : undefined
+                  ) : (
+                    <StatusPill
+                      label={state?.detail ?? "Upcoming"}
+                      tone="neutral"
+                    />
+                  )
                 }
                 chevron
                 onPress={() =>
@@ -248,10 +279,9 @@ export default function RemindersScreen() {
 
 const styles = StyleSheet.create({
   emptyWrap: {
-    flex: 1,
-    justifyContent: "center",
     paddingHorizontal: 20,
-    paddingVertical: 40,
+    paddingTop: 48,
+    paddingBottom: 32,
   },
   dismissAction: {
     width: 96,

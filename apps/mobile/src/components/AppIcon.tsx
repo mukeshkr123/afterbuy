@@ -1,6 +1,21 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Host, Icon } from "@expo/ui";
 import { Platform, type ColorValue } from "react-native";
+import AddIcon from "@expo/material-symbols/add.xml";
+import ArrowBackIcon from "@expo/material-symbols/arrow_back.xml";
+import CalendarTodayIcon from "@expo/material-symbols/calendar_today.xml";
+import CheckCircleIcon from "@expo/material-symbols/check_circle.xml";
+import CloseIcon from "@expo/material-symbols/close.xml";
+import FilterListIcon from "@expo/material-symbols/filter_list.xml";
+import HomeIcon from "@expo/material-symbols/home.xml";
+import ImageIcon from "@expo/material-symbols/image.xml";
+import NotificationsIcon from "@expo/material-symbols/notifications.xml";
+import PersonIcon from "@expo/material-symbols/person.xml";
+import PhotoCameraIcon from "@expo/material-symbols/photo_camera.xml";
+import ReceiptIcon from "@expo/material-symbols/receipt.xml";
+import SearchIcon from "@expo/material-symbols/search.xml";
+import SettingsIcon from "@expo/material-symbols/settings.xml";
+import ShieldIcon from "@expo/material-symbols/shield.xml";
 
 export type AppIconName =
   | "home"
@@ -38,21 +53,21 @@ const IOS = {
 } as const;
 
 const ANDROID = {
-  home: import("@expo/material-symbols/home.xml"),
-  purchases: import("@expo/material-symbols/receipt.xml"),
-  reminders: import("@expo/material-symbols/notifications.xml"),
-  account: import("@expo/material-symbols/person.xml"),
-  search: import("@expo/material-symbols/search.xml"),
-  filter: import("@expo/material-symbols/filter_list.xml"),
-  add: import("@expo/material-symbols/add.xml"),
-  camera: import("@expo/material-symbols/photo_camera.xml"),
-  image: import("@expo/material-symbols/image.xml"),
-  claims: import("@expo/material-symbols/shield.xml"),
-  check: import("@expo/material-symbols/check_circle.xml"),
-  settings: import("@expo/material-symbols/settings.xml"),
-  calendar: import("@expo/material-symbols/calendar_today.xml"),
-  back: import("@expo/material-symbols/arrow_back.xml"),
-  close: import("@expo/material-symbols/close.xml"),
+  home: HomeIcon,
+  purchases: ReceiptIcon,
+  reminders: NotificationsIcon,
+  account: PersonIcon,
+  search: SearchIcon,
+  filter: FilterListIcon,
+  add: AddIcon,
+  camera: PhotoCameraIcon,
+  image: ImageIcon,
+  claims: ShieldIcon,
+  check: CheckCircleIcon,
+  settings: SettingsIcon,
+  calendar: CalendarTodayIcon,
+  back: ArrowBackIcon,
+  close: CloseIcon,
 } as const;
 
 const WEB: Record<AppIconName, keyof typeof Ionicons.glyphMap> = {
@@ -98,7 +113,7 @@ export function AppIcon({
   return (
     <Host matchContents>
       <Icon
-        name={Icon.select({ ios: IOS[name], android: ANDROID[name] })}
+        name={Platform.OS === "android" ? ANDROID[name] : IOS[name]}
         size={size}
         color={color}
         {...(accessibilityLabel ? { accessibilityLabel } : {})}

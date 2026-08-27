@@ -102,6 +102,20 @@ Generate the commands for another environment:
 pnpm bootstrap:github-env preview
 ```
 
+Bootstrap the mobile release environment and generate Android signing material:
+
+```sh
+pnpm bootstrap:mobile-release production
+MOBILE_CLERK_PUBLISHABLE_KEY=pk_live_xxx pnpm bootstrap:mobile-release production --apply
+```
+
+The mobile bootstrap writes runtime values into `apps/mobile/.env`, generates
+an ignored Android release keystore under `tmp/mobile-release/`, and can push
+mobile release vars/secrets into the GitHub `production` environment. iOS
+signing still requires operator-supplied Apple assets (`.p12` certificate and
+provisioning profile) via environment variables before the bootstrap can upload
+them.
+
 ## Preview Deploys
 
 Pull requests deploy to `pr-<number>` stages through

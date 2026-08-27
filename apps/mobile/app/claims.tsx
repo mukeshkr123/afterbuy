@@ -7,6 +7,7 @@ import {
   EmptyState,
   IconTile,
   ListItem,
+  ScreenHeader,
   SkeletonGroup,
   StatusPill,
   useAdaptiveLayout,
@@ -34,19 +35,31 @@ export default function GlobalClaimsScreen() {
     queryKey: apiKeys.purchases.list({ sort: "createdAt", limit: 50 }),
     queryFn: () => listPurchases(api, { sort: "createdAt", limit: 50 }),
   });
+  const purchaseItems = (purchases.data?.items ??
+    []) as PurchaseListResponse["items"];
   const purchaseTitle = useMemo(
     () =>
       new Map(
-        ((purchases.data?.items ?? []) as PurchaseListResponse["items"]).map(
-          (purchase) => [purchase.id, purchase.title] as const
-        )
+        purchaseItems.map((purchase) => [purchase.id, purchase.title] as const)
       ),
-    [purchases.data]
+    [purchaseItems]
   );
   const items: Claim[] = claims.data?.items ?? [];
 
   return (
     <View style={{ flex: 1, backgroundColor: tokens.colors.canvas }}>
+      <View
+        style={{
+          paddingTop: Math.max(insets.top, 12),
+          paddingHorizontal: tokens.spacing.xl - 4,
+          backgroundColor: tokens.colors.canvas,
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          borderBottomColor: tokens.colors.border,
+        }}
+      >
+        <ScreenHeader title="Claims" />
+      </View>
+
       <FlatList
         data={items}
         keyExtractor={(item) => item.id}
@@ -55,7 +68,6 @@ export default function GlobalClaimsScreen() {
           maxWidth: contentWidth,
           alignSelf: "center",
           paddingBottom: Math.max(insets.bottom + 24, 32),
-          flexGrow: items.length === 0 ? 1 : undefined,
         }}
         refreshControl={
           <RefreshControl
@@ -70,22 +82,23 @@ export default function GlobalClaimsScreen() {
               <SkeletonGroup count={5} gap={tokens.spacing.sm} />
             ) : (
               <EmptyState
-                icon={
-                  claims.isError ? "alert-circle-outline" : "shield-outline"
-                }
-                title={
-                  claims.isError ? "Couldn't load claims" : "No claims yet"
-                }
+                compact
+                icon="shield-outline"
+                title="No claims yet"
                 message={
-                  claims.isError
-                    ? "Check your connection and try again."
-                    : "If something goes wrong, start a claim from its purchase."
+                  purchaseItems.length === 0
+                    ? "Add a purchase before starting a return or warranty claim."
+                    : "If something goes wrong with a purchase, start a claim from its details."
                 }
                 action={{
-                  label: claims.isError ? "Try again" : "Choose a purchase",
-                  onPress: claims.isError
-                    ? () => void claims.refetch()
-                    : () => router.push("/claim/new"),
+                  label:
+                    purchaseItems.length === 0
+                      ? "Add purchase"
+                      : "Choose a purchase",
+                  onPress:
+                    purchaseItems.length === 0
+                      ? () => router.push("/purchase/new")
+                      : () => router.push("/claim/new"),
                 }}
               />
             )}
@@ -132,9 +145,8 @@ export default function GlobalClaimsScreen() {
 
 const styles = StyleSheet.create({
   emptyWrap: {
-    flex: 1,
-    justifyContent: "center",
     paddingHorizontal: 20,
-    paddingVertical: 40,
+    paddingTop: 48,
+    paddingBottom: 32,
   },
 });

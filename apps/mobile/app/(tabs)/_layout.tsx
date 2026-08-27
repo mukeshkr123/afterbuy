@@ -1,11 +1,11 @@
 import { Tabs } from "expo-router";
 import React from "react";
-import { useWindowDimensions } from "react-native";
+import { StyleSheet, useWindowDimensions } from "react-native";
 import { AppIcon } from "@/components";
 import { useTheme } from "@/theme/ThemeProvider";
 
 export default function TabsLayout() {
-  const { tokens, isDark } = useTheme();
+  const { tokens } = useTheme();
   const { width } = useWindowDimensions();
   const expanded = width >= 768;
 
@@ -20,29 +20,21 @@ export default function TabsLayout() {
         tabBarStyle: {
           backgroundColor: tokens.colors.surface,
           borderTopColor: tokens.colors.border,
+          borderTopWidth: StyleSheet.hairlineWidth,
           borderRightColor: tokens.colors.border,
+          borderRightWidth: expanded ? StyleSheet.hairlineWidth : 0,
           width: expanded ? 88 : undefined,
-          height: expanded ? undefined : 68,
-          paddingBottom: expanded ? 12 : 8,
-          paddingTop: 8,
-          // The upward shadow only reads on a light canvas; in dark the border
-          // separates the bar instead.
-          ...(isDark
-            ? { elevation: 0 }
-            : {
-                elevation: 8,
-                shadowColor: "#000000",
-                shadowOffset: { width: 0, height: -2 },
-                shadowOpacity: 0.05,
-                shadowRadius: 8,
-              }),
+          height: expanded ? undefined : 58,
+          paddingBottom: expanded ? 12 : 6,
+          paddingTop: 6,
+          elevation: 0,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: "600",
         },
         tabBarItemStyle: {
-          minHeight: expanded ? 64 : 48,
+          minHeight: expanded ? 64 : 44,
           paddingVertical: expanded ? 6 : 0,
         },
       }}
@@ -52,7 +44,7 @@ export default function TabsLayout() {
         options={{
           title: "Home",
           tabBarIcon: ({ color }) => (
-            <AppIcon name="home" size={24} color={color} />
+            <AppIcon name="home" size={23} color={color} />
           ),
         }}
       />
@@ -61,7 +53,7 @@ export default function TabsLayout() {
         options={{
           title: "Purchases",
           tabBarIcon: ({ color }) => (
-            <AppIcon name="purchases" size={24} color={color} />
+            <AppIcon name="purchases" size={23} color={color} />
           ),
         }}
       />
@@ -70,7 +62,7 @@ export default function TabsLayout() {
         options={{
           title: "Reminders",
           tabBarIcon: ({ color }) => (
-            <AppIcon name="reminders" size={24} color={color} />
+            <AppIcon name="reminders" size={23} color={color} />
           ),
         }}
       />
@@ -85,7 +77,7 @@ export default function TabsLayout() {
         options={{
           title: "Account",
           tabBarIcon: ({ color }) => (
-            <AppIcon name="account" size={24} color={color} />
+            <AppIcon name="account" size={23} color={color} />
           ),
         }}
       />

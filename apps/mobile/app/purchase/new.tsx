@@ -2,10 +2,18 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import type { CreatePurchaseRequest } from "@acme/shared";
-import { FormError, IconTile, ScreenScroll, SectionCard } from "@/components";
+import {
+  AppText,
+  Dialog,
+  FormError,
+  IconTile,
+  ScreenHeader,
+  ScreenScroll,
+} from "@/components";
 import { PurchaseForm } from "@/components/PurchaseForm";
 import { useApi } from "@/api/ApiProvider";
 import { createPurchase } from "@/api/purchases";
@@ -16,14 +24,15 @@ export default function NewPurchaseScreen() {
   const api = useApi();
   const router = useRouter();
   const qc = useQueryClient();
+  const insets = useSafeAreaInsets();
   const { tokens } = useTheme();
   const { capture } = useLocalSearchParams<{ capture?: string }>();
   const didAutoCapture = useRef(false);
 
-  // A receipt can only be uploaded against an existing purchase, so the chosen
-  // image is held here and sent immediately after the purchase is created.
   const [receipt, setReceipt] = useState<ReceiptUpload | null>(null);
   const [pickerError, setPickerError] = useState<string | null>(null);
+  const [isDirty, setIsDirty] = useState(false);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
 
   const pick = useMutation({
     mutationFn: async (source: "camera" | "library") => {
@@ -58,7 +67,10 @@ export default function NewPurchaseScreen() {
       } satisfies ReceiptUpload;
     },
     onSuccess: (picked) => {
-      if (picked) setReceipt(picked);
+      if (picked) {
+        setReceipt(picked);
+        setIsDirty(true);
+      }
     },
     onError: (e) =>
       setPickerError(e instanceof Error ? e.message : "Could not open picker."),
@@ -71,11 +83,18 @@ export default function NewPurchaseScreen() {
     }
   }, [capture, pick]);
 
+  const handleBack = () => {
+    if (isDirty || receipt) {
+      setConfirmDiscard(true);
+    } else {
+      if (router.canGoBack()) router.back();
+      else router.replace("/(tabs)/purchases");
+    }
+  };
+
   const handleSubmit = async (data: CreatePurchaseRequest) => {
     const created = await createPurchase(api, data);
 
-    // A failed upload must not discard the purchase the user just entered —
-    // surface it and let them retry from the receipts screen.
     if (receipt) {
       try {
         await uploadReceipt(api, created.id, receipt);
@@ -95,17 +114,51 @@ export default function NewPurchaseScreen() {
   };
 
   return (
-    <>
-      <ScreenScroll gap={tokens.spacing.lg + 2} safeTop={false}>
-        <SectionCard title="Receipt">
+    <View style={{ flex: 1, backgroundColor: tokens.colors.canvas }}>
+      <View
+        style={{
+          paddingTop: Math.max(insets.top, 12),
+          paddingHorizontal: tokens.spacing.xl - 4,
+          backgroundColor: tokens.colors.canvas,
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          borderBottomColor: tokens.colors.border,
+        }}
+      >
+        <ScreenHeader title="Add Purchase" onBack={handleBack} />
+      </View>
+
+      <ScreenScroll
+        gap={tokens.spacing.lg}
+        safeTop={false}
+        contentStyle={{ paddingTop: tokens.spacing.lg }}
+      >
+        <View style={{ gap: tokens.spacing.sm }}>
+          <View style={styles.sectionHeaderRow}>
+            <AppText role="headline">Receipt</AppText>
+            <AppText role="caption" tone="subtle">
+              Optional
+            </AppText>
+          </View>
+
           {receipt ? (
-            <View style={[styles.receiptRow, { gap: tokens.spacing.md }]}>
+            <View
+              style={[
+                styles.receiptRow,
+                {
+                  gap: tokens.spacing.md,
+                  backgroundColor: tokens.colors.surface,
+                  borderColor: tokens.colors.border,
+                  borderRadius: 14,
+                  padding: tokens.spacing.md,
+                },
+              ]}
+            >
               <Image
                 source={{ uri: receipt.uri }}
                 style={[
                   styles.thumb,
                   {
-                    borderRadius: tokens.radius.md,
+                    borderRadius: tokens.radius.sm,
                     backgroundColor: tokens.colors.neutralSoft,
                   },
                 ]}
@@ -126,7 +179,7 @@ export default function NewPurchaseScreen() {
                 <Text
                   style={{
                     color: tokens.colors.textMuted,
-                    fontSize: tokens.type.bodySmall.fontSize,
+                    fontSize: tokens.type.caption.fontSize,
                   }}
                 >
                   Attaches when you save
@@ -153,32 +206,47 @@ export default function NewPurchaseScreen() {
             <View style={[styles.pickRow, { gap: tokens.spacing.md }]}>
               <PickButton
                 icon="camera-outline"
-                label="Photograph receipt"
+                label="Take photo"
                 disabled={pick.isPending}
                 onPress={() => pick.mutate("camera")}
               />
               <PickButton
                 icon="image-outline"
-                label="Choose from library"
+                label="Choose photo"
                 disabled={pick.isPending}
                 onPress={() => pick.mutate("library")}
               />
             </View>
           )}
-          <View style={{ marginTop: tokens.spacing.sm }}>
-            <FormError message={pickerError} />
-          </View>
-        </SectionCard>
+          <FormError message={pickerError} />
+        </View>
 
-        <SectionCard title="Purchase details">
+        <View style={{ gap: tokens.spacing.sm }}>
+          <AppText role="headline">Purchase details</AppText>
           <PurchaseForm
             embedded
+            onDirtyChange={setIsDirty}
             onSubmit={handleSubmit}
             submitLabel="Save purchase"
           />
-        </SectionCard>
+        </View>
       </ScreenScroll>
-    </>
+
+      <Dialog
+        visible={confirmDiscard}
+        title="Discard purchase?"
+        description="Your entered details will be lost."
+        primaryLabel="Discard"
+        destructive
+        onPrimary={() => {
+          setConfirmDiscard(false);
+          if (router.canGoBack()) router.back();
+          else router.replace("/(tabs)/purchases");
+        }}
+        secondaryLabel="Keep editing"
+        onDismiss={() => setConfirmDiscard(false)}
+      />
+    </View>
   );
 }
 
@@ -204,10 +272,11 @@ function PickButton({
       style={({ pressed }) => [
         styles.pickButton,
         {
-          backgroundColor: tokens.colors.surfaceMuted,
-          borderRadius: tokens.radius.lg,
-          paddingVertical: tokens.spacing.lg,
-          gap: tokens.spacing.sm,
+          backgroundColor: tokens.colors.surface,
+          borderColor: tokens.colors.border,
+          borderRadius: 14,
+          paddingVertical: tokens.spacing.md - 2,
+          gap: tokens.spacing.xs,
           opacity: disabled ? 0.5 : pressed ? 0.85 : 1,
         },
       ]}
@@ -228,17 +297,23 @@ function PickButton({
 }
 
 const styles = StyleSheet.create({
+  sectionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
   receiptRow: {
     flexDirection: "row",
     alignItems: "center",
+    borderWidth: 1,
   },
   thumb: {
-    width: 56,
-    height: 56,
-  },
-  removeButton: {
     width: 48,
     height: 48,
+  },
+  removeButton: {
+    width: 44,
+    height: 44,
     alignItems: "flex-end",
     justifyContent: "center",
   },
@@ -247,8 +322,10 @@ const styles = StyleSheet.create({
   },
   pickButton: {
     flex: 1,
+    borderWidth: 1,
     alignItems: "center",
+    justifyContent: "center",
     paddingHorizontal: 8,
-    minHeight: 48,
+    minHeight: 66,
   },
 });

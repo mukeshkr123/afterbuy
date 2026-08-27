@@ -49,15 +49,21 @@ type StatusFilter = PurchaseDeliveryStatus | "all";
 export default function PurchasesScreen() {
   const api = useApi();
   const router = useRouter();
-  const { tokens } = useTheme();
+  const { tokens, reducedMotion } = useTheme();
   const insets = useSafeAreaInsets();
   const { contentWidth } = useAdaptiveLayout();
   const searchParams = useLocalSearchParams<{ q?: string }>();
   const [qInput, setQInput] = useState(searchParams.q ?? "");
   const debouncedQ = useDebouncedValue(qInput, 300);
+
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [category, setCategory] = useState<CategoryFilter>("all");
   const [status, setStatus] = useState<StatusFilter>("all");
+
+  // Local draft filter state inside the sheet
+  const [draftCategory, setDraftCategory] = useState<CategoryFilter>(category);
+  const [draftStatus, setDraftStatus] = useState<StatusFilter>(status);
+
   const activeFilters =
     (category === "all" ? 0 : 1) + (status === "all" ? 0 : 1);
 
@@ -68,6 +74,7 @@ export default function PurchasesScreen() {
     category: category === "all" ? undefined : category,
     deliveryStatus: status === "all" ? undefined : status,
   };
+
   const list = useInfiniteQuery({
     queryKey: apiKeys.purchases.list(params),
     queryFn: ({ pageParam }) =>
@@ -75,16 +82,30 @@ export default function PurchasesScreen() {
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => last.nextCursor ?? undefined,
   });
+
   const items = useMemo(
     () => list.data?.pages.flatMap((page) => page.items) ?? [],
     [list.data]
   );
-  const searching = Boolean(debouncedQ) || activeFilters > 0;
 
   const clearFilters = () => {
     setQInput("");
     setCategory("all");
     setStatus("all");
+    setDraftCategory("all");
+    setDraftStatus("all");
+  };
+
+  const openFiltersSheet = () => {
+    setDraftCategory(category);
+    setDraftStatus(status);
+    setFiltersOpen(true);
+  };
+
+  const applyFilters = () => {
+    setCategory(draftCategory);
+    setStatus(draftStatus);
+    setFiltersOpen(false);
   };
 
   return (
@@ -98,7 +119,6 @@ export default function PurchasesScreen() {
             maxWidth: contentWidth,
             alignSelf: "center",
             paddingBottom: Math.max(insets.bottom + 88, 112),
-            flexGrow: items.length === 0 ? 1 : undefined,
           }}
           refreshControl={
             <RefreshControl
@@ -121,12 +141,14 @@ export default function PurchasesScreen() {
                 paddingTop: Math.max(insets.top + tokens.spacing.md, 24),
                 paddingHorizontal: tokens.spacing.xl - 4,
                 paddingBottom: tokens.spacing.md,
-                gap: tokens.spacing.lg,
+                gap: tokens.spacing.md,
               }}
             >
               <View style={styles.titleRow}>
                 <View style={{ flex: 1, gap: 2 }}>
-                  <AppText role="largeTitle">Purchases</AppText>
+                  <AppText role="largeTitle" weight="700">
+                    Purchases
+                  </AppText>
                   <AppText role="subheadline" tone="subtle">
                     Receipts, returns, warranties, all in one place.
                   </AppText>
@@ -139,13 +161,16 @@ export default function PurchasesScreen() {
                     styles.addButton,
                     {
                       backgroundColor: tokens.colors.primary,
-                      opacity: pressed ? 0.82 : 1,
+                      opacity: pressed ? 0.85 : 1,
+                      transform: [
+                        { scale: pressed && !reducedMotion ? 0.96 : 1 },
+                      ],
                     },
                   ]}
                 >
                   <AppIcon
                     name="add"
-                    size={24}
+                    size={22}
                     color={tokens.colors.onPrimary}
                   />
                 </Pressable>
@@ -157,13 +182,14 @@ export default function PurchasesScreen() {
                     styles.searchBox,
                     {
                       backgroundColor: tokens.colors.surfaceMuted,
-                      borderRadius: tokens.radius.md,
+                      borderColor: tokens.colors.border,
+                      borderRadius: 14,
                       paddingHorizontal: tokens.spacing.md,
                       gap: tokens.spacing.sm,
                     },
                   ]}
                 >
-                  <AppIcon name="search" size={20} color={tokens.colors.icon} />
+                  <AppIcon name="search" size={18} color={tokens.colors.icon} />
                   <TextInput
                     value={qInput}
                     onChangeText={setQInput}
@@ -179,6 +205,20 @@ export default function PurchasesScreen() {
                       fontSize: tokens.type.body.fontSize,
                     }}
                   />
+                  {qInput ? (
+                    <Pressable
+                      onPress={() => setQInput("")}
+                      accessibilityRole="button"
+                      accessibilityLabel="Clear search"
+                      hitSlop={8}
+                    >
+                      <AppIcon
+                        name="close"
+                        size={16}
+                        color={tokens.colors.textMuted}
+                      />
+                    </Pressable>
+                  ) : null}
                 </View>
                 <Pressable
                   accessibilityRole="button"
@@ -187,7 +227,7 @@ export default function PurchasesScreen() {
                       ? `Filters, ${activeFilters} active`
                       : "Filter purchases"
                   }
-                  onPress={() => setFiltersOpen(true)}
+                  onPress={openFiltersSheet}
                   style={({ pressed }) => [
                     styles.filterButton,
                     {
@@ -195,18 +235,25 @@ export default function PurchasesScreen() {
                         activeFilters > 0
                           ? tokens.colors.accentSoft
                           : tokens.colors.surfaceMuted,
-                      borderRadius: tokens.radius.md,
+                      borderColor:
+                        activeFilters > 0
+                          ? tokens.colors.primary
+                          : tokens.colors.border,
+                      borderRadius: 14,
                       opacity: pressed ? 0.82 : 1,
+                      transform: [
+                        { scale: pressed && !reducedMotion ? 0.96 : 1 },
+                      ],
                     },
                   ]}
                 >
                   <AppIcon
                     name="filter"
-                    size={21}
+                    size={18}
                     color={
                       activeFilters > 0
                         ? tokens.colors.primary
-                        : tokens.colors.text
+                        : tokens.colors.icon
                     }
                   />
                   {activeFilters > 0 ? (
@@ -221,23 +268,38 @@ export default function PurchasesScreen() {
           ListEmptyComponent={
             <View style={styles.emptyWrap}>
               {list.isLoading ? (
-                <SkeletonGroup count={6} gap={tokens.spacing.sm} />
+                <SkeletonGroup count={5} gap={tokens.spacing.sm} />
+              ) : debouncedQ ? (
+                <EmptyState
+                  compact
+                  icon="search-outline"
+                  title="No matching purchases"
+                  message="Try another search or clear the active search query."
+                  action={{
+                    label: "Clear search",
+                    onPress: () => setQInput(""),
+                  }}
+                />
+              ) : activeFilters > 0 ? (
+                <EmptyState
+                  compact
+                  icon="funnel-outline"
+                  title="No matching purchases"
+                  message="Try changing or resetting your active category or status filters."
+                  action={{
+                    label: "Reset filters",
+                    onPress: clearFilters,
+                  }}
+                />
               ) : (
                 <EmptyState
-                  icon={searching ? "search-outline" : "receipt-outline"}
-                  title={
-                    searching ? "No matching purchases" : "No purchases yet"
-                  }
-                  message={
-                    searching
-                      ? "Try another search or clear the active filters."
-                      : "Add a purchase to keep its receipt, return window, and warranty together."
-                  }
+                  compact
+                  icon="receipt-outline"
+                  title="No purchases yet"
+                  message="Add a purchase to keep its receipt, return window, and warranty together."
                   action={{
-                    label: searching ? "Clear filters" : "Add a purchase",
-                    onPress: searching
-                      ? clearFilters
-                      : () => router.push("/purchase/new"),
+                    label: "Add purchase",
+                    onPress: () => router.push("/purchase/new"),
                   }}
                 />
               )}
@@ -268,12 +330,14 @@ export default function PurchasesScreen() {
                 trailing={
                   <View style={styles.trailing}>
                     <StatusPill label={badge.label} tone={badge.tone} />
-                    <Money
-                      amountMinor={item.amountMinor}
-                      currency={item.currency}
-                      emphasis="strong"
-                      style={{ fontSize: tokens.type.caption.fontSize }}
-                    />
+                    {item.amountMinor != null && item.amountMinor > 0 ? (
+                      <Money
+                        amountMinor={item.amountMinor}
+                        currency={item.currency}
+                        emphasis="strong"
+                        style={{ fontSize: tokens.type.caption.fontSize }}
+                      />
+                    ) : null}
                   </View>
                 }
                 onPress={() =>
@@ -298,11 +362,31 @@ export default function PurchasesScreen() {
       </View>
 
       <Sheet visible={filtersOpen} onRequestClose={() => setFiltersOpen(false)}>
-        <View style={{ gap: tokens.spacing.lg }}>
-          <AppText role="title">Filter purchases</AppText>
+        <View style={{ gap: tokens.spacing.md }}>
+          <View style={styles.sheetHeader}>
+            <AppText role="title" weight="700">
+              Filter purchases
+            </AppText>
+            {draftCategory !== "all" || draftStatus !== "all" ? (
+              <Pressable
+                onPress={() => {
+                  setDraftCategory("all");
+                  setDraftStatus("all");
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Reset filters"
+                hitSlop={8}
+              >
+                <AppText role="subheadline" tone="accent" weight="600">
+                  Reset
+                </AppText>
+              </Pressable>
+            ) : null}
+          </View>
+
           <SelectionField
             label="Category"
-            value={category}
+            value={draftCategory}
             options={[
               { value: "all" as const, label: "All categories" },
               ...PURCHASE_CATEGORIES.map((value) => ({
@@ -310,11 +394,11 @@ export default function PurchasesScreen() {
                 label: categoryLabel(value),
               })),
             ]}
-            onChange={setCategory}
+            onChange={setDraftCategory}
           />
           <SelectionField
             label="Delivery status"
-            value={status}
+            value={draftStatus}
             options={[
               { value: "all" as const, label: "Any status" },
               ...PURCHASE_DELIVERY_STATUSES.map((value) => ({
@@ -322,16 +406,12 @@ export default function PurchasesScreen() {
                 label: deliveryDisplay(value).label,
               })),
             ]}
-            onChange={setStatus}
+            onChange={setDraftStatus}
           />
-          <Button label="Done" onPress={() => setFiltersOpen(false)} />
-          {activeFilters > 0 ? (
-            <Button
-              label="Clear filters"
-              variant="ghost"
-              onPress={clearFilters}
-            />
-          ) : null}
+
+          <View style={{ marginTop: 8 }}>
+            <Button label="Apply filters" size="lg" onPress={applyFilters} />
+          </View>
         </View>
       </Sheet>
     </>
@@ -342,6 +422,7 @@ const styles = StyleSheet.create({
   titleRow: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     gap: 16,
   },
   addButton: {
@@ -357,27 +438,33 @@ const styles = StyleSheet.create({
   },
   searchBox: {
     flex: 1,
-    height: 48,
+    height: 52,
+    borderWidth: 1,
     flexDirection: "row",
     alignItems: "center",
   },
   filterButton: {
-    minWidth: 48,
-    height: 48,
-    paddingHorizontal: 12,
+    minWidth: 52,
+    height: 52,
+    borderWidth: 1,
+    paddingHorizontal: 14,
     flexDirection: "row",
     gap: 4,
     alignItems: "center",
     justifyContent: "center",
   },
   emptyWrap: {
-    flex: 1,
-    justifyContent: "center",
     paddingHorizontal: 20,
-    paddingVertical: 40,
+    paddingTop: 48,
+    paddingBottom: 32,
   },
   trailing: {
     alignItems: "flex-end",
     gap: 5,
+  },
+  sheetHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
 });
