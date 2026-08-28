@@ -110,6 +110,9 @@ export default function LeadDaysScreen() {
                 style={({ pressed }) => [
                   styles.presetRow,
                   {
+                    backgroundColor: isSelected
+                      ? tokens.colors.accentSoft
+                      : tokens.colors.surface,
                     paddingVertical: tokens.spacing.lg,
                     paddingHorizontal: tokens.spacing.xl - 4,
                     borderBottomWidth: isLast ? 0 : StyleSheet.hairlineWidth,

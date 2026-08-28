@@ -1,17 +1,28 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React from "react";
+import React, { useState } from "react";
+import { View } from "react-native";
 import {
+  Button,
+  Dialog,
   EmptyState,
+  FormError,
   ScreenHeader,
   ScreenScroll,
   SectionCard,
   Skeleton,
+  UndoableToast,
 } from "@/components";
 import { PurchaseForm } from "@/components/PurchaseForm";
 import { useApi } from "@/api/ApiProvider";
 import { apiKeys } from "@/api/apiKeys";
-import { getPurchase, patchPurchase } from "@/api/purchases";
+import {
+  deletePurchase,
+  getPurchase,
+  patchPurchase,
+  restorePurchase,
+} from "@/api/purchases";
+import { fromCaught, type FormErrorState } from "@/hooks/useApiError";
 import { useTheme } from "@/theme/ThemeProvider";
 
 export default function EditPurchaseScreen() {
@@ -20,6 +31,12 @@ export default function EditPurchaseScreen() {
   const router = useRouter();
   const { tokens } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleted, setDeleted] = useState(false);
+  const [error, setError] = useState<FormErrorState>({
+    message: null,
+    fields: {},
+  });
 
   const detail = useQuery({
     queryKey: apiKeys.purchases.detail(id ?? ""),
@@ -42,6 +59,31 @@ export default function EditPurchaseScreen() {
           params: { id: id ?? "" },
         });
     },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deletePurchase(api, id ?? ""),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["purchases"] });
+      setConfirmDelete(false);
+      setDeleted(true);
+    },
+    onError: (caught) => {
+      setError(fromCaught(caught));
+      setConfirmDelete(false);
+    },
+  });
+
+  const undoDelete = useMutation({
+    mutationFn: () => restorePurchase(api, id ?? ""),
+    onSuccess: () => {
+      void qc.invalidateQueries({
+        queryKey: apiKeys.purchases.detail(id ?? ""),
+      });
+      void qc.invalidateQueries({ queryKey: ["purchases"] });
+      setDeleted(false);
+    },
+    onError: (caught) => setError(fromCaught(caught)),
   });
 
   const p = detail.data;
@@ -71,7 +113,7 @@ export default function EditPurchaseScreen() {
             />
           </SectionCard>
         ) : (
-          <SectionCard title="Purchase details">
+          <View style={{ gap: tokens.spacing.lg }}>
             <PurchaseForm
               embedded
               initial={{
@@ -91,9 +133,39 @@ export default function EditPurchaseScreen() {
               onSubmit={(d) => mutation.mutateAsync(d)}
               submitLabel="Save changes"
             />
-          </SectionCard>
+            <Button
+              label={
+                deleteMutation.isPending ? "Deleting..." : "Delete purchase"
+              }
+              variant="danger"
+              size="lg"
+              busy={deleteMutation.isPending}
+              disabled={deleteMutation.isPending}
+              onPress={() => setConfirmDelete(true)}
+            />
+            <FormError message={error.message} />
+          </View>
         )}
       </ScreenScroll>
+      <Dialog
+        visible={confirmDelete}
+        title="Delete this purchase?"
+        description="This removes the purchase from your active list. You can restore it from undo flows where available."
+        primaryLabel={deleteMutation.isPending ? "Deleting..." : "Delete"}
+        destructive
+        onPrimary={() => deleteMutation.mutate()}
+        secondaryLabel="Cancel"
+        onDismiss={() => setConfirmDelete(false)}
+      />
+      <UndoableToast
+        message={deleted ? "Purchase deleted" : null}
+        actionLabel="Undo"
+        onAction={() => undoDelete.mutate()}
+        onDismiss={() => {
+          setDeleted(false);
+          router.replace("/(tabs)/purchases");
+        }}
+      />
     </>
   );
 }

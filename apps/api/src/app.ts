@@ -78,6 +78,7 @@ import {
   devicesRegisterRoute,
   devicesDeleteRoute,
 } from "./routes/devices";
+import { registerDevRoutes } from "./routes/dev";
 
 export function createApp() {
   const app = new OpenAPIHono<{
@@ -107,6 +108,7 @@ export function createApp() {
   });
 
   app.doc("/openapi.json", openApiDocumentConfig());
+  registerDevRoutes(app);
 
   app.openapi(healthRoute, (c) => {
     const body = healthCheckResponseSchema.parse(

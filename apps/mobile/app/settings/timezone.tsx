@@ -129,7 +129,7 @@ export default function TimezoneScreen() {
                 lineHeight: tokens.type.bodySmall.lineHeight,
               }}
             >
-              Reminders are sent in the morning of this time zone.
+              All reminders and timestamps will use this time zone.
             </Text>
             <View
               style={[
@@ -194,6 +194,9 @@ export default function TimezoneScreen() {
               style={({ pressed }) => [
                 styles.row,
                 {
+                  backgroundColor: isSelected
+                    ? tokens.colors.accentSoft
+                    : tokens.colors.surface,
                   paddingVertical: tokens.spacing.md,
                   paddingHorizontal: tokens.spacing.lg,
                 },
@@ -236,7 +239,7 @@ export default function TimezoneScreen() {
         ListFooterComponent={
           <View style={{ padding: tokens.spacing.xl }}>
             <Button
-              label={saveMutation.isPending ? "Saving…" : "Save time zone"}
+              label={saveMutation.isPending ? "Saving…" : "Save changes"}
               disabled={saveMutation.isPending}
               busy={saveMutation.isPending}
               onPress={() => saveMutation.mutate({ timezone: selectedTz })}

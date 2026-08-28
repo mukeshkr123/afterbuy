@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { ClerkProvider } from "@clerk/clerk-expo";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { Stack } from "expo-router";
@@ -7,10 +8,12 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { tokenCache } from "@/auth/ClerkProvider";
 import { ApiProvider } from "@/api/ApiProvider";
 import { queryClient, queryPersister } from "@/lib/queryClient";
+import { resetPersistedApiStateIfBaseUrlChanged } from "@/lib/apiEnvironment";
 import { ThemeProvider, useTheme } from "@/theme/ThemeProvider";
 import { PushRegistration } from "@/notifications/PushRegistration";
 import { usePushTapHandler } from "@/notifications/usePushHandler";
 import { OnlineProvider, OfflineBanner } from "@/offline/OnlineProvider";
+import { useApiBaseUrl } from "@/hooks/useApiBaseUrl";
 
 const CLERK_PUBLISHABLE_KEY = process.env["EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY"];
 
@@ -47,6 +50,22 @@ function ThemedStack() {
 }
 
 export default function RootLayout() {
+  const apiBaseUrl = useApiBaseUrl();
+  const [apiStateReady, setApiStateReady] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      await resetPersistedApiStateIfBaseUrlChanged(apiBaseUrl);
+      if (alive) setApiStateReady(true);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [apiBaseUrl]);
+
+  if (!apiStateReady) return null;
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>

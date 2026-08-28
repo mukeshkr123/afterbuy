@@ -139,7 +139,7 @@ export default function NewPurchaseScreen() {
           {receipt ? (
             <View
               style={[
-                styles.receiptRow,
+                styles.receiptSelected,
                 {
                   gap: tokens.spacing.md,
                   backgroundColor: tokens.colors.surface,
@@ -161,7 +161,7 @@ export default function NewPurchaseScreen() {
                 resizeMode="cover"
                 accessibilityLabel="Selected receipt image"
               />
-              <View style={{ flex: 1, gap: 2 }}>
+              <View style={{ flex: 1, gap: tokens.spacing.sm }}>
                 <Text
                   numberOfLines={1}
                   style={{
@@ -180,38 +180,64 @@ export default function NewPurchaseScreen() {
                 >
                   Attaches when you save
                 </Text>
+                <View style={styles.receiptActions}>
+                  <ReceiptAction
+                    label="Retake"
+                    icon="camera-outline"
+                    disabled={pick.isPending}
+                    onPress={() => pick.mutate("camera")}
+                  />
+                  <ReceiptAction
+                    label="Replace"
+                    icon="image-outline"
+                    disabled={pick.isPending}
+                    onPress={() => pick.mutate("library")}
+                  />
+                  <ReceiptAction
+                    label="Remove"
+                    icon="trash-outline"
+                    destructive
+                    disabled={pick.isPending}
+                    onPress={() => setReceipt(null)}
+                  />
+                </View>
               </View>
-              <Pressable
-                onPress={() => setReceipt(null)}
-                accessibilityRole="button"
-                accessibilityLabel="Remove receipt image"
-                hitSlop={10}
-                style={({ pressed }) => [
-                  styles.removeButton,
-                  pressed && { opacity: 0.6 },
-                ]}
-              >
-                <Ionicons
-                  name="close-circle"
-                  size={22}
-                  color={tokens.colors.icon}
-                />
-              </Pressable>
             </View>
           ) : (
-            <View style={[styles.pickRow, { gap: tokens.spacing.md }]}>
-              <PickButton
-                icon="camera-outline"
-                label="Take photo"
-                disabled={pick.isPending}
-                onPress={() => pick.mutate("camera")}
-              />
-              <PickButton
-                icon="image-outline"
-                label="Choose photo"
-                disabled={pick.isPending}
-                onPress={() => pick.mutate("library")}
-              />
+            <View
+              style={[
+                styles.receiptEmpty,
+                {
+                  backgroundColor: tokens.colors.surface,
+                  borderColor: tokens.colors.border,
+                  borderRadius: tokens.radius.lg,
+                  padding: tokens.spacing.md,
+                  gap: tokens.spacing.md,
+                },
+              ]}
+            >
+              <View style={{ flex: 1, gap: 2 }}>
+                <AppText role="headline" weight="800">
+                  Add a receipt
+                </AppText>
+                <AppText role="caption" tone="subtle">
+                  Keep proof of purchase attached to this record.
+                </AppText>
+              </View>
+              <View style={[styles.pickRow, { gap: tokens.spacing.md }]}>
+                <PickButton
+                  icon="camera-outline"
+                  label="Take photo"
+                  disabled={pick.isPending}
+                  onPress={() => pick.mutate("camera")}
+                />
+                <PickButton
+                  icon="image-outline"
+                  label="Choose photo"
+                  disabled={pick.isPending}
+                  onPress={() => pick.mutate("library")}
+                />
+              </View>
             </View>
           )}
           <FormError message={pickerError} />
@@ -292,21 +318,66 @@ function PickButton({
   );
 }
 
+function ReceiptAction({
+  icon,
+  label,
+  disabled,
+  destructive = false,
+  onPress,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  disabled: boolean;
+  destructive?: boolean | undefined;
+  onPress: () => void;
+}) {
+  const { tokens } = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled }}
+      style={({ pressed }) => [
+        styles.receiptAction,
+        {
+          borderColor: tokens.colors.border,
+          backgroundColor: tokens.colors.surfaceMuted,
+          opacity: disabled ? 0.5 : pressed ? 0.78 : 1,
+        },
+      ]}
+    >
+      <Ionicons
+        name={icon}
+        size={16}
+        color={destructive ? tokens.colors.dangerText : tokens.colors.icon}
+      />
+      <Text
+        style={{
+          color: destructive ? tokens.colors.dangerText : tokens.colors.text,
+          fontSize: tokens.type.caption.fontSize,
+          fontWeight: "700",
+        }}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
-  receiptRow: {
+  receiptSelected: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
+    borderWidth: 1,
+  },
+  receiptEmpty: {
     borderWidth: 1,
   },
   thumb: {
-    width: 48,
-    height: 48,
-  },
-  removeButton: {
-    width: 44,
-    height: 44,
-    alignItems: "flex-end",
-    justifyContent: "center",
+    width: 88,
+    height: 110,
   },
   pickRow: {
     flexDirection: "row",
@@ -318,5 +389,19 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 8,
     minHeight: 66,
+  },
+  receiptActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  receiptAction: {
+    minHeight: 40,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
   },
 });

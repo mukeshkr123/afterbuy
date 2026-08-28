@@ -15,7 +15,7 @@ import {
 } from "@/components";
 import { useTheme } from "@/theme/ThemeProvider";
 
-type Grant = "granted" | "denied" | "undetermined";
+type Grant = "granted" | "limited" | "denied" | "undetermined";
 
 interface PermissionRow {
   id: "notifications" | "camera" | "photos";
@@ -45,21 +45,30 @@ const ROWS: readonly PermissionRow[] = [
   },
 ];
 
-const TONE: Record<Grant, "success" | "danger" | "neutral"> = {
+const TONE: Record<Grant, "success" | "warning" | "danger" | "neutral"> = {
   granted: "success",
+  limited: "warning",
   denied: "danger",
   undetermined: "neutral",
 };
 
 const LABEL: Record<Grant, string> = {
   granted: "Allowed",
+  limited: "Limited",
   denied: "Blocked",
   undetermined: "Not set",
 };
 
-function toGrant(status: string, granted: boolean): Grant {
+function toGrant(status: string, granted: boolean, limited = false): Grant {
+  if (limited) return "limited";
   if (granted) return "granted";
   return status === "undetermined" ? "undetermined" : "denied";
+}
+
+function hasLimitedPhotoAccess(
+  permission: ImagePicker.MediaLibraryPermissionResponse
+): boolean {
+  return permission.granted && permission.accessPrivileges === "limited";
 }
 
 export default function PermissionsScreen() {
@@ -82,7 +91,11 @@ export default function PermissionsScreen() {
     setState({
       notifications: toGrant(notif.status, notif.granted),
       camera: toGrant(camera.status, camera.granted),
-      photos: toGrant(photos.status, photos.granted),
+      photos: toGrant(
+        photos.status,
+        photos.granted,
+        hasLimitedPhotoAccess(photos)
+      ),
     });
   }, []);
 
@@ -143,7 +156,13 @@ export default function PermissionsScreen() {
                 leading={
                   <IconTile
                     icon={row.icon}
-                    tone={grant === "granted" ? "success" : "neutral"}
+                    tone={
+                      grant === "granted"
+                        ? "success"
+                        : grant === "limited"
+                          ? "warning"
+                          : "neutral"
+                    }
                   />
                 }
                 trailing={
@@ -153,7 +172,7 @@ export default function PermissionsScreen() {
                 onPress={
                   grant === "undetermined"
                     ? () => void request(row.id)
-                    : grant === "denied"
+                    : grant === "denied" || grant === "limited"
                       ? () => void Linking.openSettings()
                       : undefined
                 }
@@ -167,7 +186,24 @@ export default function PermissionsScreen() {
           variant="secondary"
           onPress={() => void Linking.openSettings()}
         />
+
+        <SectionCard tone="muted">
+          <View style={styles.noteRow}>
+            <IconTile icon="lock-closed-outline" tone="neutral" />
+            <AppText role="subheadline" tone="subtle" style={{ flex: 1 }}>
+              You can change these at any time in your device settings.
+            </AppText>
+          </View>
+        </SectionCard>
       </ScreenScroll>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  noteRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+});

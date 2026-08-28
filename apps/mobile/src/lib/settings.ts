@@ -1,9 +1,15 @@
 import { storage } from "./storage";
 
 export type ThemePreference = "system" | "light" | "dark";
+export type AccentPreference = "indigo" | "green" | "amber" | "red" | "slate";
+export type TextSizePreference = "small" | "medium" | "large";
+export type ReduceMotionPreference = "system" | "reduced" | "standard";
 
 export interface SettingsShape {
   themePreference: ThemePreference;
+  accentPreference: AccentPreference;
+  textSizePreference: TextSizePreference;
+  reduceMotionPreference: ReduceMotionPreference;
   timezone: string | null;
   pushPromptDismissedAt: string | null;
   authOnboardingPending: boolean;
@@ -14,6 +20,9 @@ const KEY = "app:settings:v1";
 
 const DEFAULTS: SettingsShape = {
   themePreference: "system",
+  accentPreference: "indigo",
+  textSizePreference: "medium",
+  reduceMotionPreference: "system",
   timezone: null,
   pushPromptDismissedAt: null,
   authOnboardingPending: false,

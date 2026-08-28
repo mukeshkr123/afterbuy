@@ -32,6 +32,7 @@
     "lint": "eslint eslint.config.js && prettier --check .",
     "lint-staged": "lint-staged",
     "prepare": "husky",
+    "seed:local:demo": "tsx scripts/seed-local-demo-user.ts",
     "skills:install": "tsx scripts/install-agent-skills.ts",
     "skills:verify": "tsx scripts/verify-agent-skills.ts",
     "test": "pnpm -r --if-present test && vitest run",

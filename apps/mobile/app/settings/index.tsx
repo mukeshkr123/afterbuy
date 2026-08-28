@@ -1,3 +1,4 @@
+import { useUser } from "@clerk/clerk-expo";
 import { useRouter } from "expo-router";
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
@@ -9,24 +10,21 @@ import {
   ScreenHeader,
   ScreenScroll,
   SectionCard,
-  Tabs,
 } from "@/components";
 import { useTheme } from "@/theme/ThemeProvider";
-import type { ThemePreference } from "@/lib/settings";
-
-const THEMES: ReadonlyArray<{ value: ThemePreference; label: string }> = [
-  { value: "system", label: "System" },
-  { value: "light", label: "Light" },
-  { value: "dark", label: "Dark" },
-];
 
 export default function SettingsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { tokens, preference, setPreference } = useTheme();
+  const { user } = useUser();
+  const { tokens } = useTheme();
 
   const version =
     Constants.expoConfig?.version ?? Constants.nativeAppVersion ?? null;
+  const email =
+    user?.primaryEmailAddress?.emailAddress ??
+    user?.emailAddresses?.[0]?.emailAddress ??
+    "Not available";
 
   return (
     <View style={{ flex: 1, backgroundColor: tokens.colors.canvas }}>
@@ -51,38 +49,19 @@ export default function SettingsScreen() {
         }}
       >
         <View style={{ gap: tokens.spacing.md - 2 }}>
-          <SectionLabel>Appearance</SectionLabel>
-          <SectionCard>
-            <View style={{ gap: tokens.spacing.md }}>
-              <Text
-                style={{
-                  color: tokens.colors.textMuted,
-                  fontSize: tokens.type.bodySmall.fontSize,
-                }}
-              >
-                Theme
-              </Text>
-              {/* A three-way choice, not a switch — "system" is a real stored
-                  preference that a boolean toggle silently discarded. */}
-              <Tabs
-                tabs={THEMES.map((theme) => ({
-                  key: theme.value,
-                  label: theme.label,
-                }))}
-                activeKey={preference}
-                onChange={(next) => void setPreference(next as ThemePreference)}
-              />
-            </View>
-          </SectionCard>
-        </View>
-
-        <View style={{ gap: tokens.spacing.md - 2 }}>
-          <SectionLabel>Reminders</SectionLabel>
+          <SectionLabel>Preferences</SectionLabel>
           <SectionCard flush>
+            <ListItem
+              title="Appearance"
+              subtitle="Theme, colors, and display"
+              leading={<IconTile icon="color-palette-outline" tone="neutral" />}
+              chevron
+              onPress={() => router.push("/settings/appearance")}
+            />
             <ListItem
               title="Reminder Timing"
               subtitle="How far ahead we warn you"
-              leading={<IconTile icon="time-outline" tone="accent" />}
+              leading={<IconTile icon="time-outline" tone="neutral" />}
               chevron
               onPress={() => router.push("/settings/lead-days")}
             />
@@ -90,7 +69,7 @@ export default function SettingsScreen() {
               title="Time Zone"
               subtitle="When daily reminders are sent"
               divider={false}
-              leading={<IconTile icon="globe-outline" tone="accent" />}
+              leading={<IconTile icon="globe-outline" tone="neutral" />}
               chevron
               onPress={() => router.push("/settings/timezone")}
             />
@@ -98,7 +77,26 @@ export default function SettingsScreen() {
         </View>
 
         <View style={{ gap: tokens.spacing.md - 2 }}>
-          <SectionLabel>Privacy</SectionLabel>
+          <SectionLabel>Account</SectionLabel>
+          <SectionCard flush>
+            <ListItem
+              title="Email"
+              subtitle={email}
+              leading={<IconTile icon="mail-outline" tone="neutral" />}
+            />
+            <ListItem
+              title="Delete Account"
+              subtitle="Permanently remove your data"
+              divider={false}
+              leading={<IconTile icon="trash-outline" tone="warning" />}
+              chevron
+              onPress={() => router.push("/delete-account")}
+            />
+          </SectionCard>
+        </View>
+
+        <View style={{ gap: tokens.spacing.md - 2 }}>
+          <SectionLabel>App</SectionLabel>
           <SectionCard flush>
             <ListItem
               title="App Permissions"
@@ -108,12 +106,12 @@ export default function SettingsScreen() {
               onPress={() => router.push("/settings/permissions")}
             />
             <ListItem
-              title="Delete Account"
-              subtitle="Permanently remove your data"
+              title="Help & Support"
+              subtitle="Get help or send feedback"
               divider={false}
-              leading={<IconTile icon="trash-outline" tone="warning" />}
+              leading={<IconTile icon="help-circle-outline" tone="neutral" />}
               chevron
-              onPress={() => router.push("/delete-account")}
+              onPress={() => router.push("/support")}
             />
           </SectionCard>
         </View>

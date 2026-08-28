@@ -1,4 +1,5 @@
 import { useClerk, useUser } from "@clerk/clerk-expo";
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter, type Href } from "expo-router";
 import React, { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
@@ -25,11 +26,30 @@ const MENU: ReadonlyArray<{
   id: string;
   title: string;
   subtitle: string;
-  icon:
-    | "settings-outline"
-    | "notifications-outline"
-    | "time-outline"
-    | "shield-checkmark-outline";
+  icon: "notifications-outline" | "time-outline";
+  href: Href;
+}> = [
+  {
+    id: "permissions",
+    title: "Permissions",
+    subtitle: "Manage app access and notifications",
+    icon: "notifications-outline",
+    href: "/settings/permissions",
+  },
+  {
+    id: "lead-days",
+    title: "Reminder Timing",
+    subtitle: "Choose how early reminders arrive",
+    icon: "time-outline",
+    href: "/settings/lead-days",
+  },
+];
+
+const QUICK_MENU: ReadonlyArray<{
+  id: string;
+  title: string;
+  subtitle: string;
+  icon: "shield-checkmark-outline" | "settings-outline";
   href: Href;
 }> = [
   {
@@ -41,24 +61,10 @@ const MENU: ReadonlyArray<{
   },
   {
     id: "settings",
-    title: "Account Settings",
-    subtitle: "Profile, theme and security",
+    title: "Settings",
+    subtitle: "App preferences and customization",
     icon: "settings-outline",
     href: "/settings",
-  },
-  {
-    id: "permissions",
-    title: "Permissions",
-    subtitle: "Notifications and device access",
-    icon: "notifications-outline",
-    href: "/settings/permissions",
-  },
-  {
-    id: "lead-days",
-    title: "Reminder Timing",
-    subtitle: "Choose how early reminders arrive",
-    icon: "time-outline",
-    href: "/settings/lead-days",
   },
 ];
 
@@ -92,6 +98,7 @@ export default function ProfileScreen() {
       .slice(0, 2)
       .join("")
       .toUpperCase() || "?";
+  const memberSince = formatMemberSince(user?.createdAt);
 
   return (
     <>
@@ -102,6 +109,28 @@ export default function ProfileScreen() {
           paddingBottom: Math.max(insets.bottom + 88, 112),
         }}
       >
+        <View style={styles.accountTitleRow}>
+          <AppText role="screenTitle" tone="strong">
+            Account
+          </AppText>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Notification permissions"
+            onPress={() => router.push("/settings/permissions")}
+            hitSlop={8}
+            style={({ pressed }) => [
+              styles.bellButton,
+              { opacity: pressed ? 0.65 : 1 },
+            ]}
+          >
+            <Ionicons
+              name="notifications-outline"
+              size={22}
+              color={tokens.colors.text}
+            />
+          </Pressable>
+        </View>
+
         <View style={[styles.userHeaderRow, { gap: tokens.spacing.md + 2 }]}>
           <View
             accessibilityElementsHidden
@@ -134,6 +163,34 @@ export default function ProfileScreen() {
           </View>
         </View>
 
+        <SectionCard>
+          <View style={styles.memberRow}>
+            <View style={{ gap: 3, flex: 1 }}>
+              <AppText role="caption" tone="subtle" weight="700">
+                Member since
+              </AppText>
+              <AppText role="subheadline" tone="strong" weight="700">
+                {memberSince}
+              </AppText>
+            </View>
+            <IconTile icon="calendar-outline" tone="accent" />
+          </View>
+        </SectionCard>
+
+        <SectionCard flush>
+          {QUICK_MENU.map((item, idx) => (
+            <ListItem
+              key={item.id}
+              title={item.title}
+              subtitle={item.subtitle}
+              divider={idx < QUICK_MENU.length - 1}
+              leading={<IconTile icon={item.icon} tone="neutral" />}
+              chevron
+              onPress={() => router.push(item.href)}
+            />
+          ))}
+        </SectionCard>
+
         <SectionCard flush>
           {MENU.map((item, idx) => (
             <ListItem
@@ -156,7 +213,7 @@ export default function ProfileScreen() {
             style={({ pressed }) => [
               styles.signOutButton,
               {
-                backgroundColor: tokens.colors.dangerSurface,
+                backgroundColor: tokens.colors.surface,
                 borderColor: tokens.colors.border,
                 borderRadius: tokens.radius.lg,
                 opacity: pressed ? 0.82 : 1,
@@ -209,11 +266,39 @@ export default function ProfileScreen() {
   );
 }
 
+function formatMemberSince(value: Date | string | number | null | undefined) {
+  if (!value) return "Not available";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "Not available";
+  return date.toLocaleDateString(undefined, {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 const styles = StyleSheet.create({
+  accountTitleRow: {
+    minHeight: 44,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  bellButton: {
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   userHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 4,
+  },
+  memberRow: {
+    minHeight: 54,
+    flexDirection: "row",
+    alignItems: "center",
   },
   avatarCircle: {
     width: 62,

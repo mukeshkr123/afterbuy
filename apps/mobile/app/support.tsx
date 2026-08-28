@@ -1,6 +1,13 @@
 import React from "react";
 import { Linking, Text, View } from "react-native";
-import { Button, ScreenHeader, ScreenScroll, SectionCard } from "@/components";
+import {
+  Button,
+  IconTile,
+  ListItem,
+  ScreenHeader,
+  ScreenScroll,
+  SectionCard,
+} from "@/components";
 import { useTheme } from "@/theme/ThemeProvider";
 
 const SUPPORT_EMAIL =
@@ -28,6 +35,21 @@ export default function SupportScreen() {
             onPress={() => void Linking.openURL(`mailto:${SUPPORT_EMAIL}`)}
           />
         </View>
+      </SectionCard>
+      <SectionCard flush>
+        <ListItem
+          title="Help Center"
+          subtitle="Guides for purchases, receipts, reminders, and claims"
+          leading={<IconTile icon="help-circle-outline" tone="neutral" />}
+        />
+        <ListItem
+          title="Contact Support"
+          subtitle="We typically respond within 24 hours."
+          divider={false}
+          leading={<IconTile icon="mail-outline" tone="neutral" />}
+          chevron
+          onPress={() => void Linking.openURL(`mailto:${SUPPORT_EMAIL}`)}
+        />
       </SectionCard>
     </ScreenScroll>
   );

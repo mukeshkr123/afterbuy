@@ -7,7 +7,9 @@ import { Ionicons } from "@expo/vector-icons";
 import {
   Button,
   FormError,
+  IconTile,
   Input,
+  ListItem,
   ScreenHeader,
   ScreenScroll,
   SectionCard,
@@ -115,46 +117,60 @@ export default function DeleteAccountScreen() {
             <View
               accessibilityElementsHidden
               importantForAccessibility="no-hide-descendants"
-              // The card is already `dangerSurface`; the ring needs to sit
-              // above it, not blend into it.
               style={[
                 styles.warningIcon,
                 { backgroundColor: tokens.colors.surface },
               ]}
             >
               <Ionicons
-                name="warning-outline"
-                size={32}
+                name="trash-outline"
+                size={24}
                 color={tokens.colors.danger}
               />
             </View>
-            <Text
-              accessibilityRole="header"
-              style={{
-                color: tokens.colors.text,
-                fontSize: tokens.type.title.fontSize,
-                fontWeight: "800",
-                textAlign: "center",
-              }}
-            >
-              Permanent action
-            </Text>
-            <Text
-              style={{
-                color: tokens.colors.textSubtle,
-                fontSize: tokens.type.body.fontSize,
-                lineHeight: tokens.type.body.lineHeight,
-                textAlign: "center",
-              }}
-            >
-              Deleting your account permanently removes every tracked purchase,
-              warranty reminder, receipt and claim. This cannot be undone.
-            </Text>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text
+                accessibilityRole="header"
+                style={{
+                  color: tokens.colors.dangerText,
+                  fontSize: tokens.type.headline.fontSize,
+                  fontWeight: "800",
+                }}
+              >
+                Delete your account
+              </Text>
+              <Text
+                style={{
+                  color: tokens.colors.dangerText,
+                  fontSize: tokens.type.bodySmall.fontSize,
+                  lineHeight: tokens.type.bodySmall.lineHeight,
+                }}
+              >
+                This action cannot be undone.
+              </Text>
+            </View>
           </View>
         </SectionCard>
 
         {step === "intro" ? (
           <View style={{ gap: tokens.spacing.md }}>
+            <SectionCard>
+              <View style={{ gap: tokens.spacing.md }}>
+                <Text
+                  style={{
+                    color: tokens.colors.text,
+                    fontSize: tokens.type.body.fontSize,
+                    fontWeight: "700",
+                  }}
+                >
+                  What will be deleted
+                </Text>
+                <DeletionItem label="Your account and profile" />
+                <DeletionItem label="All purchases and receipts" />
+                <DeletionItem label="All claims and reminders" />
+                <DeletionItem label="App preferences and settings" />
+              </View>
+            </SectionCard>
             <Button
               label="I want to delete my account"
               variant="danger"
@@ -171,6 +187,21 @@ export default function DeleteAccountScreen() {
         ) : (
           <SectionCard>
             <View style={{ gap: tokens.spacing.lg }}>
+              <View style={{ gap: tokens.spacing.sm }}>
+                <Text
+                  style={{
+                    color: tokens.colors.text,
+                    fontSize: tokens.type.body.fontSize,
+                    fontWeight: "700",
+                  }}
+                >
+                  What will be deleted
+                </Text>
+                <DeletionItem label="Your account and profile" />
+                <DeletionItem label="All purchases and receipts" />
+                <DeletionItem label="All claims and reminders" />
+                <DeletionItem label="App preferences and settings" />
+              </View>
               <Text
                 style={{
                   color: tokens.colors.textSubtle,
@@ -214,20 +245,91 @@ export default function DeleteAccountScreen() {
             </View>
           </SectionCard>
         )}
+
+        <View style={{ gap: tokens.spacing.md - 2 }}>
+          <Text
+            style={{
+              color: tokens.colors.text,
+              fontSize: tokens.type.bodySmall.fontSize + 1,
+              fontWeight: "700",
+            }}
+          >
+            Need help?
+          </Text>
+          <Text
+            style={{
+              color: tokens.colors.textSubtle,
+              fontSize: tokens.type.bodySmall.fontSize,
+              lineHeight: tokens.type.bodySmall.lineHeight,
+            }}
+          >
+            Visit support for guides and answers.
+          </Text>
+          <SectionCard flush>
+            <ListItem
+              title="Help Center"
+              leading={<IconTile icon="help-circle-outline" tone="neutral" />}
+              chevron
+              onPress={() => router.push("/support")}
+            />
+            <ListItem
+              title="Contact Support"
+              subtitle="We typically respond within 24 hours."
+              divider={false}
+              leading={<IconTile icon="mail-outline" tone="neutral" />}
+              chevron
+              onPress={() =>
+                void Linking.openURL(
+                  `mailto:${SUPPORT_EMAIL}?subject=AfterBuy%20support`
+                )
+              }
+            />
+          </SectionCard>
+        </View>
       </ScreenScroll>
     </>
   );
 }
 
+function DeletionItem({ label }: { label: string }) {
+  const { tokens } = useTheme();
+  return (
+    <View style={styles.deletionItem}>
+      <View style={[styles.bullet, { backgroundColor: tokens.colors.icon }]} />
+      <Text
+        style={{
+          color: tokens.colors.textSubtle,
+          fontSize: tokens.type.bodySmall.fontSize,
+          lineHeight: tokens.type.bodySmall.lineHeight,
+          flex: 1,
+        }}
+      >
+        {label}
+      </Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   warningBody: {
+    flexDirection: "row",
     alignItems: "center",
   },
   warningIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
+  },
+  deletionItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  bullet: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
   },
 });

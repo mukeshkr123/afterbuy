@@ -3,6 +3,8 @@ import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persi
 import type { Persister } from "@tanstack/react-query-persist-client";
 import { storage } from "./storage";
 
+export const QUERY_PERSIST_KEY = "REACT_QUERY_OFFLINE_CACHE";
+
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -18,4 +20,5 @@ export const queryClient = new QueryClient({
 
 export const queryPersister: Persister = createAsyncStoragePersister({
   storage,
+  key: QUERY_PERSIST_KEY,
 });
