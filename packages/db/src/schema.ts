@@ -43,7 +43,9 @@ export const purchases = sqliteTable(
   "purchases",
   {
     id: text("id").primaryKey(),
-    userId: text("user_id").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id),
     title: text("title").notNull(),
     merchant: text("merchant"),
     category: text("category", { enum: PURCHASE_CATEGORIES })

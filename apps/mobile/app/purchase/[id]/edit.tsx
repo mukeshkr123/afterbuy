@@ -1,5 +1,6 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEnqueueMutation } from "@/offline";
 import React, { useState } from "react";
 import { View } from "react-native";
 import {
@@ -44,25 +45,55 @@ export default function EditPurchaseScreen() {
     enabled: Boolean(id),
   });
 
-  const mutation = useMutation({
-    mutationFn: (data: Parameters<typeof patchPurchase>[2]) =>
-      patchPurchase(api, id ?? "", data),
-    onSuccess: () => {
-      void qc.invalidateQueries({
-        queryKey: apiKeys.purchases.detail(id ?? ""),
-      });
-      void qc.invalidateQueries({ queryKey: ["purchases"] });
-      if (router.canGoBack()) router.back();
-      else
-        router.replace({
-          pathname: "/purchase/[id]",
-          params: { id: id ?? "" },
+  const mutation = useEnqueueMutation<Parameters<typeof patchPurchase>[2], any>(
+    {
+      build: (data) => ({
+        method: "PATCH",
+        endpoint: `/v1/purchases/${id}`,
+        body: data,
+        label: `Update purchase "${p?.title || id}"`,
+        optimisticPatch: {
+          queryKey: apiKeys.purchases.detail(id ?? ""),
+          updater: (prev) =>
+            prev && typeof prev === "object"
+              ? { ...(prev as Record<string, unknown>), ...data }
+              : prev,
+          rollback: () => undefined,
+        },
+      }),
+      onSuccess: () => {
+        void qc.invalidateQueries({
+          queryKey: apiKeys.purchases.detail(id ?? ""),
         });
-    },
-  });
+        void qc.invalidateQueries({ queryKey: ["purchases"] });
+        if (router.canGoBack()) router.back();
+        else
+          router.replace({
+            pathname: "/purchase/[id]",
+            params: { id: id ?? "" },
+          });
+      },
+    }
+  );
 
-  const deleteMutation = useMutation({
-    mutationFn: () => deletePurchase(api, id ?? ""),
+  const deleteMutation = useEnqueueMutation<void, unknown>({
+    build: () => ({
+      method: "DELETE",
+      endpoint: `/v1/purchases/${id}`,
+      body: null,
+      label: `Delete purchase "${p?.title || id}"`,
+      optimisticPatch: {
+        queryKey: apiKeys.purchases.detail(id ?? ""),
+        updater: (prev) =>
+          prev && typeof prev === "object"
+            ? {
+                ...(prev as Record<string, unknown>),
+                deletedAt: new Date().toISOString(),
+              }
+            : prev,
+        rollback: () => undefined,
+      },
+    }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["purchases"] });
       setConfirmDelete(false);
@@ -74,8 +105,21 @@ export default function EditPurchaseScreen() {
     },
   });
 
-  const undoDelete = useMutation({
-    mutationFn: () => restorePurchase(api, id ?? ""),
+  const undoDelete = useEnqueueMutation<void, unknown>({
+    build: () => ({
+      method: "POST",
+      endpoint: `/v1/purchases/${id}/restore`,
+      body: null,
+      label: `Restore purchase "${p?.title || id}"`,
+      optimisticPatch: {
+        queryKey: apiKeys.purchases.detail(id ?? ""),
+        updater: (prev) =>
+          prev && typeof prev === "object"
+            ? { ...(prev as Record<string, unknown>), deletedAt: null }
+            : prev,
+        rollback: () => undefined,
+      },
+    }),
     onSuccess: () => {
       void qc.invalidateQueries({
         queryKey: apiKeys.purchases.detail(id ?? ""),

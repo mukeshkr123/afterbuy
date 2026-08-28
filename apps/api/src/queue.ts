@@ -152,9 +152,9 @@ async function handlePurgeReceipts(env: Env, userId: string): Promise<void> {
       options.cursor = cursor;
     }
     const listResult = await env.STORAGE.list(options);
-    for (const obj of listResult.objects) {
-      await env.STORAGE.delete(obj.key);
-    }
+    await Promise.all(
+      listResult.objects.map((obj) => env.STORAGE.delete(obj.key))
+    );
     truncated = listResult.truncated;
     cursor = listResult.truncated ? listResult.cursor : undefined;
   }
@@ -190,7 +190,6 @@ async function handleAccountDeletion(
       db.delete(purchases).where(eq(purchases.userId, userId)),
       db.delete(devices).where(eq(devices.userId, userId)),
       db.delete(users).where(eq(users.id, userId)),
-      db.delete(accountDeletionJobs).where(eq(accountDeletionJobs.id, jobId)),
     ]);
 
     if (clerkUserId) {
@@ -215,6 +214,11 @@ async function handleAccountDeletion(
         console.error("Failed to delete Clerk user identity:", clerkErr);
       }
     }
+
+    await db
+      .update(accountDeletionJobs)
+      .set({ status: "completed", updatedAt: new Date().toISOString() })
+      .where(eq(accountDeletionJobs.id, jobId));
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : String(err);
     await db

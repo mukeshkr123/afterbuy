@@ -139,8 +139,10 @@ export const handlePatchMe: RouteHandler<
       .from(purchases)
       .where(and(eq(purchases.userId, user.id), isNull(purchases.deletedAt)));
 
-    for (const p of userPurchases) {
-      await onPurchaseMutated(ctx.env, db, p.id);
+    const CHUNK_SIZE = 10;
+    for (let i = 0; i < userPurchases.length; i += CHUNK_SIZE) {
+      const chunk = userPurchases.slice(i, i + CHUNK_SIZE);
+      await Promise.all(chunk.map((p) => onPurchaseMutated(ctx.env, db, p.id)));
     }
   }
 

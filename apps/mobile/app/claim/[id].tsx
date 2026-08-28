@@ -1,5 +1,6 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEnqueueMutation } from "@/offline";
 import React, { useMemo, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import type { Claim, ClaimStatus } from "@acme/shared";
@@ -73,9 +74,22 @@ export default function ClaimDetailScreen() {
     enabled: Boolean(claim.data?.purchaseId),
   });
 
-  const advance = useMutation({
-    mutationFn: (status: ClaimStatus) => patchClaim(api, id ?? "", { status }),
-    onSuccess: async (updatedClaim) => {
+  const advance = useEnqueueMutation<ClaimStatus, unknown>({
+    build: (status) => ({
+      method: "PATCH",
+      endpoint: `/v1/claims/${id}`,
+      body: { status },
+      label: `Update claim status to ${status}`,
+      optimisticPatch: {
+        queryKey: apiKeys.claims.detail(id ?? ""),
+        updater: (prev) =>
+          prev && typeof prev === "object"
+            ? { ...(prev as Record<string, unknown>), status }
+            : prev,
+        rollback: () => undefined,
+      },
+    }),
+    onSuccess: async () => {
       await Promise.all([
         qc.invalidateQueries({ queryKey: ["claims"] }),
         qc.invalidateQueries({
@@ -85,7 +99,6 @@ export default function ClaimDetailScreen() {
       ]);
       setError({ message: null, fields: {} });
       claim.refetch().catch(() => {});
-      return updatedClaim;
     },
     onError: (caught) => setError(fromCaught(caught)),
   });

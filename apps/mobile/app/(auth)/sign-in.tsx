@@ -1,5 +1,6 @@
 import { useOAuth, useSignIn } from "@clerk/clerk-expo";
 import { Link, useRouter } from "expo-router";
+import * as Linking from "expo-linking";
 import React, { useRef, useState } from "react";
 import {
   KeyboardAvoidingView,
@@ -51,7 +52,11 @@ export default function SignInScreen() {
     try {
       const flow =
         strategy === "oauth_apple" ? startAppleOAuth : startGoogleOAuth;
-      const { createdSessionId, setActive: setOAuthActive } = await flow();
+      const { createdSessionId, setActive: setOAuthActive } = await flow({
+        redirectUrl: Linking.createURL("/oauth-callback", {
+          scheme: "afterbuy",
+        }),
+      });
       if (createdSessionId && setOAuthActive) {
         await setOAuthActive({ session: createdSessionId });
         router.replace("/(tabs)");

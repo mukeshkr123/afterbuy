@@ -1,5 +1,6 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEnqueueMutation } from "@/offline";
 import { useState, type ComponentProps, type ReactNode } from "react";
 import { StyleSheet, View } from "react-native";
 import type {
@@ -70,8 +71,24 @@ export default function PurchaseDetailScreen() {
     enabled: Boolean(id),
   });
 
-  const softDelete = useMutation({
-    mutationFn: () => deletePurchase(api, id ?? ""),
+  const softDelete = useEnqueueMutation<void, unknown>({
+    build: () => ({
+      method: "DELETE",
+      endpoint: `/v1/purchases/${id}`,
+      body: null,
+      label: `Delete purchase "${detail.data?.title || id}"`,
+      optimisticPatch: {
+        queryKey: apiKeys.purchases.detail(id ?? ""),
+        updater: (prev) =>
+          prev && typeof prev === "object"
+            ? {
+                ...(prev as Record<string, unknown>),
+                deletedAt: new Date().toISOString(),
+              }
+            : prev,
+        rollback: () => undefined,
+      },
+    }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["purchases"] });
       setConfirmDelete(false);
@@ -83,8 +100,21 @@ export default function PurchaseDetailScreen() {
     },
   });
 
-  const undoDelete = useMutation({
-    mutationFn: () => restorePurchase(api, id ?? ""),
+  const undoDelete = useEnqueueMutation<void, unknown>({
+    build: () => ({
+      method: "POST",
+      endpoint: `/v1/purchases/${id}/restore`,
+      body: null,
+      label: `Restore purchase "${detail.data?.title || id}"`,
+      optimisticPatch: {
+        queryKey: apiKeys.purchases.detail(id ?? ""),
+        updater: (prev) =>
+          prev && typeof prev === "object"
+            ? { ...(prev as Record<string, unknown>), deletedAt: null }
+            : prev,
+        rollback: () => undefined,
+      },
+    }),
     onSuccess: () => {
       void qc.invalidateQueries({
         queryKey: apiKeys.purchases.detail(id ?? ""),

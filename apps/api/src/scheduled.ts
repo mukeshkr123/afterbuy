@@ -1,4 +1,4 @@
-import { and, eq, isNull, lt } from "drizzle-orm";
+import { and, eq, isNull, lt, gt, asc } from "drizzle-orm";
 import {
   createDbClient,
   reminders,
@@ -67,10 +67,21 @@ async function scanAndQueueReminders(env: Env): Promise<void> {
   const now = new Date();
 
   const LIMIT = 100;
-  let offset = 0;
+  let lastId: string | null = null;
   let hasMore = true;
 
   while (hasMore) {
+    const conditions = [
+      isNull(reminders.sentAt),
+      isNull(reminders.dismissedAt),
+      eq(users.pushEnabled, 1),
+      isNull(users.deletedAt),
+      isNull(purchases.deletedAt),
+    ];
+    if (lastId) {
+      conditions.push(gt(reminders.id, lastId));
+    }
+
     const activeReminders = await db
       .select({
         reminder: reminders,
@@ -79,17 +90,9 @@ async function scanAndQueueReminders(env: Env): Promise<void> {
       .from(reminders)
       .innerJoin(users, eq(reminders.userId, users.id))
       .innerJoin(purchases, eq(reminders.purchaseId, purchases.id))
-      .where(
-        and(
-          isNull(reminders.sentAt),
-          isNull(reminders.dismissedAt),
-          eq(users.pushEnabled, 1),
-          isNull(users.deletedAt),
-          isNull(purchases.deletedAt)
-        )
-      )
-      .limit(LIMIT)
-      .offset(offset);
+      .where(and(...conditions))
+      .orderBy(asc(reminders.id))
+      .limit(LIMIT);
 
     if (activeReminders.length === 0) {
       break;
@@ -136,10 +139,13 @@ async function scanAndQueueReminders(env: Env): Promise<void> {
       }
     }
 
+    const lastItem = activeReminders[activeReminders.length - 1];
+    if (lastItem) {
+      lastId = lastItem.reminder.id;
+    }
+
     if (activeReminders.length < LIMIT) {
       hasMore = false;
-    } else {
-      offset += LIMIT;
     }
   }
 }

@@ -126,7 +126,7 @@ export async function findOrProvisionUser(
   }
 
   const now = new Date().toISOString();
-  const id = crypto.randomUUID();
+  const id = uuidv7();
   try {
     await db.insert(users).values({
       id,

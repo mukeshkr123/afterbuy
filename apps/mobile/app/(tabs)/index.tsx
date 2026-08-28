@@ -1,14 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRouter, type Href } from "expo-router";
 import React, { useMemo } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Platform, Pressable, StyleSheet, View } from "react-native";
 import type { Claim, PurchaseListResponse, Reminder } from "@acme/shared";
 import {
-  AppIcon,
   AppText,
   Button,
-  CategoryArtwork,
-  ListItem,
   Money,
   ScreenScroll,
   ScreenTitle,
@@ -18,7 +15,6 @@ import {
   StatusPill,
   useAdaptiveLayout,
 } from "@/components";
-import { OnboardingHubIllustration } from "@/components/onboarding/OnboardingHubIllustration";
 import { useApi } from "@/api/ApiProvider";
 import { apiKeys } from "@/api/apiKeys";
 import { getMe } from "@/api/auth";
@@ -101,13 +97,14 @@ export default function HomeScreen() {
   const api = useApi();
   const online = useOnline();
   const router = useRouter();
-  const { tokens, reducedMotion } = useTheme();
+  const { tokens } = useTheme();
   const { expanded } = useAdaptiveLayout();
+  const recentPreviewCount = expanded ? 4 : 3;
 
   const me = useQuery({ queryKey: apiKeys.me(), queryFn: () => getMe(api) });
   const recent = useQuery({
-    queryKey: apiKeys.purchases.list({ sort: "createdAt", limit: 5 }),
-    queryFn: () => listPurchases(api, { sort: "createdAt", limit: 5 }),
+    queryKey: apiKeys.purchases.list({ sort: "createdAt", limit: 4 }),
+    queryFn: () => listPurchases(api, { sort: "createdAt", limit: 4 }),
   });
   const reminders = useQuery({
     queryKey: apiKeys.reminders("upcoming"),
@@ -126,6 +123,7 @@ export default function HomeScreen() {
     () => new Map(purchases.map((purchase) => [purchase.id, purchase.title])),
     [purchases]
   );
+  const recentPreview = purchases.slice(0, recentPreviewCount);
   const welcomeName = titleCaseName(me.data?.email);
 
   const urgentReturn = useMemo(
@@ -263,90 +261,37 @@ export default function HomeScreen() {
     >
       <ScreenTitle
         title={welcomeName ? `Welcome back, ${welcomeName}` : "AfterBuy"}
-        subtitle="What needs attention, what to capture next, and your newest purchases."
-        action={
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Open reminders"
-            onPress={() => router.push("/(tabs)/reminders")}
-            style={({ pressed }) => [
-              styles.headerAction,
-              {
-                minHeight: tokens.target.ios,
-                minWidth: tokens.target.ios,
-                backgroundColor: tokens.colors.surface,
-                borderColor: tokens.colors.border,
-                borderRadius: tokens.radius.pill,
-                opacity: pressed ? 0.84 : 1,
-                transform: [{ scale: pressed && !reducedMotion ? 0.97 : 1 }],
-              },
-            ]}
-          >
-            <AppIcon name="reminders" size={20} color={tokens.colors.primary} />
-          </Pressable>
-        }
+        {...(homeEmpty
+          ? {
+              subtitle:
+                "Keep purchases, receipts, and deadlines in one place." as const,
+            }
+          : {})}
       />
 
       {!online ? (
         <InlineNotice
-          title="You're offline"
-          message="AfterBuy keeps working from its saved copy. Changes you make will sync once you reconnect."
+          title="Offline"
+          message="Using your saved copy until you reconnect."
         />
       ) : null}
 
       {homeEmpty ? (
-        <EmptyHome expanded={expanded} onPress={(href) => router.push(href)} />
+        <EmptyHome onPress={(href) => router.push(href)} />
       ) : (
         <>
-          <View style={{ gap: tokens.spacing.md }}>
-            <SectionHeading
-              title="Start here"
-              detail="Capture a purchase or continue protection work."
-            />
+          <View style={{ gap: tokens.spacing.sm }}>
             {showLoadingScaffold ? (
-              <CtaSkeleton />
-            ) : (
-              <View style={{ gap: tokens.spacing.sm }}>
-                <Button
-                  label="Add purchase"
-                  size="lg"
-                  onPress={() => router.push("/purchase/new")}
+              <>
+                <Skeleton
+                  height={148}
+                  style={{ borderRadius: tokens.radius.xl }}
                 />
-                <View
-                  style={[styles.secondaryActions, { gap: tokens.spacing.sm }]}
-                >
-                  <Button
-                    label="Scan receipt"
-                    variant="secondary"
-                    onPress={() =>
-                      router.push({
-                        pathname: "/purchase/new",
-                        params: { capture: "camera" },
-                      })
-                    }
-                    style={styles.secondaryButton}
-                  />
-                  <Button
-                    label="View claims"
-                    variant="secondary"
-                    onPress={() => router.push("/claims")}
-                    style={styles.secondaryButton}
-                  />
-                </View>
-              </View>
-            )}
-          </View>
-
-          <View style={{ gap: tokens.spacing.md }}>
-            <SectionHeading
-              title="Needs attention"
-              detail="One real next step, surfaced first."
-            />
-            {showLoadingScaffold ? (
-              <Skeleton
-                height={170}
-                style={{ borderRadius: tokens.radius.xl }}
-              />
+                <Skeleton
+                  height={54}
+                  style={{ borderRadius: tokens.radius.lg }}
+                />
+              </>
             ) : featuredFailed ? (
               <InlineRetryCard
                 title={
@@ -364,7 +309,15 @@ export default function HomeScreen() {
                 }}
               />
             ) : (
-              <FeaturedCard card={featured} />
+              <>
+                <FeaturedCard card={featured} />
+                <Button
+                  label="Add purchase"
+                  size="lg"
+                  variant={featured.kind === "clear" ? "primary" : "secondary"}
+                  onPress={() => router.push("/purchase/new")}
+                />
+              </>
             )}
           </View>
 
@@ -377,6 +330,10 @@ export default function HomeScreen() {
                   <Pressable
                     accessibilityRole="button"
                     onPress={() => router.push("/(tabs)/purchases")}
+                    style={({ pressed }) => [
+                      styles.seeAllAction,
+                      { opacity: pressed ? 0.72 : 1 },
+                    ]}
                   >
                     <AppText role="label" tone="accent" weight="700">
                       See all
@@ -417,39 +374,16 @@ export default function HomeScreen() {
               </SectionCard>
             ) : (
               <SectionCard flush>
-                {purchases.map((purchase, index) => {
+                {recentPreview.map((purchase, index) => {
                   const status = deliveryDisplay(purchase.deliveryStatus);
                   const date = formatDate(purchase.purchaseDate);
                   return (
-                    <ListItem
+                    <CompactPurchaseRow
                       key={purchase.id}
-                      title={purchase.title}
-                      subtitle={[
-                        purchase.merchant,
-                        date ? `Purchased ${date}` : null,
-                      ]
-                        .filter(Boolean)
-                        .join(" • ")}
-                      leading={
-                        <CategoryArtwork
-                          category={purchase.category}
-                          size="sm"
-                        />
-                      }
-                      trailing={
-                        <View style={styles.purchaseTrailing}>
-                          <StatusPill label={status.label} tone={status.tone} />
-                          {purchase.amountMinor != null ? (
-                            <Money
-                              amountMinor={purchase.amountMinor}
-                              currency={purchase.currency}
-                              emphasis="strong"
-                              style={{ fontSize: tokens.type.caption.fontSize }}
-                            />
-                          ) : null}
-                        </View>
-                      }
-                      divider={index < purchases.length - 1}
+                      purchase={purchase}
+                      statusLabel={status.label}
+                      date={date}
+                      divider={index < recentPreview.length - 1}
                       onPress={() =>
                         router.push({
                           pathname: "/purchase/[id]",
@@ -472,17 +406,21 @@ function FeaturedCard({ card }: { card: FeaturedState }) {
   const { tokens } = useTheme();
   const calmSurface =
     card.kind === "clear" ? tokens.colors.successSoft : tokens.colors.surface;
+  const accentTone =
+    card.kind === "clear" ? tokens.colors.successText : tokens.colors.primary;
 
   return (
     <SectionCard style={{ backgroundColor: calmSurface }}>
-      <View style={{ gap: tokens.spacing.lg }}>
+      <View style={{ gap: tokens.spacing.md }}>
         <View style={styles.featuredHeader}>
           <View style={{ flex: 1, gap: 4 }}>
-            <AppText role="headline">{card.title}</AppText>
-            <AppText role="body" weight="600">
+            <AppText role="caption" weight="700" style={{ color: accentTone }}>
+              {card.title}
+            </AppText>
+            <AppText role="title" weight="700">
               {card.body}
             </AppText>
-            <AppText role="subheadline" tone="subtle">
+            <AppText role="body" tone="subtle">
               {card.detail}
             </AppText>
           </View>
@@ -503,94 +441,26 @@ function FeaturedCard({ card }: { card: FeaturedState }) {
   );
 }
 
-function EmptyHome({
-  expanded,
-  onPress,
-}: {
-  expanded: boolean;
-  onPress: (href: Href) => void;
-}) {
+function EmptyHome({ onPress }: { onPress: (href: Href) => void }) {
   const { tokens } = useTheme();
 
   return (
     <SectionCard style={{ paddingVertical: tokens.spacing.xl }}>
-      <View
-        style={[
-          styles.emptyHome,
-          {
-            gap: expanded ? tokens.spacing.xl : tokens.spacing.lg,
-            flexDirection: expanded ? "row" : "column",
-            alignItems: expanded ? "center" : "stretch",
-          },
-        ]}
-      >
-        <View style={styles.emptyArtwork}>
-          <OnboardingHubIllustration />
+      <View style={{ gap: tokens.spacing.lg }}>
+        <View style={{ gap: tokens.spacing.sm }}>
+          <AppText role="title">Start with your first purchase</AppText>
+          <AppText role="body" tone="subtle">
+            Add one purchase to keep the receipt close and track the deadlines
+            that matter.
+          </AppText>
         </View>
-        <View style={{ flex: 1, gap: tokens.spacing.lg }}>
-          <View style={{ gap: tokens.spacing.sm }}>
-            <AppText role="title">Keep every purchase protected</AppText>
-            <AppText role="body" tone="subtle">
-              Save a purchase, keep the receipt close, and let AfterBuy track
-              the deadlines that matter.
-            </AppText>
-          </View>
-          <View style={{ gap: tokens.spacing.sm }}>
-            <StepCopy
-              title="1. Add a purchase"
-              detail="Record the item, merchant, and date so the timeline starts in the right place."
-            />
-            <StepCopy
-              title="2. Scan the receipt"
-              detail="Keep proof ready for returns and warranty claims."
-            />
-            <StepCopy
-              title="3. Review claims"
-              detail="When something goes wrong, start from a saved purchase instead of rebuilding the context."
-            />
-          </View>
-          <View style={{ gap: tokens.spacing.sm }}>
-            <Button
-              label="Add purchase"
-              size="lg"
-              onPress={() => onPress("/purchase/new")}
-            />
-            <View style={[styles.secondaryActions, { gap: tokens.spacing.sm }]}>
-              <Button
-                label="Scan receipt"
-                variant="secondary"
-                onPress={() =>
-                  onPress({
-                    pathname: "/purchase/new",
-                    params: { capture: "camera" },
-                  })
-                }
-                style={styles.secondaryButton}
-              />
-              <Button
-                label="View claims"
-                variant="secondary"
-                onPress={() => onPress("/claims")}
-                style={styles.secondaryButton}
-              />
-            </View>
-          </View>
-        </View>
+        <Button
+          label="Add purchase"
+          size="lg"
+          onPress={() => onPress("/purchase/new")}
+        />
       </View>
     </SectionCard>
-  );
-}
-
-function StepCopy({ title, detail }: { title: string; detail: string }) {
-  return (
-    <View style={{ gap: 2 }}>
-      <AppText role="label" weight="700">
-        {title}
-      </AppText>
-      <AppText role="subheadline" tone="subtle">
-        {detail}
-      </AppText>
-    </View>
   );
 }
 
@@ -598,10 +468,12 @@ function InlineNotice({ title, message }: { title: string; message: string }) {
   const { tokens } = useTheme();
 
   return (
-    <SectionCard tone="muted">
-      <View style={{ gap: tokens.spacing.xs }}>
-        <AppText role="headline">{title}</AppText>
-        <AppText role="subheadline" tone="subtle">
+    <SectionCard tone="muted" surface="grouped">
+      <View style={styles.noticeRow}>
+        <AppText role="label" weight="700">
+          {title}
+        </AppText>
+        <AppText role="subheadline" tone="subtle" style={{ flex: 1 }}>
           {message}
         </AppText>
       </View>
@@ -622,10 +494,10 @@ function InlineRetryCard({
 
   return (
     <SectionCard>
-      <View style={{ gap: tokens.spacing.md }}>
+      <View style={{ gap: tokens.spacing.sm }}>
         <View style={{ gap: 4 }}>
           <AppText role="headline">{title}</AppText>
-          <AppText role="subheadline" tone="subtle">
+          <AppText role="body" tone="subtle">
             {message}
           </AppText>
         </View>
@@ -635,53 +507,94 @@ function InlineRetryCard({
   );
 }
 
-function CtaSkeleton() {
+function CompactPurchaseRow({
+  purchase,
+  statusLabel,
+  date,
+  divider,
+  onPress,
+}: {
+  purchase: PurchaseListResponse["items"][number];
+  statusLabel: string;
+  date: string | null;
+  divider: boolean;
+  onPress: () => void;
+}) {
   const { tokens } = useTheme();
+  const subtitle = [purchase.merchant, date].filter(Boolean).join(" • ");
 
   return (
-    <View style={{ gap: tokens.spacing.sm }}>
-      <Skeleton height={54} style={{ borderRadius: tokens.radius.lg }} />
-      <View style={[styles.secondaryActions, { gap: tokens.spacing.sm }]}>
-        <Skeleton
-          height={48}
-          style={{ flex: 1, borderRadius: tokens.radius.lg }}
-        />
-        <Skeleton
-          height={48}
-          style={{ flex: 1, borderRadius: tokens.radius.lg }}
-        />
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      style={({ pressed }) => [
+        styles.purchaseRow,
+        {
+          minHeight: Platform.select({
+            ios: tokens.target.ios,
+            android: tokens.target.android,
+            default: tokens.target.web,
+          }),
+          paddingHorizontal: tokens.spacing.md,
+          paddingVertical: tokens.spacing.sm + 2,
+          borderBottomWidth: divider ? StyleSheet.hairlineWidth : 0,
+          borderBottomColor: tokens.colors.border,
+          opacity: pressed ? 0.84 : 1,
+        },
+      ]}
+    >
+      <View style={styles.purchaseCopy}>
+        <AppText role="headline" weight="600" style={{ flexShrink: 1 }}>
+          {purchase.title}
+        </AppText>
+        <AppText role="caption" tone="subtle">
+          {subtitle}
+        </AppText>
       </View>
-    </View>
+      <View style={styles.purchaseTrailing}>
+        <AppText role="caption" tone="subtle" weight="700">
+          {statusLabel}
+        </AppText>
+        {purchase.amountMinor != null ? (
+          <Money
+            amountMinor={purchase.amountMinor}
+            currency={purchase.currency}
+            emphasis="strong"
+            style={{ fontSize: tokens.type.caption.fontSize }}
+          />
+        ) : null}
+      </View>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  headerAction: {
-    alignItems: "center",
+  seeAllAction: {
+    minHeight: 44,
     justifyContent: "center",
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  secondaryActions: {
-    flexDirection: "row",
-  },
-  secondaryButton: {
-    flex: 1,
   },
   featuredHeader: {
     flexDirection: "row",
     gap: 12,
     alignItems: "flex-start",
   },
+  noticeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  purchaseRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  purchaseCopy: {
+    flex: 1,
+    gap: 2,
+  },
   purchaseTrailing: {
     alignItems: "flex-end",
-    gap: 6,
-  },
-  emptyHome: {
-    width: "100%",
-  },
-  emptyArtwork: {
-    minWidth: 220,
-    maxWidth: 280,
-    alignSelf: "center",
+    gap: 4,
+    minWidth: 76,
   },
 });

@@ -47,8 +47,6 @@
 	</dict>
 	<key>NSCameraUsageDescription</key>
 	<string>AfterBuy needs camera access so you can photograph receipts.</string>
-	<key>NSFaceIDUsageDescription</key>
-	<string>Allow $(PRODUCT_NAME) to access your Face ID biometric data.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>AfterBuy needs photo library access to attach receipt images.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>

@@ -1,5 +1,6 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEnqueueMutation } from "@/offline";
 import React, { useMemo, useState } from "react";
 import { FlatList, Pressable, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -118,21 +119,42 @@ export default function NewClaimScreen() {
     enabled: Boolean(purchaseId),
   });
 
-  const mutation = useMutation({
-    mutationFn: () => {
+  const mutation = useEnqueueMutation<void, Claim>({
+    build: () => {
       if (!purchaseId) throw new Error("Choose a purchase first.");
       if (!claimType) throw new Error("Choose a claim type first.");
-      return createClaim(api, {
-        purchaseId,
-        type: claimType,
-        status: "submitted",
-        notes: notes.trim() || null,
-      });
+      return {
+        method: "POST",
+        endpoint: "/v1/claims",
+        body: {
+          purchaseId,
+          type: claimType,
+          status: "submitted",
+          notes: notes.trim() || null,
+        },
+        label: `Create claim for ${purchase.data?.title || purchaseId}`,
+      };
     },
     onSuccess: (claim) => {
       void qc.invalidateQueries({ queryKey: ["claims"] });
       void qc.invalidateQueries({ queryKey: ["purchases"] });
-      setSubmittedClaim(claim);
+
+      const finalClaim: Claim = {
+        ...claim,
+        id: claim.id || "",
+        purchaseId: claim.purchaseId || purchaseId || "",
+        userId: claim.userId || purchase.data?.userId || "",
+        type: claim.type || claimType || "other",
+        status: claim.status || "submitted",
+        openedAt: claim.openedAt || new Date().toISOString(),
+        resolvedAt: claim.resolvedAt || null,
+        refundAmountMinor: claim.refundAmountMinor || null,
+        reference: claim.reference || null,
+        notes: claim.notes || notes.trim() || null,
+        createdAt: claim.createdAt || new Date().toISOString(),
+        updatedAt: claim.updatedAt || new Date().toISOString(),
+      };
+      setSubmittedClaim(finalClaim);
       setError({ message: null, fields: {} });
     },
     onError: (caught) => setError(fromCaught(caught)),

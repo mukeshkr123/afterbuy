@@ -18,11 +18,4 @@ config.resolver.nodeModulesPaths = [
   path.resolve(workspaceRoot, "node_modules"),
 ];
 
-// The repo's tsconfig uses path aliases (@acme/* → ./packages/*/src/index.ts).
-// Metro can't read those, so mirror them here pointing at the built dist.
-config.resolver.alias = {
-  "@acme/shared": path.resolve(workspaceRoot, "packages/shared/dist/index.js"),
-  "@acme/db": path.resolve(workspaceRoot, "packages/db/dist/index.js"),
-};
-
 module.exports = config;
