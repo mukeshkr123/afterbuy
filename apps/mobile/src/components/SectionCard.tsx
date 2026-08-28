@@ -14,6 +14,7 @@ export interface SectionCardProps {
   title?: string | undefined;
   /** `danger` tints the surface and border for destructive contexts. */
   tone?: "default" | "muted" | "danger" | undefined;
+  surface?: "card" | "grouped" | undefined;
   /** Makes the whole card a button. */
   onPress?: (() => void) | undefined;
   /**
@@ -34,24 +35,29 @@ export function SectionCard({
   children,
   title,
   tone = "default",
+  surface = "card",
   onPress,
   flush = false,
   style,
 }: SectionCardProps) {
   const { tokens, reducedMotion } = useTheme();
 
-  const surface: ViewStyle = {
+  const cardStyle: ViewStyle = {
     backgroundColor:
       tone === "muted"
         ? tokens.colors.surfaceMuted
         : tone === "danger"
           ? tokens.colors.dangerSurface
           : tokens.colors.surface,
-    borderRadius: tokens.radius.xl,
+    borderRadius: surface === "grouped" ? tokens.radius.lg : tokens.radius.xl,
     borderColor:
       tone === "danger" ? tokens.colors.danger : tokens.colors.border,
-    padding: flush ? 0 : tokens.spacing.lg,
-    ...tokens.shadow.card,
+    padding: flush
+      ? 0
+      : surface === "grouped"
+        ? tokens.spacing.md
+        : tokens.spacing.lg,
+    ...(surface === "grouped" ? tokens.shadow.none : tokens.shadow.card),
   };
 
   const content = (
@@ -63,9 +69,17 @@ export function SectionCard({
             {
               color: tokens.colors.text,
               fontSize: tokens.type.body.fontSize,
-              marginBottom: tokens.spacing.sm,
-              paddingHorizontal: flush ? tokens.spacing.lg : 0,
-              paddingTop: flush ? tokens.spacing.lg : 0,
+              marginBottom: tokens.spacing.xs,
+              paddingHorizontal: flush
+                ? surface === "grouped"
+                  ? tokens.spacing.md
+                  : tokens.spacing.lg
+                : 0,
+              paddingTop: flush
+                ? surface === "grouped"
+                  ? tokens.spacing.md
+                  : tokens.spacing.lg
+                : 0,
             },
           ]}
         >
@@ -83,7 +97,7 @@ export function SectionCard({
         accessibilityRole="button"
         style={({ pressed }) => [
           styles.card,
-          surface,
+          cardStyle,
           pressed && {
             opacity: 0.92,
             transform: [{ scale: reducedMotion ? 1 : 0.99 }],
@@ -96,7 +110,7 @@ export function SectionCard({
     );
   }
 
-  return <View style={[styles.card, surface, style]}>{content}</View>;
+  return <View style={[styles.card, cardStyle, style]}>{content}</View>;
 }
 
 const styles = StyleSheet.create({

@@ -84,6 +84,7 @@ function AmountField({
   return (
     <Input
       label="Amount paid"
+      density="compact"
       labelAccessory={
         <AppText role="caption" tone="subtle">
           Optional
@@ -142,7 +143,7 @@ function FormTrigger({
             borderColor: error ? tokens.colors.danger : tokens.colors.border,
             backgroundColor: tokens.colors.surface,
             borderRadius: tokens.radius.lg,
-            paddingHorizontal: tokens.spacing.lg,
+            paddingHorizontal: tokens.spacing.md,
             opacity: pressed ? 0.82 : 1,
           },
         ]}
@@ -205,6 +206,7 @@ function CategoryPicker({
           <SheetHeader title="Choose category" onClose={() => setOpen(false)} />
           <Input
             label="Search"
+            density="compact"
             value={query}
             placeholder="Search categories"
             autoCapitalize="none"
@@ -610,7 +612,7 @@ export function PurchaseForm({
   });
 
   const fields = (
-    <View style={{ gap: tokens.spacing.lg }}>
+    <View style={{ gap: tokens.spacing.md }}>
       <View style={{ gap: tokens.spacing.md }}>
         <Controller
           control={control}
@@ -618,6 +620,7 @@ export function PurchaseForm({
           render={({ field, fieldState }) => (
             <Input
               label="Title"
+              density="compact"
               value={field.value ?? ""}
               placeholder="Wireless headphones"
               onChangeText={field.onChange}
@@ -631,6 +634,7 @@ export function PurchaseForm({
           render={({ field, fieldState }) => (
             <Input
               label="Merchant"
+              density="compact"
               labelAccessory={
                 <AppText role="caption" tone="subtle">
                   Optional
@@ -693,17 +697,18 @@ export function PurchaseForm({
             backgroundColor: tokens.colors.surface,
             borderColor: tokens.colors.border,
             borderRadius: tokens.radius.lg,
-            padding: tokens.spacing.lg,
+            paddingHorizontal: tokens.spacing.md,
+            paddingVertical: tokens.spacing.md,
             opacity: pressed ? 0.84 : 1,
           },
         ]}
       >
         <View style={{ flex: 1, gap: 2 }}>
-          <AppText role="headline" weight="800">
+          <AppText role="subheadline" weight="700">
             Protection & delivery
           </AppText>
           <AppText role="caption" tone="subtle">
-            Delivery, tracking, returns, warranty and notes
+            Advanced details for tracking, returns, warranty, and notes
           </AppText>
         </View>
         <Ionicons
@@ -734,6 +739,7 @@ export function PurchaseForm({
             render={({ field, fieldState }) => (
               <Input
                 label="Carrier"
+                density="compact"
                 labelAccessory={
                   <AppText role="caption" tone="subtle">
                     Optional
@@ -752,6 +758,7 @@ export function PurchaseForm({
             render={({ field, fieldState }) => (
               <Input
                 label="Tracking number"
+                density="compact"
                 labelAccessory={
                   <AppText role="caption" tone="subtle">
                     Optional
@@ -803,6 +810,7 @@ export function PurchaseForm({
             render={({ field, fieldState }) => (
               <Input
                 label="Notes"
+                density="compact"
                 labelAccessory={
                   <AppText role="caption" tone="subtle">
                     Optional
@@ -830,7 +838,7 @@ export function PurchaseForm({
           {
             backgroundColor: tokens.colors.canvas,
             borderTopColor: tokens.colors.border,
-            paddingTop: tokens.spacing.md,
+            paddingTop: tokens.spacing.sm,
           },
         ]}
       >
@@ -851,7 +859,7 @@ export function PurchaseForm({
     <ScrollView
       style={{ flex: 1, backgroundColor: tokens.colors.canvas }}
       contentContainerStyle={{
-        padding: tokens.spacing.lg,
+        padding: tokens.spacing.md,
         gap: tokens.spacing.md,
       }}
       keyboardShouldPersistTaps="handled"
@@ -934,7 +942,7 @@ function DeliveryStatusPicker({
 
 const styles = StyleSheet.create({
   trigger: {
-    minHeight: 52,
+    minHeight: 48,
     borderWidth: 1,
     flexDirection: "row",
     alignItems: "center",
@@ -944,10 +952,10 @@ const styles = StyleSheet.create({
     minHeight: 56,
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 10,
     paddingHorizontal: 8,
     paddingVertical: 8,
-    borderRadius: 10,
+    borderRadius: 8,
   },
   sheetHeader: {
     minHeight: 44,
@@ -967,7 +975,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   quickChip: {
-    minHeight: 40,
+    minHeight: 36,
     borderWidth: 1,
     borderRadius: 999,
     paddingHorizontal: 12,
@@ -999,7 +1007,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   sectionToggle: {
-    minHeight: 72,
+    minHeight: 56,
     borderWidth: 1,
     flexDirection: "row",
     alignItems: "center",

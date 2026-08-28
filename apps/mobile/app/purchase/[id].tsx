@@ -12,7 +12,6 @@ import {
   AppText,
   Button,
   CategoryArtwork,
-  DeadlineCard,
   Dialog,
   EmptyState,
   FormError,
@@ -23,7 +22,6 @@ import {
   ScreenScroll,
   SectionCard,
   SectionHeading,
-  SegmentedControl,
   Skeleton,
   StatusPill,
   UndoableToast,
@@ -43,15 +41,6 @@ import {
 } from "@/lib/purchaseDisplay";
 import { CLAIM_STATUS_LABEL, CLAIM_TYPE_LABEL, statusTone } from "@/lib/claims";
 
-type PurchaseSection = "details" | "receipt" | "warranty" | "activity";
-
-const SECTIONS: Array<{ key: PurchaseSection; label: string }> = [
-  { key: "details", label: "Details" },
-  { key: "receipt", label: "Receipt" },
-  { key: "warranty", label: "Warranty" },
-  { key: "activity", label: "Activity" },
-];
-
 type ActivityEvent = {
   id: string;
   title: string;
@@ -62,30 +51,12 @@ type ActivityEvent = {
   at: string;
 };
 
-function isPurchaseSection(
-  value: string | undefined
-): value is PurchaseSection {
-  return SECTIONS.some((item) => item.key === value);
-}
-
-function normalizeSection(value: string | undefined): PurchaseSection {
-  if (value === "receipts") return "receipt";
-  if (value === "protection") return "warranty";
-  return isPurchaseSection(value) ? value : "details";
-}
-
 export default function PurchaseDetailScreen() {
   const api = useApi();
   const qc = useQueryClient();
   const router = useRouter();
   const { tokens } = useTheme();
-  const { id, section } = useLocalSearchParams<{
-    id: string;
-    section?: string;
-  }>();
-  const [activeSection, setActiveSection] = useState<PurchaseSection>(
-    normalizeSection(section)
-  );
+  const { id } = useLocalSearchParams<{ id: string; section?: string }>();
   const [error, setError] = useState<FormErrorState>({
     message: null,
     fields: {},
@@ -126,7 +97,7 @@ export default function PurchaseDetailScreen() {
 
   if (detail.isLoading) {
     return (
-      <ScreenScroll gap={tokens.spacing.lg}>
+      <ScreenScroll density="compact" gap={tokens.spacing.lg}>
         <ScreenHeader title="Purchase" />
         <Skeleton height={118} />
         <Skeleton height={42} />
@@ -138,7 +109,7 @@ export default function PurchaseDetailScreen() {
   const purchase: PurchaseDetailResponse | undefined = detail.data;
   if (!purchase) {
     return (
-      <ScreenScroll gap={tokens.spacing.lg}>
+      <ScreenScroll density="compact" gap={tokens.spacing.lg}>
         <ScreenHeader title="Purchase" />
         <EmptyState
           icon="alert-circle-outline"
@@ -183,7 +154,7 @@ export default function PurchaseDetailScreen() {
 
   return (
     <>
-      <ScreenScroll gap={tokens.spacing.lg}>
+      <ScreenScroll density="compact" gap={tokens.spacing.lg}>
         <ScreenHeader
           title="Purchase"
           action={{
@@ -197,261 +168,241 @@ export default function PurchaseDetailScreen() {
           }}
         />
 
-        <View style={[styles.hero, { gap: tokens.spacing.lg }]}>
-          <CategoryArtwork category={purchase.category} size="lg" />
-          <View style={styles.heroCopy}>
-            <AppText role="title" tone="strong">
-              {purchase.title}
-            </AppText>
-            <AppText role="subheadline" tone="subtle">
-              {[purchase.merchant, categoryLabel(purchase.category)]
-                .filter(Boolean)
-                .join(" · ")}
-            </AppText>
+        <SectionCard surface="grouped" style={{ gap: tokens.spacing.md }}>
+          <View style={[styles.hero, { gap: tokens.spacing.md }]}>
+            <CategoryArtwork category={purchase.category} size="md" />
+            <View style={styles.heroCopy}>
+              <AppText role="title" tone="strong" numberOfLines={2}>
+                {purchase.title}
+              </AppText>
+              <AppText role="subheadline" tone="subtle" numberOfLines={1}>
+                {[purchase.merchant, categoryLabel(purchase.category)]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </AppText>
+            </View>
+          </View>
+          <View style={styles.summaryMetaRow}>
             <Money
               amountMinor={purchase.amountMinor}
               currency={purchase.currency}
               emphasis="strong"
-              style={{ fontSize: tokens.type.title.fontSize }}
+              style={{ fontSize: tokens.type.headline.fontSize }}
             />
+            <StatusPill label={status.label} tone={status.tone} quiet />
           </View>
-          <StatusPill label={status.label} tone={status.tone} />
+          {nextDeadline ? (
+            <View
+              style={[
+                styles.nextDeadlineRow,
+                {
+                  borderTopColor: tokens.colors.border,
+                  paddingTop: tokens.spacing.sm,
+                },
+              ]}
+            >
+              <AppText role="caption" tone="subtle" weight="700">
+                Next deadline
+              </AppText>
+              <AppText role="subheadline" weight="600">
+                {nextDeadline.title}
+              </AppText>
+              <AppText role="caption" tone="subtle">
+                {nextDeadline.label} · {nextDeadline.detail}
+              </AppText>
+            </View>
+          ) : null}
+        </SectionCard>
+
+        <View style={{ gap: tokens.spacing.md }}>
+          <SectionHeading title="Purchase details" detail="Recorded data" />
+          <SectionCard flush surface="grouped">
+            {purchasedOn ? (
+              <DetailRow label="Purchase date" value={purchasedOn} />
+            ) : null}
+            {purchase.orderNumber ? (
+              <DetailRow label="Order number" value={purchase.orderNumber} />
+            ) : null}
+            <DetailRow
+              label="Category"
+              value={categoryLabel(purchase.category)}
+            />
+            <DetailRow
+              label="Amount"
+              valueNode={
+                <Money
+                  amountMinor={purchase.amountMinor}
+                  currency={purchase.currency}
+                  emphasis="strong"
+                />
+              }
+              last={!purchase.notes}
+            />
+            {purchase.notes ? (
+              <DetailRow label="Notes" value={purchase.notes} last />
+            ) : null}
+          </SectionCard>
         </View>
 
-        {nextDeadline ? (
-          <DeadlineCard
-            title={nextDeadline.title}
-            dateLabel={nextDeadline.label}
-            detail={nextDeadline.detail}
-            tone={nextDeadline.urgent ? "warning" : "success"}
-            onPress={() => setActiveSection("warranty")}
+        <View style={{ gap: tokens.spacing.md }}>
+          <SectionHeading
+            title="Protection"
+            detail="Return, warranty, and claims."
           />
-        ) : null}
-
-        <SegmentedControl
-          tabs={SECTIONS}
-          activeKey={activeSection}
-          onChange={(value) => {
-            if (isPurchaseSection(value)) setActiveSection(value);
-          }}
-        />
-
-        {activeSection === "details" ? (
-          <View style={{ gap: tokens.spacing.lg }}>
-            <View style={styles.summaryGrid}>
-              <CoverageSummary
-                title="Return window"
-                state={returnWindow}
-                empty="No return date"
-                icon="sync-outline"
-              />
-              <CoverageSummary
-                title="Warranty"
-                state={warranty}
-                empty="No expiry date"
-                icon="shield-checkmark-outline"
-              />
-            </View>
-
-            <SectionHeading title="Purchase details" detail="Recorded data" />
-            <SectionCard flush>
-              {purchasedOn ? (
-                <DetailRow label="Purchase date" value={purchasedOn} />
-              ) : null}
-              {purchase.orderNumber ? (
-                <DetailRow label="Order number" value={purchase.orderNumber} />
-              ) : null}
-              <DetailRow
-                label="Category"
-                value={categoryLabel(purchase.category)}
-              />
-              <DetailRow
-                label="Amount"
-                valueNode={
-                  <Money
-                    amountMinor={purchase.amountMinor}
-                    currency={purchase.currency}
-                    emphasis="strong"
-                  />
-                }
-                last={!purchase.notes}
-              />
-              {purchase.notes ? (
-                <DetailRow label="Notes" value={purchase.notes} last />
-              ) : null}
-            </SectionCard>
-            <FormError message={error.message} />
-            <SectionCard tone="danger">
-              <View style={{ gap: tokens.spacing.md }}>
-                <AppText role="headline" tone="danger">
-                  Delete purchase
-                </AppText>
-                <AppText role="subheadline" tone="subtle">
-                  This removes the purchase from your active list. You can undo
-                  the delete for 5 seconds.
-                </AppText>
-                <Button
-                  label="Delete purchase"
-                  variant="danger"
-                  onPress={() => setConfirmDelete(true)}
-                />
-              </View>
-            </SectionCard>
-          </View>
-        ) : null}
-
-        {activeSection === "receipt" ? (
-          <View style={{ gap: tokens.spacing.md }}>
-            <SectionHeading
-              title="Receipt"
-              detail={`${purchase.receipts.length} ${
-                purchase.receipts.length === 1 ? "file" : "files"
-              } attached`}
+          <SectionCard flush surface="grouped">
+            <CoverageRow
+              title="Return window"
+              state={returnWindow}
+              empty="No return deadline recorded"
+              icon="sync-outline"
             />
-            <SectionCard flush>
-              {purchase.receipts.length === 0 ? (
-                <ListItem
-                  title="No receipt attached"
-                  subtitle="Photograph or choose an image from your library."
-                  divider={false}
-                  leading={
-                    <IconTile icon="document-text-outline" tone="info" />
-                  }
-                  chevron
-                  onPress={() => openRoute("/purchase/[id]/receipts")}
-                />
-              ) : (
-                purchase.receipts
-                  .slice(0, 3)
-                  .map((receipt, index) => (
-                    <ListItem
-                      key={receipt.id}
-                      title={receiptTitle(receipt)}
-                      subtitle={receiptSize(receipt)}
-                      detail={`Added ${formatTimestamp(receipt.createdAt)}`}
-                      divider={
-                        index < Math.min(purchase.receipts.length, 3) - 1
-                      }
-                      leading={<IconTile icon="document-outline" tone="info" />}
-                    />
-                  ))
-              )}
-            </SectionCard>
-            <Button
-              label={
-                purchase.receipts.length ? "Manage receipts" : "Add receipt"
-              }
-              onPress={() => openRoute("/purchase/[id]/receipts")}
-            />
-          </View>
-        ) : null}
-
-        {activeSection === "warranty" ? (
-          <View style={{ gap: tokens.spacing.md }}>
-            <SectionHeading
+            <CoverageRow
               title="Warranty"
-              detail="Recorded return, warranty, and claim data."
+              state={warranty}
+              empty="No warranty expiry recorded"
+              icon="shield-checkmark-outline"
+              last={purchase.claims.length === 0}
             />
-            <View style={{ gap: tokens.spacing.md }}>
-              <CoverageCard
-                title="Return window"
-                state={returnWindow}
-                empty="No return deadline recorded"
-                icon="sync-outline"
+            {purchase.claims.length === 0 ? (
+              <ListItem
+                density="compact"
+                title="No claims opened"
+                subtitle="Start a return, refund, or warranty claim from this purchase."
+                leading={
+                  <IconTile icon="shield-checkmark-outline" tone="accent" />
+                }
+                divider={false}
+                chevron
+                onPress={() => openRoute("/purchase/[id]/claims")}
               />
-              <CoverageCard
-                title="Warranty"
-                state={warranty}
-                empty="No warranty expiry recorded"
-                icon="shield-checkmark-outline"
-              />
-            </View>
-            <SectionCard flush>
-              {purchase.claims.length === 0 ? (
+            ) : (
+              purchase.claims.slice(0, 3).map((claim, index) => (
                 <ListItem
-                  title="No claims opened"
-                  subtitle="Start a return, refund, or warranty claim from this purchase."
-                  leading={
-                    <IconTile icon="shield-checkmark-outline" tone="accent" />
+                  key={claim.id}
+                  density="compact"
+                  title={CLAIM_TYPE_LABEL[claim.type]}
+                  subtitle={`Opened ${formatTimestamp(claim.openedAt)}`}
+                  detail={
+                    claim.reference ? `Reference ${claim.reference}` : null
                   }
-                  divider={false}
+                  leading={
+                    <IconTile
+                      icon="shield-checkmark-outline"
+                      tone={claimTileTone(claim)}
+                    />
+                  }
+                  trailing={
+                    <StatusPill
+                      label={CLAIM_STATUS_LABEL[claim.status]}
+                      tone={statusTone(claim.status)}
+                      quiet
+                    />
+                  }
+                  divider={index < Math.min(purchase.claims.length, 3) - 1}
                   chevron
-                  onPress={() => openRoute("/purchase/[id]/claims")}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/claim/[id]",
+                      params: { id: claim.id },
+                    })
+                  }
                 />
-              ) : (
-                purchase.claims.slice(0, 3).map((claim, index) => (
+              ))
+            )}
+          </SectionCard>
+        </View>
+
+        <View style={{ gap: tokens.spacing.md }}>
+          <SectionHeading
+            title="Receipts"
+            detail={`${purchase.receipts.length} ${
+              purchase.receipts.length === 1 ? "file" : "files"
+            } attached`}
+          />
+          <SectionCard flush surface="grouped">
+            {purchase.receipts.length === 0 ? (
+              <ListItem
+                density="compact"
+                title="No receipt attached"
+                subtitle="Photograph or choose an image from your library."
+                divider={false}
+                leading={<IconTile icon="document-text-outline" tone="info" />}
+                chevron
+                onPress={() => openRoute("/purchase/[id]/receipts")}
+              />
+            ) : (
+              purchase.receipts
+                .slice(0, 3)
+                .map((receipt, index) => (
                   <ListItem
-                    key={claim.id}
-                    title={CLAIM_TYPE_LABEL[claim.type]}
-                    subtitle={`Opened ${formatTimestamp(claim.openedAt)}`}
-                    detail={
-                      claim.reference ? `Reference ${claim.reference}` : null
-                    }
-                    leading={
-                      <IconTile
-                        icon="shield-checkmark-outline"
-                        tone={claimTileTone(claim)}
-                      />
-                    }
-                    trailing={
-                      <StatusPill
-                        label={CLAIM_STATUS_LABEL[claim.status]}
-                        tone={statusTone(claim.status)}
-                      />
-                    }
-                    divider={index < Math.min(purchase.claims.length, 3) - 1}
-                    chevron
-                    onPress={() =>
-                      router.push({
-                        pathname: "/claim/[id]",
-                        params: { id: claim.id },
-                      })
-                    }
+                    key={receipt.id}
+                    density="compact"
+                    title={receiptTitle(receipt)}
+                    subtitle={receiptSize(receipt)}
+                    detail={`Added ${formatTimestamp(receipt.createdAt)}`}
+                    divider={index < Math.min(purchase.receipts.length, 3) - 1}
+                    leading={<IconTile icon="document-outline" tone="info" />}
                   />
                 ))
-              )}
-            </SectionCard>
-            <Button
-              label={purchase.claims.length ? "View claims" : "Start a claim"}
-              variant="secondary"
-              onPress={() => openRoute("/purchase/[id]/claims")}
-            />
-          </View>
-        ) : null}
+            )}
+          </SectionCard>
+          <Button
+            label={purchase.receipts.length ? "Manage receipts" : "Add receipt"}
+            onPress={() => openRoute("/purchase/[id]/receipts")}
+          />
+        </View>
 
-        {activeSection === "activity" ? (
-          <View style={{ gap: tokens.spacing.md }}>
-            <SectionHeading
-              title="Activity"
-              detail="Built from recorded purchase events."
-            />
-            <SectionCard flush>
-              {buildActivityEvents(purchase).map((event, index, events) => (
-                <ListItem
-                  key={event.id}
-                  title={event.title}
-                  subtitle={event.subtitle}
-                  detail={event.detail}
-                  leading={<IconTile icon={event.icon} tone={event.tone} />}
-                  divider={index < events.length - 1}
-                  chevron={
-                    event.id === "delivery" && Boolean(purchase.trackingNumber)
-                  }
-                  onPress={
-                    event.id === "delivery"
-                      ? () => openRoute("/purchase/[id]/track")
-                      : undefined
-                  }
-                />
-              ))}
-            </SectionCard>
+        <View style={{ gap: tokens.spacing.md }}>
+          <SectionHeading
+            title="Activity"
+            detail="Delivery and reminder history."
+          />
+          <SectionCard flush surface="grouped">
+            {buildActivityEvents(purchase).map((event, index, events) => (
+              <ListItem
+                key={event.id}
+                density="compact"
+                title={event.title}
+                subtitle={event.subtitle}
+                detail={event.detail}
+                leading={<IconTile icon={event.icon} tone={event.tone} />}
+                divider={index < events.length - 1}
+                chevron={
+                  event.id === "delivery" && Boolean(purchase.trackingNumber)
+                }
+                onPress={
+                  event.id === "delivery"
+                    ? () => openRoute("/purchase/[id]/track")
+                    : undefined
+                }
+              />
+            ))}
+          </SectionCard>
+          <Button
+            label="View delivery"
+            variant="secondary"
+            onPress={() => openRoute("/purchase/[id]/track")}
+          />
+        </View>
+
+        <FormError message={error.message} />
+
+        <SectionCard tone="danger" surface="grouped">
+          <View style={{ gap: tokens.spacing.sm }}>
+            <AppText role="subheadline" tone="danger" weight="700">
+              Delete purchase
+            </AppText>
+            <AppText role="caption" tone="subtle">
+              This removes the purchase from your active list. You can undo the
+              delete for 5 seconds.
+            </AppText>
             <Button
-              label="View delivery"
-              variant="secondary"
-              onPress={() => openRoute("/purchase/[id]/track")}
+              label="Delete purchase"
+              variant="danger"
+              onPress={() => setConfirmDelete(true)}
             />
           </View>
-        ) : null}
+        </SectionCard>
       </ScreenScroll>
 
       <Dialog
@@ -495,8 +446,9 @@ function DetailRow({
       style={[
         styles.detailRow,
         {
-          padding: tokens.spacing.lg,
-          gap: tokens.spacing.lg,
+          paddingHorizontal: tokens.spacing.md,
+          paddingVertical: tokens.spacing.md,
+          gap: tokens.spacing.md,
           borderBottomColor: tokens.colors.border,
           borderBottomWidth: last ? 0 : StyleSheet.hairlineWidth,
         },
@@ -516,69 +468,44 @@ function DetailRow({
   );
 }
 
-function CoverageSummary({
+function CoverageRow({
   title,
   state,
   empty,
   icon,
+  last = false,
 }: {
   title: string;
   state: ReturnType<typeof deadlineState>;
   empty: string;
   icon: ComponentProps<typeof IconTile>["icon"];
+  last?: boolean;
 }) {
+  const { tokens } = useTheme();
   const tone = deadlineTone(state);
   return (
-    <SectionCard style={styles.summaryCard}>
-      <View style={styles.summaryContent}>
-        <IconTile icon={icon} tone={deadlineIconTone(state)} />
-        <View style={styles.summaryText}>
-          <AppText role="caption" tone="subtle" weight="700">
-            {title}
-          </AppText>
-          <AppText role="subheadline" tone="strong" weight="700">
-            {state?.detail ?? empty}
-          </AppText>
-          {state ? (
-            <AppText role="caption" tone="muted">
-              {state.label}
-            </AppText>
-          ) : null}
-        </View>
+    <View
+      style={[
+        styles.coverageRow,
+        {
+          borderBottomColor: tokens.colors.border,
+          borderBottomWidth: last ? 0 : StyleSheet.hairlineWidth,
+          paddingHorizontal: tokens.spacing.md,
+          paddingVertical: tokens.spacing.md,
+        },
+      ]}
+    >
+      <IconTile icon={icon} tone={deadlineIconTone(state)} />
+      <View style={styles.coverageCopy}>
+        <AppText role="subheadline" tone="strong" weight="700">
+          {title}
+        </AppText>
+        <AppText role="caption" tone="subtle">
+          {state?.label ?? empty}
+        </AppText>
       </View>
-    </SectionCard>
-  );
-}
-
-function CoverageCard({
-  title,
-  state,
-  empty,
-  icon,
-}: {
-  title: string;
-  state: ReturnType<typeof deadlineState>;
-  empty: string;
-  icon: ComponentProps<typeof IconTile>["icon"];
-}) {
-  const tone = deadlineTone(state);
-  return (
-    <SectionCard>
-      <View style={[styles.coverageCard, { gap: 12 }]}>
-        <View style={styles.coverageTop}>
-          <IconTile icon={icon} tone={deadlineIconTone(state)} />
-          <View style={styles.coverageCopy}>
-            <AppText role="headline" tone="strong">
-              {title}
-            </AppText>
-            <AppText role="subheadline" tone="subtle">
-              {state?.label ?? empty}
-            </AppText>
-          </View>
-          <StatusPill label={state?.detail ?? "Not set"} tone={tone} />
-        </View>
-      </View>
-    </SectionCard>
+      <StatusPill label={state?.detail ?? "Not set"} tone={tone} quiet />
+    </View>
   );
 }
 
@@ -740,23 +667,17 @@ function deliveryTileTone(
 const styles = StyleSheet.create({
   hero: { flexDirection: "row", alignItems: "center" },
   heroCopy: { flex: 1, gap: 3 },
-  summaryGrid: {
+  summaryMetaRow: {
     flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     gap: 12,
   },
-  summaryCard: {
-    flex: 1,
-  },
-  summaryContent: {
-    gap: 12,
-  },
-  summaryText: {
+  nextDeadlineRow: {
+    borderTopWidth: StyleSheet.hairlineWidth,
     gap: 2,
   },
-  coverageCard: {
-    width: "100%",
-  },
-  coverageTop: {
+  coverageRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,

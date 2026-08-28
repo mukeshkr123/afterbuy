@@ -4,9 +4,14 @@ import { useTheme } from "../theme/ThemeProvider";
 export interface StatusPillProps {
   label: string;
   tone?: "neutral" | "success" | "warning" | "danger" | "accent";
+  quiet?: boolean | undefined;
 }
 
-export function StatusPill({ label, tone = "neutral" }: StatusPillProps) {
+export function StatusPill({
+  label,
+  tone = "neutral",
+  quiet = false,
+}: StatusPillProps) {
   const { tokens } = useTheme();
   const backgroundColor =
     tone === "success"
@@ -38,16 +43,20 @@ export function StatusPill({ label, tone = "neutral" }: StatusPillProps) {
         {
           backgroundColor,
           borderRadius: tokens.radius.pill,
-          paddingHorizontal: tokens.spacing.md,
-          paddingVertical: tokens.spacing.xs,
+          paddingHorizontal: quiet ? tokens.spacing.sm + 2 : tokens.spacing.md,
+          paddingVertical: quiet ? 2 : tokens.spacing.xs,
         },
       ]}
     >
       <Text
         style={{
           color,
-          fontSize: tokens.type.caption.fontSize,
-          lineHeight: tokens.type.caption.lineHeight,
+          fontSize: quiet
+            ? tokens.type.caption.fontSize
+            : tokens.type.caption.fontSize,
+          lineHeight: quiet
+            ? tokens.type.caption.lineHeight
+            : tokens.type.caption.lineHeight,
           fontWeight: "700",
         }}
       >

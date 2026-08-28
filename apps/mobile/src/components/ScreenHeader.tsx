@@ -72,7 +72,7 @@ export function ScreenHeader({
           styles.title,
           {
             color: tokens.colors.text,
-            fontSize: tokens.type.headline.fontSize + 1,
+            fontSize: tokens.type.headline.fontSize,
           },
         ]}
       >
@@ -102,7 +102,7 @@ export function ScreenHeader({
                     : action.tone === "danger"
                       ? tokens.colors.danger
                       : tokens.colors.text,
-                fontSize: tokens.type.bodySmall.fontSize + 1,
+                fontSize: tokens.type.bodySmall.fontSize,
                 fontWeight: "600",
               }}
             >
@@ -121,7 +121,7 @@ export function ScreenHeader({
 
 const styles = StyleSheet.create({
   row: {
-    minHeight: 48,
+    minHeight: 44,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -137,7 +137,7 @@ const styles = StyleSheet.create({
   title: {
     flex: 1,
     textAlign: "center",
-    fontWeight: "700",
-    letterSpacing: -0.3,
+    fontWeight: "600",
+    letterSpacing: -0.2,
   },
 });

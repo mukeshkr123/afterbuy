@@ -129,9 +129,10 @@ export default function NewPurchaseScreen() {
       </View>
 
       <ScreenScroll
+        density="compact"
         gap={tokens.spacing.lg}
         safeTop={false}
-        contentStyle={{ paddingTop: tokens.spacing.lg }}
+        contentStyle={{ paddingTop: tokens.spacing.md }}
       >
         <View style={{ gap: tokens.spacing.sm }}>
           <SectionHeading title="Receipt" detail="Optional" />
@@ -145,7 +146,7 @@ export default function NewPurchaseScreen() {
                   backgroundColor: tokens.colors.surface,
                   borderColor: tokens.colors.border,
                   borderRadius: tokens.radius.lg,
-                  padding: tokens.spacing.md,
+                  padding: tokens.spacing.sm + 2,
                 },
               ]}
             >
@@ -211,13 +212,13 @@ export default function NewPurchaseScreen() {
                   backgroundColor: tokens.colors.surface,
                   borderColor: tokens.colors.border,
                   borderRadius: tokens.radius.lg,
-                  padding: tokens.spacing.md,
-                  gap: tokens.spacing.md,
+                  padding: tokens.spacing.sm + 2,
+                  gap: tokens.spacing.sm + 2,
                 },
               ]}
             >
               <View style={{ flex: 1, gap: 2 }}>
-                <AppText role="headline" weight="800">
+                <AppText role="subheadline" weight="700">
                   Add a receipt
                 </AppText>
                 <AppText role="caption" tone="subtle">

@@ -7,6 +7,7 @@ export interface InputProps {
   label: string;
   value: string;
   onChangeText: (next: string) => void;
+  density?: "default" | "compact" | undefined;
   placeholder?: string | undefined;
   secureTextEntry?: boolean | undefined;
   autoCapitalize?: "none" | "sentences" | "words" | "characters" | undefined;
@@ -32,6 +33,7 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
     label,
     value,
     onChangeText,
+    density = "default",
     placeholder,
     secureTextEntry,
     autoCapitalize = "sentences",
@@ -52,9 +54,14 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
 ) {
   const { tokens } = useTheme();
   const [focused, setFocused] = useState(false);
+  const compact = density === "compact";
   const minHeight = multiline
-    ? Math.max(56, (numberOfLines ?? 3) * 22 + 16)
-    : Platform.select({ ios: 52, android: 54, default: 52 });
+    ? Math.max(56, (numberOfLines ?? 3) * 20 + (compact ? 14 : 16))
+    : Platform.select({
+        ios: compact ? 48 : 52,
+        android: compact ? 50 : 54,
+        default: compact ? 48 : 52,
+      });
 
   const borderColor = error
     ? tokens.colors.danger
@@ -68,7 +75,7 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
         <Text
           style={{
             color: tokens.colors.text,
-            fontSize: tokens.type.bodySmall.fontSize,
+            fontSize: tokens.type.caption.fontSize + 1,
             fontWeight: "600",
           }}
         >
@@ -105,8 +112,12 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
               borderColor,
               backgroundColor: tokens.colors.surface,
               borderRadius: tokens.radius.lg,
-              paddingLeft: tokens.spacing.lg,
-              paddingRight: adornment ? 48 : tokens.spacing.lg,
+              paddingLeft: compact ? tokens.spacing.md : tokens.spacing.lg,
+              paddingRight: adornment
+                ? 48
+                : compact
+                  ? tokens.spacing.md
+                  : tokens.spacing.lg,
               fontSize: tokens.type.body.fontSize,
               minHeight,
               textAlignVertical: multiline ? "top" : "auto",

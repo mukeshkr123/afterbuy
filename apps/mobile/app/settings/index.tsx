@@ -41,17 +41,19 @@ export default function SettingsScreen() {
       </View>
 
       <ScreenScroll
+        density="compact"
         gap={tokens.spacing.lg}
         safeTop={false}
         contentStyle={{
-          paddingTop: tokens.spacing.lg,
-          paddingBottom: Math.max(insets.bottom + 24, 32),
+          paddingTop: tokens.spacing.md,
+          paddingBottom: Math.max(insets.bottom + 20, 28),
         }}
       >
         <View style={{ gap: tokens.spacing.md - 2 }}>
           <SectionLabel>Preferences</SectionLabel>
-          <SectionCard flush>
+          <SectionCard flush surface="grouped">
             <ListItem
+              density="compact"
               title="Appearance"
               subtitle="Theme, colors, and display"
               leading={<IconTile icon="color-palette-outline" tone="neutral" />}
@@ -59,6 +61,7 @@ export default function SettingsScreen() {
               onPress={() => router.push("/settings/appearance")}
             />
             <ListItem
+              density="compact"
               title="Reminder Timing"
               subtitle="How far ahead we warn you"
               leading={<IconTile icon="time-outline" tone="neutral" />}
@@ -66,6 +69,7 @@ export default function SettingsScreen() {
               onPress={() => router.push("/settings/lead-days")}
             />
             <ListItem
+              density="compact"
               title="Time Zone"
               subtitle="When daily reminders are sent"
               divider={false}
@@ -78,13 +82,15 @@ export default function SettingsScreen() {
 
         <View style={{ gap: tokens.spacing.md - 2 }}>
           <SectionLabel>Account</SectionLabel>
-          <SectionCard flush>
+          <SectionCard flush surface="grouped">
             <ListItem
+              density="compact"
               title="Email"
               subtitle={email}
               leading={<IconTile icon="mail-outline" tone="neutral" />}
             />
             <ListItem
+              density="compact"
               title="Delete Account"
               subtitle="Permanently remove your data"
               divider={false}
@@ -97,8 +103,9 @@ export default function SettingsScreen() {
 
         <View style={{ gap: tokens.spacing.md - 2 }}>
           <SectionLabel>App</SectionLabel>
-          <SectionCard flush>
+          <SectionCard flush surface="grouped">
             <ListItem
+              density="compact"
               title="App Permissions"
               subtitle="Notifications, camera and photos"
               leading={<IconTile icon="lock-closed-outline" tone="neutral" />}
@@ -106,6 +113,7 @@ export default function SettingsScreen() {
               onPress={() => router.push("/settings/permissions")}
             />
             <ListItem
+              density="compact"
               title="Help & Support"
               subtitle="Get help or send feedback"
               divider={false}

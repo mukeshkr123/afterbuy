@@ -208,7 +208,7 @@ export default function PurchasesScreen() {
             width: "100%",
             maxWidth: contentWidth,
             alignSelf: "center",
-            paddingBottom: Math.max(insets.bottom + 88, 112),
+            paddingBottom: Math.max(insets.bottom + 84, 104),
           }}
           refreshControl={
             <RefreshControl
@@ -228,10 +228,10 @@ export default function PurchasesScreen() {
             <View
               style={{
                 backgroundColor: tokens.colors.canvas,
-                paddingTop: Math.max(insets.top + tokens.spacing.md, 24),
-                paddingHorizontal: tokens.spacing.xl - 4,
-                paddingBottom: tokens.spacing.md,
-                gap: tokens.spacing.md,
+                paddingTop: Math.max(insets.top + tokens.spacing.sm, 20),
+                paddingHorizontal: tokens.spacing.lg,
+                paddingBottom: tokens.spacing.sm,
+                gap: tokens.spacing.sm,
               }}
             >
               <View style={styles.titleRow}>
@@ -276,7 +276,7 @@ export default function PurchasesScreen() {
                         ? tokens.colors.focus
                         : tokens.colors.border,
                       borderRadius: tokens.radius.lg,
-                      paddingHorizontal: tokens.spacing.md,
+                      paddingHorizontal: tokens.spacing.sm + 2,
                       gap: tokens.spacing.sm,
                     },
                   ]}
@@ -345,10 +345,7 @@ export default function PurchasesScreen() {
                           activeFilters > 0
                             ? tokens.colors.accentSoft
                             : tokens.colors.surface,
-                        borderColor:
-                          activeFilters > 0
-                            ? tokens.colors.primary
-                            : tokens.colors.border,
+                        borderColor: tokens.colors.border,
                         borderRadius: tokens.radius.lg,
                         opacity: pressed ? 0.82 : 1,
                         transform: [
@@ -409,12 +406,12 @@ export default function PurchasesScreen() {
                     {
                       backgroundColor: tokens.colors.surface,
                       borderColor: tokens.colors.border,
-                      borderRadius: tokens.radius.md,
+                      borderRadius: tokens.radius.lg,
                       opacity: pressed ? 0.75 : 1,
                     },
                   ]}
                 >
-                  <AppText role="caption" tone="subtle" weight="700">
+                  <AppText role="caption" tone="subtle" weight="600">
                     {sortLabel}
                   </AppText>
                 </Pressable>
@@ -687,18 +684,22 @@ function PurchaseRowCard({
         {
           backgroundColor: tokens.colors.surface,
           borderColor: tokens.colors.border,
-          borderRadius: tokens.radius.xl,
-          marginHorizontal: tokens.spacing.xl - 4,
-          marginBottom: tokens.spacing.sm,
+          borderRadius: tokens.radius.lg,
+          marginHorizontal: tokens.spacing.lg,
+          marginBottom: tokens.spacing.xs,
           opacity: pressed ? 0.88 : 1,
           transform: [{ scale: pressed && !reducedMotion ? 0.99 : 1 }],
         },
       ]}
     >
-      <CategoryArtwork category={purchase.category} size="md" />
+      <CategoryArtwork category={purchase.category} size="sm" />
       <View style={styles.cardBody}>
         <View style={styles.cardTopLine}>
-          <AppText role="headline" numberOfLines={1} style={styles.cardTitle}>
+          <AppText
+            role="subheadline"
+            numberOfLines={1}
+            style={styles.cardTitle}
+          >
             {purchase.title}
           </AppText>
           {purchase.amountMinor != null && purchase.amountMinor > 0 ? (
@@ -706,7 +707,7 @@ function PurchaseRowCard({
               amountMinor={purchase.amountMinor}
               currency={purchase.currency}
               emphasis="strong"
-              style={{ fontSize: tokens.type.subheadline.fontSize }}
+              style={{ fontSize: tokens.type.bodySmall.fontSize }}
             />
           ) : null}
         </View>
@@ -728,7 +729,7 @@ function PurchaseRowCard({
             </>
           ) : null}
         </View>
-        <StatusPill label={badge.label} tone={badge.tone} />
+        <StatusPill label={badge.label} tone={badge.tone} quiet />
       </View>
     </Pressable>
   );
@@ -746,12 +747,12 @@ function PurchaseSkeletonList({ count }: { count: number }) {
             {
               backgroundColor: tokens.colors.surface,
               borderColor: tokens.colors.border,
-              borderRadius: tokens.radius.xl,
+              borderRadius: tokens.radius.lg,
               gap: tokens.spacing.md,
             },
           ]}
         >
-          <Skeleton width={52} height={52} style={{ borderRadius: 14 }} />
+          <Skeleton width={40} height={40} style={{ borderRadius: 12 }} />
           <View style={{ flex: 1, gap: tokens.spacing.sm }}>
             <Skeleton width="72%" height={18} />
             <Skeleton width="48%" height={14} />
@@ -768,7 +769,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 16,
+    gap: 12,
   },
   titleCopy: {
     flex: 1,
@@ -776,9 +777,9 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   addButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -788,16 +789,16 @@ const styles = StyleSheet.create({
   },
   searchBox: {
     flex: 1,
-    height: 48,
+    height: 46,
     borderWidth: 1,
     flexDirection: "row",
     alignItems: "center",
   },
   filterButton: {
-    minWidth: 48,
-    height: 48,
+    minWidth: 44,
+    height: 44,
     borderWidth: 1,
-    paddingHorizontal: 13,
+    paddingHorizontal: 11,
     flexDirection: "row",
     gap: 4,
     alignItems: "center",
@@ -810,45 +811,45 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   chipsRow: {
-    paddingRight: 20,
+    paddingRight: 16,
   },
   chip: {
-    minHeight: 36,
+    minHeight: 44,
     borderWidth: 1,
-    paddingHorizontal: 14,
+    paddingHorizontal: 13,
     alignItems: "center",
     justifyContent: "center",
   },
   resultsRow: {
-    minHeight: 36,
+    minHeight: 32,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 12,
   },
   sortButton: {
-    minHeight: 36,
+    minHeight: 44,
     borderWidth: 1,
     paddingHorizontal: 12,
     alignItems: "center",
     justifyContent: "center",
   },
   emptyWrap: {
-    paddingHorizontal: 20,
-    paddingTop: 32,
-    paddingBottom: 32,
+    paddingHorizontal: 16,
+    paddingTop: 24,
+    paddingBottom: 24,
   },
   card: {
     borderWidth: 1,
-    padding: 12,
+    padding: 10,
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 10,
   },
   cardBody: {
     flex: 1,
     minWidth: 0,
-    gap: 7,
+    gap: 5,
   },
   cardTopLine: {
     flexDirection: "row",
@@ -861,7 +862,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   metaRow: {
-    minHeight: 18,
+    minHeight: 16,
     flexDirection: "row",
     alignItems: "center",
     gap: 7,
@@ -885,7 +886,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   optionRow: {
-    minHeight: 54,
+    minHeight: 48,
     borderWidth: 1,
     paddingHorizontal: 14,
     flexDirection: "row",
@@ -894,7 +895,7 @@ const styles = StyleSheet.create({
   },
   skeletonCard: {
     borderWidth: 1,
-    padding: 12,
+    padding: 10,
     flexDirection: "row",
     alignItems: "center",
   },

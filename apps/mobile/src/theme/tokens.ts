@@ -139,9 +139,9 @@ export interface Tokens {
   };
 }
 
-const SPACING = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 } as const;
+const SPACING = { xs: 4, sm: 8, md: 12, lg: 14, xl: 20, xxl: 28 } as const;
 
-const RADIUS = { sm: 6, md: 10, lg: 14, xl: 16, pill: 999 } as const;
+const RADIUS = { sm: 6, md: 8, lg: 12, xl: 14, pill: 999 } as const;
 
 // Light-mode elevation. Dark mode overrides these to `{}` — on a dark canvas a
 // black shadow reads as smudge, and the border does the separating instead.
@@ -167,15 +167,15 @@ const NO_SHADOW = { card: {}, raised: {}, none: {} } as const;
 
 const TYPE = {
   largeTitle: { fontSize: 34, lineHeight: 42 },
-  screenTitle: { fontSize: 28, lineHeight: 35 },
-  title: { fontSize: 22, lineHeight: 30 },
+  screenTitle: { fontSize: 26, lineHeight: 32 },
+  title: { fontSize: 20, lineHeight: 26 },
   sectionTitle: { fontSize: 18, lineHeight: 24 },
   headline: { fontSize: 17, lineHeight: 24 },
-  body: { fontSize: 17, lineHeight: 25 },
-  subheadline: { fontSize: 15, lineHeight: 22 },
+  body: { fontSize: 16, lineHeight: 23 },
+  subheadline: { fontSize: 14, lineHeight: 20 },
   label: { fontSize: 14, lineHeight: 20 },
-  caption: { fontSize: 13, lineHeight: 18 },
-  bodySmall: { fontSize: 15, lineHeight: 22 },
+  caption: { fontSize: 12, lineHeight: 16 },
+  bodySmall: { fontSize: 14, lineHeight: 20 },
   display: { fontSize: 34, lineHeight: 42 },
 } as const;
 

@@ -13,6 +13,7 @@ export interface ScreenScrollProps {
   children: ReactNode;
   /** Vertical rhythm between direct children. Defaults to `spacing.xl`. */
   gap?: number | undefined;
+  density?: "default" | "compact" | undefined;
   refreshing?: boolean | undefined;
   onRefresh?: (() => void) | undefined;
   /** Drop the horizontal gutter for full-bleed content. */
@@ -30,6 +31,7 @@ export interface ScreenScrollProps {
 export function ScreenScroll({
   children,
   gap,
+  density = "default",
   refreshing,
   onRefresh,
   flush = false,
@@ -40,6 +42,18 @@ export function ScreenScroll({
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const maxWidth = width >= 1024 ? 880 : width >= 768 ? 720 : undefined;
+  const compactPhone = density === "compact" || width < 390;
+  const horizontalPadding = flush
+    ? 0
+    : width >= 768
+      ? tokens.spacing.xl
+      : compactPhone
+        ? tokens.spacing.lg
+        : tokens.spacing.xl - 2;
+  const topPadding = compactPhone ? tokens.spacing.sm : tokens.spacing.md;
+  const bottomPadding = compactPhone ? tokens.spacing.xl : tokens.spacing.xxl;
+  const contentGap =
+    gap ?? (compactPhone ? tokens.spacing.lg : tokens.spacing.xl);
 
   return (
     <ScrollView
@@ -49,16 +63,16 @@ export function ScreenScroll({
           width: "100%",
           maxWidth,
           alignSelf: "center",
-          paddingHorizontal: flush ? 0 : tokens.spacing.xl - 4,
+          paddingHorizontal: horizontalPadding,
           paddingTop: Math.max(
-            (safeTop ? insets.top : 0) + tokens.spacing.md,
-            tokens.spacing.xl
+            (safeTop ? insets.top : 0) + topPadding,
+            compactPhone ? tokens.spacing.lg : tokens.spacing.xl
           ),
           paddingBottom: Math.max(
             insets.bottom + tokens.spacing.xl,
-            tokens.spacing.xxl
+            bottomPadding
           ),
-          gap: gap ?? tokens.spacing.xl,
+          gap: contentGap,
         },
         contentStyle,
       ]}

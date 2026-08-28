@@ -151,10 +151,10 @@ export default function RemindersScreen() {
           width: "100%",
           maxWidth: contentWidth,
           alignSelf: "center",
-          paddingHorizontal: tokens.spacing.xl - 4,
-          paddingTop: Math.max(insets.top + tokens.spacing.md, 24),
-          paddingBottom: Math.max(insets.bottom + 112, 132),
-          gap: tokens.spacing.xl,
+          paddingHorizontal: tokens.spacing.lg,
+          paddingTop: Math.max(insets.top + tokens.spacing.sm, 20),
+          paddingBottom: Math.max(insets.bottom + 104, 120),
+          gap: tokens.spacing.lg,
         }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
@@ -167,7 +167,7 @@ export default function RemindersScreen() {
           />
         }
       >
-        <View style={{ gap: tokens.spacing.lg + 2 }}>
+        <View style={{ gap: tokens.spacing.md }}>
           <ScreenTitle
             title="Reminders"
             subtitle="Upcoming deadlines first, closed activity second."
@@ -218,9 +218,9 @@ export default function RemindersScreen() {
           />
         ) : (
           sections.map((section) => (
-            <View key={section.title} style={{ gap: tokens.spacing.md }}>
+            <View key={section.title} style={{ gap: tokens.spacing.sm }}>
               <SectionHeading title={section.title} detail={section.detail} />
-              <SectionCard flush>
+              <SectionCard flush surface="grouped">
                 {section.items.map((item, index) => (
                   <ReminderRow
                     key={item.id}
@@ -315,6 +315,7 @@ function ReminderRow({
       }}
     >
       <ListItem
+        density="compact"
         title={title ?? kind.title}
         subtitle={scope === "upcoming" ? kind.title : `${kind.title} reminder`}
         detail={
@@ -349,6 +350,7 @@ function ReminderRow({
                   : "neutral"
                 : history.tone
             }
+            quiet
           />
         }
         chevron
@@ -395,10 +397,10 @@ const styles = StyleSheet.create({
   },
   floatingAdd: {
     position: "absolute",
-    minHeight: 56,
+    minHeight: 52,
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    paddingHorizontal: 18,
+    paddingHorizontal: 16,
   },
 });

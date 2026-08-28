@@ -6,7 +6,6 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   AppText,
-  Button,
   Dialog,
   IconTile,
   ListItem,
@@ -103,10 +102,11 @@ export default function ProfileScreen() {
   return (
     <>
       <ScreenScroll
-        gap={tokens.spacing.lg + 2}
+        density="compact"
+        gap={tokens.spacing.lg}
         contentStyle={{
-          paddingTop: Math.max(insets.top + tokens.spacing.md, 24),
-          paddingBottom: Math.max(insets.bottom + 88, 112),
+          paddingTop: Math.max(insets.top + tokens.spacing.sm, 20),
+          paddingBottom: Math.max(insets.bottom + 80, 100),
         }}
       >
         <View style={styles.accountTitleRow}>
@@ -131,7 +131,7 @@ export default function ProfileScreen() {
           </Pressable>
         </View>
 
-        <View style={[styles.userHeaderRow, { gap: tokens.spacing.md + 2 }]}>
+        <View style={[styles.userHeaderRow, { gap: tokens.spacing.md }]}>
           <View
             accessibilityElementsHidden
             importantForAccessibility="no-hide-descendants"
@@ -163,24 +163,21 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        <SectionCard>
-          <View style={styles.memberRow}>
-            <View style={{ gap: 3, flex: 1 }}>
-              <AppText role="caption" tone="subtle" weight="700">
-                Member since
-              </AppText>
-              <AppText role="subheadline" tone="strong" weight="700">
-                {memberSince}
-              </AppText>
-            </View>
-            <IconTile icon="calendar-outline" tone="accent" />
-          </View>
+        <SectionCard flush surface="grouped">
+          <ListItem
+            density="compact"
+            title="Membership"
+            subtitle={memberSince}
+            divider={false}
+            leading={<IconTile icon="calendar-outline" tone="neutral" />}
+          />
         </SectionCard>
 
-        <SectionCard flush>
+        <SectionCard flush surface="grouped">
           {QUICK_MENU.map((item, idx) => (
             <ListItem
               key={item.id}
+              density="compact"
               title={item.title}
               subtitle={item.subtitle}
               divider={idx < QUICK_MENU.length - 1}
@@ -191,10 +188,11 @@ export default function ProfileScreen() {
           ))}
         </SectionCard>
 
-        <SectionCard flush>
+        <SectionCard flush surface="grouped">
           {MENU.map((item, idx) => (
             <ListItem
               key={item.id}
+              density="compact"
               title={item.title}
               subtitle={item.subtitle}
               divider={idx < MENU.length - 1}
@@ -205,7 +203,7 @@ export default function ProfileScreen() {
           ))}
         </SectionCard>
 
-        <View style={{ marginTop: 6, gap: 16 }}>
+        <View style={{ marginTop: 4, gap: tokens.spacing.sm }}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Sign out"
@@ -295,15 +293,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 4,
   },
-  memberRow: {
-    minHeight: 54,
-    flexDirection: "row",
-    alignItems: "center",
-  },
   avatarCircle: {
-    width: 62,
-    height: 62,
-    borderRadius: 31,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -317,7 +310,7 @@ const styles = StyleSheet.create({
   },
   signOutButton: {
     width: "100%",
-    height: 50,
+    height: 48,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",

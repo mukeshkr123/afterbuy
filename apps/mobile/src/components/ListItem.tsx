@@ -8,6 +8,7 @@ export interface ListItemProps {
   subtitle?: string | null | undefined;
   /** Third line, dimmer than `subtitle` — deadlines, counts, timestamps. */
   detail?: string | null | undefined;
+  density?: "default" | "compact" | undefined;
   /** Leading slot, typically an <IconTile>. */
   leading?: ReactNode;
   trailing?: ReactNode;
@@ -22,6 +23,7 @@ export function ListItem({
   title,
   subtitle,
   detail,
+  density = "default",
   leading,
   trailing,
   chevron = false,
@@ -29,6 +31,7 @@ export function ListItem({
   onPress,
 }: ListItemProps) {
   const { tokens } = useTheme();
+  const compact = density === "compact";
   return (
     <Pressable
       onPress={onPress}
@@ -37,9 +40,9 @@ export function ListItem({
       style={({ pressed }) => [
         styles.row,
         {
-          gap: tokens.spacing.md,
-          paddingHorizontal: tokens.spacing.lg,
-          paddingVertical: tokens.spacing.md,
+          gap: compact ? tokens.spacing.sm + 2 : tokens.spacing.md,
+          paddingHorizontal: compact ? tokens.spacing.md : tokens.spacing.lg,
+          paddingVertical: compact ? tokens.spacing.sm + 2 : tokens.spacing.md,
           borderBottomWidth: divider ? StyleSheet.hairlineWidth : 0,
           borderBottomColor: tokens.colors.border,
           opacity: pressed && onPress ? 0.85 : 1,
@@ -47,11 +50,13 @@ export function ListItem({
       ]}
     >
       {leading}
-      <View style={[styles.body, { gap: 2 }]}>
+      <View style={[styles.body, { gap: compact ? 1 : 2 }]}>
         <Text
           style={{
             color: tokens.colors.text,
-            fontSize: tokens.type.body.fontSize,
+            fontSize: compact
+              ? tokens.type.subheadline.fontSize + 1
+              : tokens.type.body.fontSize,
             fontWeight: "600",
           }}
         >
@@ -71,7 +76,7 @@ export function ListItem({
           <Text
             style={{
               color: tokens.colors.textMuted,
-              fontSize: tokens.type.bodySmall.fontSize,
+              fontSize: tokens.type.caption.fontSize + 1,
             }}
           >
             {detail}
@@ -97,7 +102,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     minHeight: 56,
-    ...(Platform.OS === "android" ? { minHeight: 64 } : null),
+    ...(Platform.OS === "android" ? { minHeight: 60 } : null),
   },
   body: { flex: 1, justifyContent: "center" },
 });
