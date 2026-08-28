@@ -2,21 +2,23 @@ import { useQuery } from "@tanstack/react-query";
 import { useRouter, type Href } from "expo-router";
 import React, { useMemo } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
+import type { Claim, PurchaseListResponse, Reminder } from "@acme/shared";
 import {
   AppIcon,
   AppText,
   Button,
   CategoryArtwork,
-  IconTile,
   ListItem,
   Money,
   ScreenScroll,
   ScreenTitle,
+  SectionCard,
   SectionHeading,
   Skeleton,
   StatusPill,
   useAdaptiveLayout,
 } from "@/components";
+import { OnboardingHubIllustration } from "@/components/onboarding/OnboardingHubIllustration";
 import { useApi } from "@/api/ApiProvider";
 import { apiKeys } from "@/api/apiKeys";
 import { getMe } from "@/api/auth";
@@ -32,94 +34,36 @@ import {
 } from "@/lib/purchaseDisplay";
 import { REMINDER_KIND, reminderDetailHref } from "@/lib/reminders";
 import { useTheme } from "@/theme/ThemeProvider";
-import { OnboardingHubIllustration } from "@/components/onboarding/OnboardingHubIllustration";
-import type { Claim, PurchaseListResponse, Reminder } from "@acme/shared";
 
-type TileTone = "accent" | "success" | "warning" | "info" | "neutral";
-
-type SummaryTileData = {
-  title: string;
-  value: string;
-  detail: string;
-  icon: React.ComponentProps<typeof IconTile>["icon"];
-  tone: TileTone;
-  onPress: () => void;
-};
-
-type AttentionCardData =
+type FeaturedState =
   | {
-      kind: "reminder";
+      kind: "return" | "warranty";
       title: string;
       body: string;
       detail: string;
-      icon: React.ComponentProps<typeof IconTile>["icon"];
-      tone: TileTone;
+      statusLabel: string;
+      statusTone: React.ComponentProps<typeof StatusPill>["tone"];
       actionLabel: string;
       onPress: () => void;
-      statusLabel?: string;
-      statusTone?: React.ComponentProps<typeof StatusPill>["tone"];
     }
   | {
       kind: "claims";
       title: string;
       body: string;
       detail: string;
-      icon: React.ComponentProps<typeof IconTile>["icon"];
-      tone: TileTone;
+      statusLabel: string;
+      statusTone: React.ComponentProps<typeof StatusPill>["tone"];
       actionLabel: string;
       onPress: () => void;
-      statusLabel?: string;
-      statusTone?: React.ComponentProps<typeof StatusPill>["tone"];
     }
   | {
       kind: "clear";
       title: string;
       body: string;
       detail: string;
-      icon: React.ComponentProps<typeof IconTile>["icon"];
-      tone: TileTone;
       actionLabel: string;
       onPress: () => void;
     };
-
-type QuerySectionState = {
-  loading: boolean;
-  failed: boolean;
-};
-
-const INACTIVE_CLAIM_STATUSES = new Set(["completed", "cancelled", "rejected"]);
-
-const STARTER_CHECKLIST = [
-  "Add a purchase to save the item, merchant, and date.",
-  "Scan a receipt to keep proof ready for returns or claims.",
-  "Open reminders when you want to review upcoming deadlines.",
-] as const;
-
-const QUICK_ACTIONS = [
-  {
-    label: "Add purchase",
-    icon: "add" as const,
-    href: "/purchase/new" as Href,
-  },
-  {
-    label: "Scan receipt",
-    icon: "camera" as const,
-    href: {
-      pathname: "/purchase/new",
-      params: { capture: "camera" },
-    } as Href,
-  },
-  {
-    label: "View claims",
-    icon: "claims" as const,
-    href: "/claims" as Href,
-  },
-  {
-    label: "View reminders",
-    icon: "reminders" as const,
-    href: "/(tabs)/reminders" as Href,
-  },
-] as const;
 
 function titleCaseName(email: string | null | undefined) {
   const raw = email
@@ -135,16 +79,15 @@ function titleCaseName(email: string | null | undefined) {
 }
 
 function isActiveClaim(claim: Claim) {
-  return !INACTIVE_CLAIM_STATUSES.has(claim.status);
+  return (
+    claim.status === "draft" ||
+    claim.status === "submitted" ||
+    claim.status === "in_progress"
+  );
 }
 
-function formatReminderDetail(reminder: Reminder) {
-  const state = deadlineState(
-    reminder.fireOn,
-    REMINDER_KIND[reminder.kind].prefix
-  );
-  if (!state) return "Upcoming";
-  return state.expired ? state.detail : `${state.detail} · ${state.label}`;
+function reminderUrgency(reminder: Reminder) {
+  return deadlineState(reminder.fireOn, REMINDER_KIND[reminder.kind].prefix);
 }
 
 function sectionFailureMessage(online: boolean, label: string) {
@@ -179,22 +122,19 @@ export default function HomeScreen() {
   const reminderItems = reminders.data?.items ?? [];
   const claimItems = claims.data?.items ?? [];
 
-  const purchaseTitle = useMemo(
+  const purchaseTitles = useMemo(
     () => new Map(purchases.map((purchase) => [purchase.id, purchase.title])),
     [purchases]
   );
-
   const welcomeName = titleCaseName(me.data?.email);
+
   const urgentReturn = useMemo(
     () =>
       [...reminderItems]
         .filter((item) => item.kind === "return_deadline")
         .sort((a, b) => a.fireOn.localeCompare(b.fireOn))
         .find((item) => {
-          const state = deadlineState(
-            item.fireOn,
-            REMINDER_KIND[item.kind].prefix
-          );
+          const state = reminderUrgency(item);
           return Boolean(state?.urgent || state?.expired);
         }) ?? null,
     [reminderItems]
@@ -205,26 +145,9 @@ export default function HomeScreen() {
         .filter((item) => item.kind === "warranty_expiry")
         .sort((a, b) => a.fireOn.localeCompare(b.fireOn))
         .find((item) => {
-          const state = deadlineState(
-            item.fireOn,
-            REMINDER_KIND[item.kind].prefix
-          );
+          const state = reminderUrgency(item);
           return Boolean(state?.urgent || state?.expired);
         }) ?? null,
-    [reminderItems]
-  );
-  const nextReturn = useMemo(
-    () =>
-      [...reminderItems]
-        .filter((item) => item.kind === "return_deadline")
-        .sort((a, b) => a.fireOn.localeCompare(b.fireOn))[0] ?? null,
-    [reminderItems]
-  );
-  const nextWarranty = useMemo(
-    () =>
-      [...reminderItems]
-        .filter((item) => item.kind === "warranty_expiry")
-        .sort((a, b) => a.fireOn.localeCompare(b.fireOn))[0] ?? null,
     [reminderItems]
   );
   const activeClaims = useMemo(
@@ -232,151 +155,36 @@ export default function HomeScreen() {
     [claimItems]
   );
 
-  const activeClaimSummary = useMemo(() => {
-    if (activeClaims.length === 0) {
-      return { value: "All clear", detail: "No active claims" };
-    }
-
-    const byStatus = new Map<string, number>();
-    activeClaims.forEach((claim) => {
-      byStatus.set(claim.status, (byStatus.get(claim.status) ?? 0) + 1);
-    });
-
-    const dominantStatus = [...byStatus.entries()].sort(
-      (a, b) => b[1] - a[1]
-    )[0];
-    const firstClaim = activeClaims[0]!;
-
-    return {
-      value:
-        activeClaims.length === 1
-          ? "1 active"
-          : `${activeClaims.length} active`,
-      detail:
-        activeClaims.length === 1
-          ? `${CLAIM_TYPE_LABEL[firstClaim.type]} · ${CLAIM_STATUS_LABEL[firstClaim.status]}`
-          : `${dominantStatus?.[1] ?? activeClaims.length} ${CLAIM_STATUS_LABEL[dominantStatus?.[0] as Claim["status"]] ?? "active"}`,
-    };
-  }, [activeClaims]);
-
-  const summaryTiles = useMemo<SummaryTileData[]>(
-    () => [
-      {
-        title: "Upcoming reminders",
-        value:
-          reminderItems.length === 0
-            ? "All clear"
-            : reminderItems.length === 1
-              ? "1 reminder"
-              : `${reminderItems.length} reminders`,
-        detail:
-          reminderItems.length === 0
-            ? "No return or warranty reminders queued"
-            : "Returns and warranties scheduled ahead",
-        icon: "notifications-outline",
-        tone: reminderItems.length > 0 ? "accent" : "neutral",
-        onPress: () => router.push("/(tabs)/reminders"),
-      },
-      {
-        title: "Returns",
-        value: nextReturn ? formatReminderDetail(nextReturn) : "All clear",
-        detail: nextReturn
-          ? (purchaseTitle.get(nextReturn.purchaseId) ??
-            REMINDER_KIND[nextReturn.kind].title)
-          : "No return deadlines coming up",
-        icon: REMINDER_KIND.return_deadline.icon,
-        tone:
-          nextReturn &&
-          deadlineState(nextReturn.fireOn, REMINDER_KIND.return_deadline.prefix)
-            ?.urgent
-            ? "warning"
-            : "accent",
-        onPress: () =>
-          nextReturn
-            ? router.push(reminderDetailHref(nextReturn))
-            : router.push("/(tabs)/reminders"),
-      },
-      {
-        title: "Warranty",
-        value: nextWarranty ? formatReminderDetail(nextWarranty) : "All clear",
-        detail: nextWarranty
-          ? (purchaseTitle.get(nextWarranty.purchaseId) ??
-            REMINDER_KIND[nextWarranty.kind].title)
-          : "No warranty deadlines coming up",
-        icon: REMINDER_KIND.warranty_expiry.icon,
-        tone:
-          nextWarranty &&
-          deadlineState(
-            nextWarranty.fireOn,
-            REMINDER_KIND.warranty_expiry.prefix
-          )?.urgent
-            ? "warning"
-            : "success",
-        onPress: () =>
-          nextWarranty
-            ? router.push(reminderDetailHref(nextWarranty))
-            : router.push("/(tabs)/reminders"),
-      },
-      {
-        title: "Claims",
-        value: activeClaimSummary.value,
-        detail: activeClaimSummary.detail,
-        icon: "shield-checkmark-outline",
-        tone: activeClaims.length > 0 ? "warning" : "neutral",
-        onPress: () => router.push("/claims" as Href),
-      },
-    ],
-    [
-      activeClaimSummary,
-      activeClaims.length,
-      nextReturn,
-      nextWarranty,
-      purchaseTitle,
-      reminderItems.length,
-      router,
-    ]
-  );
-
-  const featuredAttention = useMemo<AttentionCardData>(() => {
+  const featured = useMemo<FeaturedState>(() => {
     if (urgentReturn) {
-      const state = deadlineState(
-        urgentReturn.fireOn,
-        REMINDER_KIND[urgentReturn.kind].prefix
-      );
+      const state = reminderUrgency(urgentReturn);
       return {
-        kind: "reminder",
+        kind: "return",
         title: "Return window needs attention",
         body:
-          purchaseTitle.get(urgentReturn.purchaseId) ??
+          purchaseTitles.get(urgentReturn.purchaseId) ??
           REMINDER_KIND[urgentReturn.kind].title,
         detail: state ? `${state.label} · ${state.detail}` : "Open reminder",
-        icon: REMINDER_KIND[urgentReturn.kind].icon,
-        tone: "warning",
-        actionLabel: "View reminder",
-        onPress: () => router.push(reminderDetailHref(urgentReturn)),
         statusLabel: state?.expired ? "Expired" : "Soon",
         statusTone: state?.expired ? "danger" : "warning",
+        actionLabel: "View reminder",
+        onPress: () => router.push(reminderDetailHref(urgentReturn)),
       };
     }
 
     if (urgentWarranty) {
-      const state = deadlineState(
-        urgentWarranty.fireOn,
-        REMINDER_KIND[urgentWarranty.kind].prefix
-      );
+      const state = reminderUrgency(urgentWarranty);
       return {
-        kind: "reminder",
-        title: "Warranty deadline coming up",
+        kind: "warranty",
+        title: "Warranty coverage is nearly up",
         body:
-          purchaseTitle.get(urgentWarranty.purchaseId) ??
+          purchaseTitles.get(urgentWarranty.purchaseId) ??
           REMINDER_KIND[urgentWarranty.kind].title,
         detail: state ? `${state.label} · ${state.detail}` : "Open reminder",
-        icon: REMINDER_KIND[urgentWarranty.kind].icon,
-        tone: "warning",
-        actionLabel: "View reminder",
-        onPress: () => router.push(reminderDetailHref(urgentWarranty)),
         statusLabel: state?.expired ? "Expired" : "Soon",
         statusTone: state?.expired ? "danger" : "warning",
+        actionLabel: "View reminder",
+        onPress: () => router.push(reminderDetailHref(urgentWarranty)),
       };
     }
 
@@ -384,43 +192,36 @@ export default function HomeScreen() {
       const firstClaim = activeClaims[0]!;
       return {
         kind: "claims",
-        title: "Claims still in progress",
+        title: "Claims still need follow-through",
         body:
           activeClaims.length === 1
-            ? (purchaseTitle.get(firstClaim.purchaseId) ??
+            ? (purchaseTitles.get(firstClaim.purchaseId) ??
               CLAIM_TYPE_LABEL[firstClaim.type])
-            : `${activeClaims.length} claims need follow-through`,
+            : `${activeClaims.length} active claims need attention`,
         detail:
           activeClaims.length === 1
             ? `${CLAIM_TYPE_LABEL[firstClaim.type]} · ${CLAIM_STATUS_LABEL[firstClaim.status]}`
-            : activeClaimSummary.detail,
-        icon: "shield-checkmark-outline",
-        tone: "accent",
+            : "Open claims to review the latest status updates.",
+        statusLabel:
+          activeClaims.length === 1
+            ? CLAIM_STATUS_LABEL[firstClaim.status]
+            : `${activeClaims.length} active`,
+        statusTone:
+          activeClaims.length === 1 ? statusTone(firstClaim.status) : "warning",
         actionLabel: "View claims",
         onPress: () => router.push("/claims" as Href),
-        statusLabel: CLAIM_STATUS_LABEL[firstClaim.status],
-        statusTone: statusTone(firstClaim.status),
       };
     }
 
     return {
       kind: "clear",
       title: "All caught up",
-      body: "No urgent returns, warranties, or claims need attention.",
-      detail: "Recent purchases stay below for quick reference.",
-      icon: "checkmark-circle-outline",
-      tone: "success",
-      actionLabel: "View reminders",
+      body: "No urgent returns, warranties, or claims need attention today.",
+      detail: "Your newest purchases stay below for quick reference.",
+      actionLabel: "Review reminders",
       onPress: () => router.push("/(tabs)/reminders"),
     };
-  }, [
-    activeClaimSummary.detail,
-    activeClaims,
-    purchaseTitle,
-    router,
-    urgentReturn,
-    urgentWarranty,
-  ]);
+  }, [activeClaims, purchaseTitles, router, urgentReturn, urgentWarranty]);
 
   const isRefreshing =
     (me.isRefetching && !me.isLoading) ||
@@ -434,55 +235,40 @@ export default function HomeScreen() {
     reminderItems.length === 0 &&
     claimItems.length === 0;
 
-  const isEmptyHome =
+  const homeEmpty =
     !showLoadingScaffold &&
     recent.isSuccess &&
     purchases.length === 0 &&
     !recent.isError;
 
-  const summaryState: QuerySectionState = {
-    loading: showLoadingScaffold,
-    failed:
-      !showLoadingScaffold &&
-      (reminders.isError || claims.isError) &&
-      reminderItems.length === 0 &&
-      claimItems.length === 0,
-  };
-  const attentionState: QuerySectionState = {
-    loading: showLoadingScaffold,
-    failed:
-      !showLoadingScaffold &&
-      ((reminders.isError && reminderItems.length === 0) ||
-        (claims.isError && claimItems.length === 0)),
-  };
-  const recentState: QuerySectionState = {
-    loading: showLoadingScaffold,
-    failed: !showLoadingScaffold && recent.isError && purchases.length === 0,
-  };
-
-  const handleRefresh = () => {
-    void Promise.all([
-      me.refetch(),
-      recent.refetch(),
-      reminders.refetch(),
-      claims.refetch(),
-    ]);
-  };
+  const featuredFailed =
+    !showLoadingScaffold &&
+    ((reminders.isError && reminderItems.length === 0) ||
+      (claims.isError && claimItems.length === 0));
+  const recentFailed =
+    !showLoadingScaffold && recent.isError && purchases.length === 0;
 
   return (
     <ScreenScroll
       gap={tokens.spacing.xl}
       refreshing={isRefreshing}
-      onRefresh={handleRefresh}
+      onRefresh={() => {
+        void Promise.all([
+          me.refetch(),
+          recent.refetch(),
+          reminders.refetch(),
+          claims.refetch(),
+        ]);
+      }}
     >
       <ScreenTitle
         title={welcomeName ? `Welcome back, ${welcomeName}` : "AfterBuy"}
-        subtitle="Protection, reminders, and recent purchases in one place."
+        subtitle="What needs attention, what to capture next, and your newest purchases."
         action={
           <Pressable
-            onPress={() => router.push("/(tabs)/reminders")}
             accessibilityRole="button"
             accessibilityLabel="Open reminders"
+            onPress={() => router.push("/(tabs)/reminders")}
             style={({ pressed }) => [
               styles.headerAction,
               {
@@ -496,40 +282,77 @@ export default function HomeScreen() {
               },
             ]}
           >
-            <AppIcon
-              name="reminders"
-              size={20}
-              color={tokens.colors.primary}
-              accessibilityLabel="Reminders"
-            />
+            <AppIcon name="reminders" size={20} color={tokens.colors.primary} />
           </Pressable>
         }
       />
 
       {!online ? (
         <InlineNotice
-          icon="wifi-outline"
-          tone="warning"
           title="You're offline"
           message="AfterBuy keeps working from its saved copy. Changes you make will sync once you reconnect."
         />
       ) : null}
 
-      {isEmptyHome ? (
+      {homeEmpty ? (
         <EmptyHome expanded={expanded} onPress={(href) => router.push(href)} />
       ) : (
         <>
           <View style={{ gap: tokens.spacing.md }}>
             <SectionHeading
-              title="At a glance"
-              detail="Real reminders and claims, summarized without guesswork."
+              title="Start here"
+              detail="Capture a purchase or continue protection work."
             />
-            {summaryState.loading ? (
-              <SummaryTileSkeleton />
-            ) : summaryState.failed ? (
+            {showLoadingScaffold ? (
+              <CtaSkeleton />
+            ) : (
+              <View style={{ gap: tokens.spacing.sm }}>
+                <Button
+                  label="Add purchase"
+                  size="lg"
+                  onPress={() => router.push("/purchase/new")}
+                />
+                <View
+                  style={[styles.secondaryActions, { gap: tokens.spacing.sm }]}
+                >
+                  <Button
+                    label="Scan receipt"
+                    variant="secondary"
+                    onPress={() =>
+                      router.push({
+                        pathname: "/purchase/new",
+                        params: { capture: "camera" },
+                      })
+                    }
+                    style={styles.secondaryButton}
+                  />
+                  <Button
+                    label="View claims"
+                    variant="secondary"
+                    onPress={() => router.push("/claims")}
+                    style={styles.secondaryButton}
+                  />
+                </View>
+              </View>
+            )}
+          </View>
+
+          <View style={{ gap: tokens.spacing.md }}>
+            <SectionHeading
+              title="Needs attention"
+              detail="One real next step, surfaced first."
+            />
+            {showLoadingScaffold ? (
+              <Skeleton
+                height={170}
+                style={{ borderRadius: tokens.radius.xl }}
+              />
+            ) : featuredFailed ? (
               <InlineRetryCard
                 title={
-                  !online ? "You're offline" : "Couldn't load your summary"
+                  !online
+                    ? "You're offline"
+                    : "Couldn't load what needs attention"
                 }
                 message={sectionFailureMessage(
                   online,
@@ -541,77 +364,28 @@ export default function HomeScreen() {
                 }}
               />
             ) : (
-              <View style={[styles.summaryGrid, { gap: tokens.spacing.sm }]}>
-                {summaryTiles.map((tile) => (
-                  <SummaryTile key={tile.title} tile={tile} />
-                ))}
-              </View>
-            )}
-          </View>
-
-          <View style={{ gap: tokens.spacing.md }}>
-            <SectionHeading
-              title="Quick actions"
-              detail="Jump straight into the next task."
-            />
-            {showLoadingScaffold ? (
-              <QuickActionsSkeleton />
-            ) : (
-              <View
-                style={[styles.quickActionsGrid, { gap: tokens.spacing.sm }]}
-              >
-                {QUICK_ACTIONS.map((action) => (
-                  <QuickAction
-                    key={action.label}
-                    icon={action.icon}
-                    label={action.label}
-                    onPress={() => router.push(action.href)}
-                  />
-                ))}
-              </View>
-            )}
-          </View>
-
-          <View style={{ gap: tokens.spacing.md }}>
-            <SectionHeading
-              title="Needs attention"
-              detail="The most important next step, surfaced first."
-            />
-            {attentionState.loading ? (
-              <Skeleton
-                height={148}
-                style={{ borderRadius: tokens.radius.lg }}
-              />
-            ) : attentionState.failed ? (
-              <InlineRetryCard
-                title={
-                  !online ? "You're offline" : "Couldn't load attention items"
-                }
-                message={sectionFailureMessage(online, "what needs attention")}
-                onPress={() => {
-                  void reminders.refetch();
-                  void claims.refetch();
-                }}
-              />
-            ) : (
-              <AttentionCard card={featuredAttention} />
+              <FeaturedCard card={featured} />
             )}
           </View>
 
           <View style={{ gap: tokens.spacing.md }}>
             <SectionHeading
               title="Recent purchases"
-              detail="Your newest saved items and their protection status."
+              detail="Your latest saved items and their current status."
               action={
                 purchases.length > 0 ? (
-                  <SectionLinkAction
-                    label="See all"
+                  <Pressable
+                    accessibilityRole="button"
                     onPress={() => router.push("/(tabs)/purchases")}
-                  />
+                  >
+                    <AppText role="label" tone="accent" weight="700">
+                      See all
+                    </AppText>
+                  </Pressable>
                 ) : undefined
               }
             />
-            {recentState.loading ? (
+            {showLoadingScaffold ? (
               <View style={{ gap: tokens.spacing.sm }}>
                 <Skeleton
                   height={72}
@@ -626,7 +400,7 @@ export default function HomeScreen() {
                   style={{ borderRadius: tokens.radius.lg }}
                 />
               </View>
-            ) : recentState.failed ? (
+            ) : recentFailed ? (
               <InlineRetryCard
                 title={
                   !online ? "You're offline" : "Couldn't load recent purchases"
@@ -634,21 +408,18 @@ export default function HomeScreen() {
                 message={sectionFailureMessage(online, "your recent purchases")}
                 onPress={() => void recent.refetch()}
               />
+            ) : purchases.length === 0 ? (
+              <SectionCard>
+                <AppText role="body" tone="subtle">
+                  Add your first purchase to keep receipts, reminders, and
+                  claims in one place.
+                </AppText>
+              </SectionCard>
             ) : (
-              <View
-                style={[
-                  styles.listSurface,
-                  {
-                    backgroundColor: tokens.colors.surface,
-                    borderColor: tokens.colors.border,
-                    borderRadius: tokens.radius.lg,
-                  },
-                ]}
-              >
+              <SectionCard flush>
                 {purchases.map((purchase, index) => {
                   const status = deliveryDisplay(purchase.deliveryStatus);
                   const date = formatDate(purchase.purchaseDate);
-
                   return (
                     <ListItem
                       key={purchase.id}
@@ -659,7 +430,6 @@ export default function HomeScreen() {
                       ]
                         .filter(Boolean)
                         .join(" • ")}
-                      divider={index < purchases.length - 1}
                       leading={
                         <CategoryArtwork
                           category={purchase.category}
@@ -669,8 +439,7 @@ export default function HomeScreen() {
                       trailing={
                         <View style={styles.purchaseTrailing}>
                           <StatusPill label={status.label} tone={status.tone} />
-                          {purchase.amountMinor != null &&
-                          purchase.amountMinor > 0 ? (
+                          {purchase.amountMinor != null ? (
                             <Money
                               amountMinor={purchase.amountMinor}
                               currency={purchase.currency}
@@ -680,6 +449,7 @@ export default function HomeScreen() {
                           ) : null}
                         </View>
                       }
+                      divider={index < purchases.length - 1}
                       onPress={() =>
                         router.push({
                           pathname: "/purchase/[id]",
@@ -689,7 +459,7 @@ export default function HomeScreen() {
                     />
                   );
                 })}
-              </View>
+              </SectionCard>
             )}
           </View>
         </>
@@ -698,230 +468,144 @@ export default function HomeScreen() {
   );
 }
 
-function SummaryTile({ tile }: { tile: SummaryTileData }) {
-  const { tokens, reducedMotion } = useTheme();
-
-  return (
-    <Pressable
-      onPress={tile.onPress}
-      accessibilityRole="button"
-      style={({ pressed }) => [
-        styles.summaryTile,
-        {
-          backgroundColor: tokens.colors.surface,
-          borderColor: tokens.colors.border,
-          borderRadius: tokens.radius.lg,
-          opacity: pressed ? 0.86 : 1,
-          transform: [{ scale: pressed && !reducedMotion ? 0.98 : 1 }],
-        },
-      ]}
-    >
-      <View style={styles.summaryTileHeader}>
-        <IconTile icon={tile.icon} tone={tile.tone} />
-      </View>
-      <View style={{ gap: 4 }}>
-        <AppText role="caption" tone="subtle" weight="600">
-          {tile.title}
-        </AppText>
-        <AppText role="headline" weight="700">
-          {tile.value}
-        </AppText>
-        <AppText role="caption" tone="subtle">
-          {tile.detail}
-        </AppText>
-      </View>
-    </Pressable>
-  );
-}
-
-function SummaryTileSkeleton() {
+function FeaturedCard({ card }: { card: FeaturedState }) {
   const { tokens } = useTheme();
+  const calmSurface =
+    card.kind === "clear" ? tokens.colors.successSoft : tokens.colors.surface;
 
   return (
-    <View style={[styles.summaryGrid, { gap: tokens.spacing.sm }]}>
-      {Array.from({ length: 4 }).map((_, index) => (
-        <View
-          key={index}
-          style={[
-            styles.summaryTile,
-            {
-              backgroundColor: tokens.colors.surface,
-              borderColor: tokens.colors.border,
-              borderRadius: tokens.radius.lg,
-            },
-          ]}
-        >
-          <Skeleton
-            width={44}
-            height={44}
-            style={{ borderRadius: tokens.radius.lg }}
-          />
-          <View style={{ gap: tokens.spacing.sm }}>
-            <Skeleton width="45%" height={12} />
-            <Skeleton width="72%" height={18} />
-            <Skeleton width="88%" height={12} />
+    <SectionCard style={{ backgroundColor: calmSurface }}>
+      <View style={{ gap: tokens.spacing.lg }}>
+        <View style={styles.featuredHeader}>
+          <View style={{ flex: 1, gap: 4 }}>
+            <AppText role="headline">{card.title}</AppText>
+            <AppText role="body" weight="600">
+              {card.body}
+            </AppText>
+            <AppText role="subheadline" tone="subtle">
+              {card.detail}
+            </AppText>
           </View>
+          {"statusLabel" in card ? (
+            <StatusPill
+              label={card.statusLabel}
+              tone={card.statusTone ?? "neutral"}
+            />
+          ) : null}
         </View>
-      ))}
-    </View>
-  );
-}
-
-function QuickAction({
-  icon,
-  label,
-  onPress,
-}: {
-  icon: React.ComponentProps<typeof AppIcon>["name"];
-  label: string;
-  onPress: () => void;
-}) {
-  const { tokens, reducedMotion } = useTheme();
-
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      style={({ pressed }) => [
-        styles.quickAction,
-        {
-          backgroundColor: tokens.colors.surface,
-          borderColor: tokens.colors.border,
-          borderRadius: tokens.radius.lg,
-          opacity: pressed ? 0.84 : 1,
-          transform: [{ scale: pressed && !reducedMotion ? 0.98 : 1 }],
-        },
-      ]}
-    >
-      <View
-        style={[
-          styles.quickActionIcon,
-          {
-            backgroundColor: tokens.colors.accentSoft,
-            borderRadius: tokens.radius.md,
-          },
-        ]}
-      >
-        <AppIcon name={icon} size={18} color={tokens.colors.primary} />
-      </View>
-      <AppText role="subheadline" weight="700">
-        {label}
-      </AppText>
-    </Pressable>
-  );
-}
-
-function QuickActionsSkeleton() {
-  const { tokens } = useTheme();
-
-  return (
-    <View style={[styles.quickActionsGrid, { gap: tokens.spacing.sm }]}>
-      {Array.from({ length: 4 }).map((_, index) => (
-        <View
-          key={index}
-          style={[
-            styles.quickAction,
-            {
-              backgroundColor: tokens.colors.surface,
-              borderColor: tokens.colors.border,
-              borderRadius: tokens.radius.lg,
-            },
-          ]}
-        >
-          <Skeleton
-            width={40}
-            height={40}
-            style={{ borderRadius: tokens.radius.md }}
-          />
-          <Skeleton width="70%" height={14} />
-        </View>
-      ))}
-    </View>
-  );
-}
-
-function AttentionCard({ card }: { card: AttentionCardData }) {
-  const { tokens } = useTheme();
-  const isClear = card.kind === "clear";
-
-  return (
-    <View
-      style={[
-        styles.attentionCard,
-        {
-          backgroundColor: isClear
-            ? tokens.colors.successSoft
-            : tokens.colors.surface,
-          borderColor: tokens.colors.border,
-          borderRadius: tokens.radius.lg,
-        },
-      ]}
-    >
-      <View style={styles.attentionTopRow}>
-        <IconTile icon={card.icon} tone={card.tone} />
-        {"statusLabel" in card && card.statusLabel ? (
-          <StatusPill
-            label={card.statusLabel}
-            tone={card.statusTone ?? "neutral"}
-          />
-        ) : null}
-      </View>
-      <View style={{ gap: 4 }}>
-        <AppText role="headline" weight="700">
-          {card.title}
-        </AppText>
-        <AppText role="body" weight="600">
-          {card.body}
-        </AppText>
-        <AppText role="subheadline" tone="subtle">
-          {card.detail}
-        </AppText>
-      </View>
-      <View style={styles.attentionFooter}>
         <Button
           label={card.actionLabel}
-          variant={isClear ? "secondary" : "primary"}
+          variant={card.kind === "clear" ? "secondary" : "primary"}
           onPress={card.onPress}
         />
       </View>
-    </View>
+    </SectionCard>
   );
 }
 
-function InlineNotice({
-  icon,
-  tone,
-  title,
-  message,
+function EmptyHome({
+  expanded,
+  onPress,
 }: {
-  icon: React.ComponentProps<typeof IconTile>["icon"];
-  tone: TileTone;
-  title: string;
-  message: string;
+  expanded: boolean;
+  onPress: (href: Href) => void;
 }) {
   const { tokens } = useTheme();
 
   return (
-    <View
-      style={[
-        styles.noticeCard,
-        {
-          backgroundColor: tokens.colors.surface,
-          borderColor: tokens.colors.border,
-          borderRadius: tokens.radius.lg,
-        },
-      ]}
-    >
-      <IconTile icon={icon} tone={tone} />
-      <View style={styles.noticeCopy}>
-        <AppText role="headline" weight="700">
-          {title}
-        </AppText>
+    <SectionCard style={{ paddingVertical: tokens.spacing.xl }}>
+      <View
+        style={[
+          styles.emptyHome,
+          {
+            gap: expanded ? tokens.spacing.xl : tokens.spacing.lg,
+            flexDirection: expanded ? "row" : "column",
+            alignItems: expanded ? "center" : "stretch",
+          },
+        ]}
+      >
+        <View style={styles.emptyArtwork}>
+          <OnboardingHubIllustration />
+        </View>
+        <View style={{ flex: 1, gap: tokens.spacing.lg }}>
+          <View style={{ gap: tokens.spacing.sm }}>
+            <AppText role="title">Keep every purchase protected</AppText>
+            <AppText role="body" tone="subtle">
+              Save a purchase, keep the receipt close, and let AfterBuy track
+              the deadlines that matter.
+            </AppText>
+          </View>
+          <View style={{ gap: tokens.spacing.sm }}>
+            <StepCopy
+              title="1. Add a purchase"
+              detail="Record the item, merchant, and date so the timeline starts in the right place."
+            />
+            <StepCopy
+              title="2. Scan the receipt"
+              detail="Keep proof ready for returns and warranty claims."
+            />
+            <StepCopy
+              title="3. Review claims"
+              detail="When something goes wrong, start from a saved purchase instead of rebuilding the context."
+            />
+          </View>
+          <View style={{ gap: tokens.spacing.sm }}>
+            <Button
+              label="Add purchase"
+              size="lg"
+              onPress={() => onPress("/purchase/new")}
+            />
+            <View style={[styles.secondaryActions, { gap: tokens.spacing.sm }]}>
+              <Button
+                label="Scan receipt"
+                variant="secondary"
+                onPress={() =>
+                  onPress({
+                    pathname: "/purchase/new",
+                    params: { capture: "camera" },
+                  })
+                }
+                style={styles.secondaryButton}
+              />
+              <Button
+                label="View claims"
+                variant="secondary"
+                onPress={() => onPress("/claims")}
+                style={styles.secondaryButton}
+              />
+            </View>
+          </View>
+        </View>
+      </View>
+    </SectionCard>
+  );
+}
+
+function StepCopy({ title, detail }: { title: string; detail: string }) {
+  return (
+    <View style={{ gap: 2 }}>
+      <AppText role="label" weight="700">
+        {title}
+      </AppText>
+      <AppText role="subheadline" tone="subtle">
+        {detail}
+      </AppText>
+    </View>
+  );
+}
+
+function InlineNotice({ title, message }: { title: string; message: string }) {
+  const { tokens } = useTheme();
+
+  return (
+    <SectionCard tone="muted">
+      <View style={{ gap: tokens.spacing.xs }}>
+        <AppText role="headline">{title}</AppText>
         <AppText role="subheadline" tone="subtle">
           {message}
         </AppText>
       </View>
-    </View>
+    </SectionCard>
   );
 }
 
@@ -937,128 +621,35 @@ function InlineRetryCard({
   const { tokens } = useTheme();
 
   return (
-    <View
-      style={[
-        styles.retryCard,
-        {
-          backgroundColor: tokens.colors.surface,
-          borderColor: tokens.colors.border,
-          borderRadius: tokens.radius.lg,
-        },
-      ]}
-    >
-      <View style={styles.retryCopy}>
-        <AppText role="headline" weight="700">
-          {title}
-        </AppText>
-        <AppText role="subheadline" tone="subtle">
-          {message}
-        </AppText>
-      </View>
-      <Button label="Try again" variant="secondary" onPress={onPress} />
-    </View>
-  );
-}
-
-function SectionLinkAction({
-  label,
-  onPress,
-}: {
-  label: string;
-  onPress: () => void;
-}) {
-  const { tokens } = useTheme();
-
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      style={({ pressed }) => [
-        styles.sectionAction,
-        { opacity: pressed ? 0.72 : 1 },
-      ]}
-    >
-      <AppText role="subheadline" tone="accent" weight="600">
-        {label}
-      </AppText>
-    </Pressable>
-  );
-}
-
-function EmptyHome({
-  expanded,
-  onPress,
-}: {
-  expanded: boolean;
-  onPress: (href: Href) => void;
-}) {
-  const { tokens } = useTheme();
-
-  return (
-    <View style={{ gap: tokens.spacing.xl }}>
-      <View
-        style={[
-          styles.emptyHero,
-          {
-            backgroundColor: tokens.colors.surface,
-            borderColor: tokens.colors.border,
-            borderRadius: tokens.radius.xl,
-          },
-        ]}
-      >
-        <OnboardingHubIllustration compact={!expanded} />
-        <View style={styles.emptyHeroCopy}>
-          <AppText role="title" weight="700">
-            Start tracking a purchase
-          </AppText>
-          <AppText role="body" tone="subtle">
-            Save a purchase once, then keep returns, warranties, reminders, and
-            claims attached to the same record.
-          </AppText>
-        </View>
-      </View>
-
+    <SectionCard>
       <View style={{ gap: tokens.spacing.md }}>
-        <SectionHeading
-          title="Get started"
-          detail="Everything on home fills in from the purchases you save."
-        />
-        <View style={[styles.quickActionsGrid, { gap: tokens.spacing.sm }]}>
-          {QUICK_ACTIONS.map((action) => (
-            <QuickAction
-              key={action.label}
-              icon={action.icon}
-              label={action.label}
-              onPress={() => onPress(action.href)}
-            />
-          ))}
+        <View style={{ gap: 4 }}>
+          <AppText role="headline">{title}</AppText>
+          <AppText role="subheadline" tone="subtle">
+            {message}
+          </AppText>
         </View>
+        <Button label="Try again" variant="secondary" onPress={onPress} />
       </View>
+    </SectionCard>
+  );
+}
 
-      <View
-        style={[
-          styles.checklistCard,
-          {
-            backgroundColor: tokens.colors.surface,
-            borderColor: tokens.colors.border,
-            borderRadius: tokens.radius.lg,
-          },
-        ]}
-      >
-        <SectionHeading
-          title="What to do first"
-          detail="A short setup path so the dashboard has something real to show."
+function CtaSkeleton() {
+  const { tokens } = useTheme();
+
+  return (
+    <View style={{ gap: tokens.spacing.sm }}>
+      <Skeleton height={54} style={{ borderRadius: tokens.radius.lg }} />
+      <View style={[styles.secondaryActions, { gap: tokens.spacing.sm }]}>
+        <Skeleton
+          height={48}
+          style={{ flex: 1, borderRadius: tokens.radius.lg }}
         />
-        <View style={{ gap: tokens.spacing.md }}>
-          {STARTER_CHECKLIST.map((item) => (
-            <View key={item} style={styles.checklistRow}>
-              <IconTile icon="checkmark-circle-outline" tone="accent" />
-              <AppText role="subheadline" style={styles.checklistText}>
-                {item}
-              </AppText>
-            </View>
-          ))}
-        </View>
+        <Skeleton
+          height={48}
+          style={{ flex: 1, borderRadius: tokens.radius.lg }}
+        />
       </View>
     </View>
   );
@@ -1068,110 +659,29 @@ const styles = StyleSheet.create({
   headerAction: {
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
   },
-  summaryGrid: {
+  secondaryActions: {
     flexDirection: "row",
-    flexWrap: "wrap",
   },
-  summaryTile: {
-    width: "48%",
-    minHeight: 156,
-    borderWidth: 1,
-    padding: 16,
-    gap: 14,
+  secondaryButton: {
+    flex: 1,
   },
-  summaryTileHeader: {
+  featuredHeader: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  quickActionsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-  },
-  quickAction: {
-    width: "48%",
-    minHeight: 104,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 16,
-    justifyContent: "space-between",
     gap: 12,
-  },
-  quickActionIcon: {
-    width: 40,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  attentionCard: {
-    borderWidth: 1,
-    padding: 16,
-    gap: 16,
-  },
-  attentionTopRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-  },
-  attentionFooter: {
     alignItems: "flex-start",
-  },
-  listSurface: {
-    borderWidth: 1,
-    overflow: "hidden",
   },
   purchaseTrailing: {
     alignItems: "flex-end",
-    gap: 4,
-  },
-  noticeCard: {
-    borderWidth: 1,
-    padding: 16,
-    gap: 14,
-    flexDirection: "row",
-    alignItems: "flex-start",
-  },
-  noticeCopy: {
-    flex: 1,
-    gap: 4,
-  },
-  retryCard: {
-    borderWidth: 1,
-    padding: 16,
-    gap: 16,
-  },
-  retryCopy: {
-    gap: 4,
-  },
-  sectionAction: {
-    minHeight: 36,
-    justifyContent: "center",
-    paddingHorizontal: 4,
-  },
-  emptyHero: {
-    borderWidth: 1,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 20,
-    gap: 12,
-  },
-  emptyHeroCopy: {
     gap: 6,
   },
-  checklistCard: {
-    borderWidth: 1,
-    padding: 16,
-    gap: 16,
+  emptyHome: {
+    width: "100%",
   },
-  checklistRow: {
-    flexDirection: "row",
-    gap: 12,
-    alignItems: "center",
-  },
-  checklistText: {
-    flex: 1,
+  emptyArtwork: {
+    minWidth: 220,
+    maxWidth: 280,
+    alignSelf: "center",
   },
 });

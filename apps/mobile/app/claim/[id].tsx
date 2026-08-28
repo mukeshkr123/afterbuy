@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import React, { useMemo, useState } from "react";
+import { StyleSheet, View } from "react-native";
 import type { Claim, ClaimStatus } from "@acme/shared";
 import {
+  AppText,
   Button,
   EmptyState,
   FormError,
@@ -21,16 +22,14 @@ import { getClaim, patchClaim } from "@/api/claims";
 import { getPurchase } from "@/api/purchases";
 import { fromCaught, type FormErrorState } from "@/hooks/useApiError";
 import {
-  CLAIM_STATUS_LABEL as STATUS_LABEL,
-  CLAIM_TYPE_LABEL as TYPE_LABEL,
+  CLAIM_STATUS_LABEL,
+  CLAIM_TYPE_LABEL,
   nextStatuses,
   statusTone,
 } from "@/lib/claims";
 import { categoryIcon, formatDate } from "@/lib/purchaseDisplay";
 import { useTheme } from "@/theme/ThemeProvider";
 
-// The lifecycle a healthy claim walks through. `rejected` and `cancelled` are
-// terminal branches, shown in place of the timeline rather than as extra rows.
 const LIFECYCLE: ClaimStatus[] = [
   "draft",
   "submitted",
@@ -68,7 +67,6 @@ export default function ClaimDetailScreen() {
     queryFn: () => getClaim(api, id ?? ""),
     enabled: Boolean(id),
   });
-
   const purchase = useQuery({
     queryKey: apiKeys.purchases.detail(claim.data?.purchaseId ?? ""),
     queryFn: () => getPurchase(api, claim.data?.purchaseId ?? ""),
@@ -77,28 +75,36 @@ export default function ClaimDetailScreen() {
 
   const advance = useMutation({
     mutationFn: (status: ClaimStatus) => patchClaim(api, id ?? "", { status }),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["claims"] });
+    onSuccess: async (updatedClaim) => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["claims"] }),
+        qc.invalidateQueries({
+          queryKey: apiKeys.claims.detail(id ?? ""),
+        }),
+        qc.invalidateQueries({ queryKey: ["purchases"] }),
+      ]);
       setError({ message: null, fields: {} });
+      claim.refetch().catch(() => {});
+      return updatedClaim;
     },
-    onError: (e) => setError(fromCaught(e)),
+    onError: (caught) => setError(fromCaught(caught)),
   });
 
   if (claim.isLoading) {
     return (
       <ScreenScroll gap={tokens.spacing.lg} safeTop={true}>
-        <ScreenHeader title="Claim Details" />
-        <Skeleton height={96} />
-        <Skeleton height={200} />
+        <ScreenHeader title="Claim details" />
+        <Skeleton height={112} />
+        <Skeleton height={156} />
+        <Skeleton height={220} />
       </ScreenScroll>
     );
   }
 
-  const c: Claim | undefined = claim.data;
-  if (!c) {
+  if (!claim.data) {
     return (
       <ScreenScroll gap={tokens.spacing.lg} safeTop={true}>
-        <ScreenHeader title="Claim Details" />
+        <ScreenHeader title="Claim details" />
         <SectionCard>
           <EmptyState
             icon="alert-circle-outline"
@@ -114,298 +120,346 @@ export default function ClaimDetailScreen() {
     );
   }
 
-  const terminated = c.status === "rejected" || c.status === "cancelled";
-  const reachedIndex = LIFECYCLE.indexOf(c.status);
-  const transitions = nextStatuses(c.status);
+  const item = claim.data;
+  const transitions = nextStatuses(item.status);
+  const timeline = buildTimeline(item);
 
   return (
-    <>
-      <ScreenScroll gap={tokens.spacing.lg} safeTop={true}>
-        <ScreenHeader title="Claim Details" />
-        <SectionCard
-          onPress={
-            purchase.data
-              ? () =>
-                  router.push({
-                    pathname: "/purchase/[id]",
-                    params: { id: c.purchaseId },
-                  })
-              : undefined
-          }
-        >
-          <View style={[styles.productRow, { gap: tokens.spacing.md + 2 }]}>
-            <IconTile
-              icon={
-                purchase.data
-                  ? categoryIcon(purchase.data.category)
-                  : "cube-outline"
-              }
-              tone="neutral"
-            />
+    <ScreenScroll gap={tokens.spacing.lg} safeTop={true}>
+      <ScreenHeader title="Claim details" />
+
+      <SectionCard>
+        <View style={{ gap: tokens.spacing.lg }}>
+          <View style={styles.headerRow}>
             <View style={{ flex: 1, gap: 4 }}>
-              <Text
-                style={{
-                  color: tokens.colors.text,
-                  fontSize: tokens.type.body.fontSize,
-                  fontWeight: "700",
-                }}
-              >
-                {purchase.data?.title ?? TYPE_LABEL[c.type] ?? c.type}
-              </Text>
-              <Text
-                style={{
-                  color: tokens.colors.textMuted,
-                  fontSize: tokens.type.bodySmall.fontSize,
-                }}
-              >
-                {purchase.data
-                  ? (TYPE_LABEL[c.type] ?? c.type)
-                  : (formatDate(c.openedAt.slice(0, 10)) ?? "")}
-              </Text>
-              <View style={{ marginTop: 2 }}>
-                <StatusPill
-                  label={STATUS_LABEL[c.status] ?? c.status}
-                  tone={statusTone(c.status)}
-                />
-              </View>
+              <AppText role="caption" tone="subtle" weight="700">
+                {CLAIM_TYPE_LABEL[item.type]}
+              </AppText>
+              <AppText role="title">
+                {purchase.data?.title ?? "Purchase"}
+              </AppText>
+              <AppText role="subheadline" tone="subtle">
+                Opened{" "}
+                {formatDate(item.openedAt.slice(0, 10)) ??
+                  item.openedAt.slice(0, 10)}
+              </AppText>
             </View>
-          </View>
-        </SectionCard>
-
-        <SectionCard title="Claim Status">
-          {terminated ? (
-            <View style={{ gap: tokens.spacing.xs }}>
-              <Text
-                style={{
-                  color: tokens.colors.text,
-                  fontSize: tokens.type.body.fontSize,
-                  fontWeight: "700",
-                }}
-              >
-                {STATUS_LABEL[c.status]}
-              </Text>
-              <Text
-                style={{
-                  color: tokens.colors.textMuted,
-                  fontSize: tokens.type.bodySmall.fontSize,
-                }}
-              >
-                {formatDateTime(c.resolvedAt) ??
-                  "This claim is no longer in progress."}
-              </Text>
-            </View>
-          ) : (
-            <View>
-              {LIFECYCLE.map((stage, idx) => {
-                const reached = idx <= reachedIndex;
-                const isCurrent = idx === reachedIndex;
-                const isLast = idx === LIFECYCLE.length - 1;
-                return (
-                  <View key={stage} style={styles.stepRow}>
-                    <View style={styles.indicatorCol}>
-                      <View
-                        style={[
-                          styles.dot,
-                          {
-                            backgroundColor: reached
-                              ? tokens.colors.accent
-                              : tokens.colors.border,
-                          },
-                        ]}
-                      />
-                      {!isLast ? (
-                        <View
-                          style={[
-                            styles.connector,
-                            {
-                              backgroundColor:
-                                idx < reachedIndex
-                                  ? tokens.colors.accent
-                                  : tokens.colors.border,
-                            },
-                          ]}
-                        />
-                      ) : null}
-                    </View>
-                    <View
-                      style={[
-                        styles.stepContent,
-                        !isLast && { paddingBottom: tokens.spacing.lg },
-                      ]}
-                    >
-                      <Text
-                        style={{
-                          color: reached
-                            ? tokens.colors.text
-                            : tokens.colors.textMuted,
-                          fontSize: tokens.type.body.fontSize,
-                          fontWeight: isCurrent ? "700" : "600",
-                        }}
-                      >
-                        {STATUS_LABEL[stage]}
-                      </Text>
-                      {isCurrent ? (
-                        <Text
-                          style={{
-                            color: tokens.colors.textMuted,
-                            fontSize: tokens.type.bodySmall.fontSize,
-                          }}
-                        >
-                          Current stage
-                        </Text>
-                      ) : null}
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
-          )}
-        </SectionCard>
-
-        <SectionCard title="Details">
-          <View style={{ gap: tokens.spacing.md }}>
-            <DetailRow label="Type" value={TYPE_LABEL[c.type] ?? c.type} />
-            <DetailRow
-              label="Opened"
-              value={formatDateTime(c.openedAt) ?? "—"}
+            <StatusPill
+              label={CLAIM_STATUS_LABEL[item.status]}
+              tone={statusTone(item.status)}
             />
-            {c.resolvedAt ? (
-              <DetailRow
-                label="Resolved"
-                value={formatDateTime(c.resolvedAt) ?? "—"}
-              />
-            ) : null}
-            {c.reference ? (
-              <DetailRow label="Reference" value={c.reference} />
-            ) : null}
-            {c.refundAmountMinor !== null ? (
-              <View style={styles.detailRow}>
-                <Text
-                  style={{
-                    color: tokens.colors.textMuted,
-                    fontSize: tokens.type.bodySmall.fontSize,
-                  }}
-                >
-                  Refund
-                </Text>
-                <Money
-                  amountMinor={c.refundAmountMinor}
-                  currency={purchase.data?.currency ?? null}
-                  emphasis="strong"
-                  style={{ fontSize: tokens.type.bodySmall.fontSize }}
-                />
-              </View>
-            ) : null}
           </View>
-        </SectionCard>
 
-        {c.notes ? (
-          <SectionCard title="Notes">
-            <Text
-              style={{
-                color: tokens.colors.textSubtle,
-                fontSize: tokens.type.body.fontSize,
-                lineHeight: tokens.type.body.lineHeight,
-              }}
-            >
-              {c.notes}
-            </Text>
-          </SectionCard>
-        ) : null}
+          <Button
+            label="View purchase"
+            variant="secondary"
+            onPress={() =>
+              router.push({
+                pathname: "/purchase/[id]",
+                params: { id: item.purchaseId, section: "warranty" },
+              })
+            }
+          />
+        </View>
+      </SectionCard>
 
-        <FormError message={error.message} />
+      <SectionCard>
+        <View style={{ gap: tokens.spacing.sm }}>
+          <AppText role="label" tone="subtle" weight="700">
+            Current status
+          </AppText>
+          <AppText role="headline">{CLAIM_STATUS_LABEL[item.status]}</AppText>
+          <AppText role="subheadline" tone="subtle">
+            {statusSummary(item.status, item.resolvedAt)}
+          </AppText>
+        </View>
+      </SectionCard>
 
-        {transitions.length > 0 ? (
-          <View style={{ gap: tokens.spacing.sm }}>
-            {transitions.map((status, idx) => (
-              <Button
-                key={status}
-                label={
-                  advance.isPending
-                    ? "Updating…"
-                    : `Mark as ${(
-                        STATUS_LABEL[status] ?? status
-                      ).toLowerCase()}`
-                }
-                variant={
-                  status === "cancelled"
-                    ? "ghost"
-                    : idx === 0
-                      ? "primary"
-                      : "secondary"
-                }
-                disabled={advance.isPending}
-                onPress={() => advance.mutate(status)}
+      <SectionCard>
+        <View style={{ gap: tokens.spacing.lg }}>
+          <AppText role="headline">Timeline</AppText>
+          <View style={{ gap: tokens.spacing.md }}>
+            {timeline.map((step, index) => (
+              <TimelineRow
+                key={`${step.label}-${index}`}
+                label={step.label}
+                detail={step.detail}
+                active={step.active}
+                complete={step.complete}
+                last={index === timeline.length - 1}
               />
             ))}
           </View>
-        ) : null}
-      </ScreenScroll>
-    </>
+        </View>
+      </SectionCard>
+
+      <SectionCard>
+        <View style={{ gap: tokens.spacing.md }}>
+          <AppText role="headline">Details</AppText>
+          <DetailRow label="Type" value={CLAIM_TYPE_LABEL[item.type]} />
+          <DetailRow
+            label="Opened"
+            value={formatDateTime(item.openedAt) ?? "—"}
+          />
+          {item.resolvedAt ? (
+            <DetailRow
+              label="Resolved"
+              value={formatDateTime(item.resolvedAt) ?? "—"}
+            />
+          ) : null}
+          {item.reference ? (
+            <DetailRow label="Reference" value={item.reference} />
+          ) : null}
+          {item.refundAmountMinor !== null ? (
+            <DetailRow
+              label="Refund"
+              valueNode={
+                <Money
+                  amountMinor={item.refundAmountMinor}
+                  currency={purchase.data?.currency ?? null}
+                  emphasis="strong"
+                  style={{ fontSize: tokens.type.body.fontSize }}
+                />
+              }
+            />
+          ) : null}
+        </View>
+      </SectionCard>
+
+      {item.notes ? (
+        <SectionCard>
+          <View style={{ gap: tokens.spacing.sm }}>
+            <AppText role="headline">Notes</AppText>
+            <AppText role="body" tone="subtle">
+              {item.notes}
+            </AppText>
+          </View>
+        </SectionCard>
+      ) : null}
+
+      <FormError message={error.message} />
+
+      {transitions.length > 0 ? (
+        <View style={{ gap: tokens.spacing.sm }}>
+          {transitions.map((status, index) => (
+            <Button
+              key={status}
+              label={
+                advance.isPending
+                  ? "Updating..."
+                  : `Mark as ${(CLAIM_STATUS_LABEL[status] ?? status).toLowerCase()}`
+              }
+              variant={
+                status === "cancelled"
+                  ? "ghost"
+                  : index === 0
+                    ? "primary"
+                    : "secondary"
+              }
+              disabled={advance.isPending}
+              busy={advance.isPending}
+              onPress={() => advance.mutate(status)}
+            />
+          ))}
+        </View>
+      ) : null}
+    </ScreenScroll>
   );
 }
 
-function DetailRow({ label, value }: { label: string; value: string }) {
+function buildTimeline(item: Claim) {
+  if (item.status === "rejected") {
+    return [
+      {
+        label: "Submitted",
+        detail: formatDateTime(item.openedAt) ?? "Opened",
+        complete: true,
+        active: false,
+      },
+      {
+        label: "Under review",
+        detail: "The claim was reviewed before it was rejected.",
+        complete: true,
+        active: false,
+      },
+      {
+        label: "Rejected",
+        detail: formatDateTime(item.resolvedAt) ?? "Closed",
+        complete: true,
+        active: true,
+      },
+    ];
+  }
+
+  if (item.status === "cancelled") {
+    return [
+      {
+        label: "Submitted",
+        detail: formatDateTime(item.openedAt) ?? "Opened",
+        complete: true,
+        active: false,
+      },
+      {
+        label: "Cancelled",
+        detail: formatDateTime(item.resolvedAt) ?? "Closed",
+        complete: true,
+        active: true,
+      },
+    ];
+  }
+
+  const currentIndex = LIFECYCLE.indexOf(item.status);
+  return LIFECYCLE.map((status, index) => ({
+    label: CLAIM_STATUS_LABEL[status],
+    detail:
+      status === "draft"
+        ? (formatDateTime(item.createdAt) ?? "Created")
+        : status === "submitted"
+          ? (formatDateTime(item.openedAt) ?? "Opened")
+          : status === item.status && item.resolvedAt
+            ? (formatDateTime(item.resolvedAt) ?? "Resolved")
+            : status === item.status
+              ? "Current stage"
+              : status === "completed" && item.status === "approved"
+                ? "Awaiting final completion"
+                : "Not reached yet",
+    complete: index < currentIndex || status === item.status,
+    active: status === item.status,
+  }));
+}
+
+function statusSummary(status: ClaimStatus, resolvedAt: string | null) {
+  if (status === "rejected") {
+    return resolvedAt
+      ? `Rejected on ${formatDate(resolvedAt.slice(0, 10)) ?? resolvedAt.slice(0, 10)}.`
+      : "This claim was rejected.";
+  }
+  if (status === "cancelled") {
+    return resolvedAt
+      ? `Cancelled on ${formatDate(resolvedAt.slice(0, 10)) ?? resolvedAt.slice(0, 10)}.`
+      : "This claim was cancelled.";
+  }
+  if (status === "approved")
+    return "Approved and waiting for final completion.";
+  if (status === "completed") {
+    return resolvedAt
+      ? `Completed on ${formatDate(resolvedAt.slice(0, 10)) ?? resolvedAt.slice(0, 10)}.`
+      : "This claim has been completed.";
+  }
+  if (status === "in_progress") return "The claim is currently under review.";
+  if (status === "submitted")
+    return "The claim has been submitted and is waiting for review.";
+  return "The claim has been drafted and is ready for follow-through.";
+}
+
+function TimelineRow({
+  label,
+  detail,
+  active,
+  complete,
+  last,
+}: {
+  label: string;
+  detail: string;
+  active: boolean;
+  complete: boolean;
+  last: boolean;
+}) {
   const { tokens } = useTheme();
   return (
+    <View style={styles.timelineRow}>
+      <View style={styles.timelineRail}>
+        <View
+          style={[
+            styles.timelineDot,
+            {
+              backgroundColor: complete
+                ? tokens.colors.accent
+                : tokens.colors.border,
+            },
+          ]}
+        />
+        {!last ? (
+          <View
+            style={[
+              styles.timelineLine,
+              {
+                backgroundColor: complete
+                  ? tokens.colors.accentSoft
+                  : tokens.colors.border,
+              },
+            ]}
+          />
+        ) : null}
+      </View>
+      <View style={{ flex: 1, gap: 2, paddingBottom: last ? 0 : 8 }}>
+        <AppText role="body" weight={active ? "700" : "600"}>
+          {label}
+        </AppText>
+        <AppText role="subheadline" tone="subtle">
+          {detail}
+        </AppText>
+      </View>
+    </View>
+  );
+}
+
+function DetailRow({
+  label,
+  value,
+  valueNode,
+}: {
+  label: string;
+  value?: string;
+  valueNode?: React.ReactNode;
+}) {
+  return (
     <View style={styles.detailRow}>
-      <Text
-        style={{
-          color: tokens.colors.textMuted,
-          fontSize: tokens.type.bodySmall.fontSize,
-        }}
-      >
+      <AppText role="subheadline" tone="subtle">
         {label}
-      </Text>
-      <Text
-        style={{
-          color: tokens.colors.text,
-          fontSize: tokens.type.bodySmall.fontSize,
-          fontWeight: "600",
-          flexShrink: 1,
-          textAlign: "right",
-        }}
-      >
-        {value}
-      </Text>
+      </AppText>
+      {valueNode ?? (
+        <AppText role="body" weight="600" style={styles.detailValue}>
+          {value}
+        </AppText>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  productRow: {
+  headerRow: {
     flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+  },
+  timelineRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  timelineRail: {
     alignItems: "center",
+  },
+  timelineDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginTop: 6,
+  },
+  timelineLine: {
+    width: 2,
+    flex: 1,
+    minHeight: 28,
+    marginTop: 4,
   },
   detailRow: {
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
-    alignItems: "center",
-    gap: 16,
+    gap: 12,
   },
-  stepRow: {
-    flexDirection: "row",
-    gap: 16,
-  },
-  indicatorCol: {
-    alignItems: "center",
-    width: 16,
-  },
-  dot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    marginTop: 3,
-    zIndex: 2,
-  },
-  connector: {
-    width: 2.5,
+  detailValue: {
     flex: 1,
-    marginTop: -2,
-    marginBottom: -2,
-  },
-  stepContent: {
-    flex: 1,
-    gap: 2,
+    textAlign: "right",
   },
 });
