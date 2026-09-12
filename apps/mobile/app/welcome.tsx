@@ -2,7 +2,6 @@ import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
-  Image,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   Pressable,
@@ -13,44 +12,49 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Button, IconTile } from "@/components";
+import { Ionicons } from "@expo/vector-icons";
+import { WelcomeHeroIllustration } from "@/components/onboarding/WelcomeHeroIllustration";
+import { IntroHeroIllustration } from "@/components/onboarding/IntroHeroIllustration";
+import { ReceiptHeroIllustration } from "@/components/onboarding/ReceiptHeroIllustration";
+import { DeadlineHeroIllustration } from "@/components/onboarding/DeadlineHeroIllustration";
 import { useTheme } from "@/theme/ThemeProvider";
 
-type IntroItem = {
+type FeatureItem = {
   title: string;
   subtitle: string;
-  icon:
-    | "bag-outline"
-    | "shield-checkmark-outline"
-    | "notifications-outline"
-    | "lock-closed-outline";
-  tone: "accent" | "success" | "warning" | "neutral";
+  icon: keyof typeof Ionicons.glyphMap;
+  iconColor: string;
+  iconBg: string;
 };
 
-const INTRO_ITEMS: readonly IntroItem[] = [
+const INTRO_ITEMS: readonly FeatureItem[] = [
   {
     title: "Track Purchases",
     subtitle: "Store receipts, order details, and store info in one place.",
-    icon: "bag-outline",
-    tone: "accent",
+    icon: "bag-handle-outline",
+    iconColor: "#5B43F6",
+    iconBg: "#F3F0FF",
   },
   {
     title: "Returns & Claims",
     subtitle: "Track return windows and file claims with ease.",
     icon: "shield-checkmark-outline",
-    tone: "success",
+    iconColor: "#16A34A",
+    iconBg: "#F0FDF4",
   },
   {
     title: "Warranties & Reminders",
     subtitle: "Get reminders before warranties expire.",
     icon: "notifications-outline",
-    tone: "warning",
+    iconColor: "#D97706",
+    iconBg: "#FEFCE8",
   },
   {
     title: "Secure & Private",
     subtitle: "Your data is encrypted and never shared.",
     icon: "lock-closed-outline",
-    tone: "neutral",
+    iconColor: "#475569",
+    iconBg: "#F1F5F9",
   },
 ];
 
@@ -62,7 +66,7 @@ export default function WelcomeScreen() {
   const { tokens, reducedMotion } = useTheme();
   const { width, height } = useWindowDimensions();
   const expanded = width >= 768 || width > height;
-  const short = !expanded && height < 690;
+  const short = !expanded && height < 740;
   const [activeIndex, setActiveIndex] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
   const scrollX = useRef(new Animated.Value(0)).current;
@@ -82,6 +86,11 @@ export default function WelcomeScreen() {
   };
 
   const lastWidth = useRef(width);
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ x: 0, animated: false });
+    setActiveIndex(0);
+  }, []);
+
   useEffect(() => {
     if (width !== lastWidth.current) {
       lastWidth.current = width;
@@ -104,31 +113,27 @@ export default function WelcomeScreen() {
       style={[
         styles.container,
         {
-          paddingTop: Math.max(insets.top + 10, 18),
-          paddingBottom: Math.max(insets.bottom + 10, 22),
+          paddingTop: Math.max(insets.top, 14),
+          paddingBottom: Math.max(insets.bottom, 16),
           backgroundColor: tokens.colors.canvas,
         },
       ]}
     >
+      {/* Top Bar with Skip pill */}
       <View style={[styles.topBar, { paddingHorizontal: tokens.spacing.xl }]}>
         <View />
-        {activeIndex > 0 && activeIndex < SLIDES.length - 1 ? (
-          <Pressable
-            onPress={() => router.push("/(auth)/sign-up")}
-            hitSlop={12}
-            accessibilityRole="button"
-            accessibilityLabel="Skip onboarding"
-            style={styles.skipTouch}
-          >
-            <Text style={[styles.skipText, { color: tokens.colors.accent }]}>
-              Skip
-            </Text>
-          </Pressable>
-        ) : (
-          <View style={styles.skipPlaceholder} />
-        )}
+        <Pressable
+          onPress={() => router.push("/(auth)/sign-up")}
+          hitSlop={12}
+          accessibilityRole="button"
+          accessibilityLabel="Skip onboarding"
+          style={styles.skipPill}
+        >
+          <Text style={styles.skipText}>Skip</Text>
+        </Pressable>
       </View>
 
+      {/* Slide Carousel */}
       <View style={styles.carousel}>
         <ScrollView
           ref={scrollRef}
@@ -138,7 +143,9 @@ export default function WelcomeScreen() {
           scrollEventThrottle={16}
           onScroll={handleScroll}
           onMomentumScrollEnd={handleMomentumScrollEnd}
+          contentOffset={{ x: 0, y: 0 }}
           contentContainerStyle={styles.scrollContent}
+          style={styles.scrollView}
         >
           {SLIDES.map((slide) => (
             <View
@@ -147,7 +154,11 @@ export default function WelcomeScreen() {
                 styles.slide,
                 {
                   width,
-                  paddingHorizontal: expanded ? 40 : 28,
+                  paddingHorizontal: expanded
+                    ? 40
+                    : slide === "splash"
+                      ? 0
+                      : 16,
                   flexDirection:
                     expanded && slide !== "splash" ? "row" : "column",
                   gap: expanded && slide !== "splash" ? 44 : 0,
@@ -159,25 +170,16 @@ export default function WelcomeScreen() {
               ) : slide === "intro" ? (
                 <IntroPanel compact={short} />
               ) : slide === "receipt" ? (
-                <StoryPanel
-                  compact={short}
-                  icon="receipt-outline"
-                  title="Receipts stay ready."
-                  copy="Capture proof of purchase before the box gets recycled or the email disappears."
-                />
+                <ReceiptPanel compact={short} />
               ) : (
-                <StoryPanel
-                  compact={short}
-                  icon="calendar-outline"
-                  title="Deadlines stay visible."
-                  copy="Return windows, warranties, and claims surface before they become expensive surprises."
-                />
+                <DeadlinePanel compact={short} />
               )}
             </View>
           ))}
         </ScrollView>
       </View>
 
+      {/* Pagination Row */}
       <View style={styles.paginationRow}>
         {SLIDES.map((_, index) => {
           const inputRange = [
@@ -185,14 +187,9 @@ export default function WelcomeScreen() {
             index * width,
             (index + 1) * width,
           ];
-          const dotWidth = scrollX.interpolate({
-            inputRange,
-            outputRange: [7, 18, 7],
-            extrapolate: "clamp",
-          });
           const dotOpacity = scrollX.interpolate({
             inputRange,
-            outputRange: [0.22, 1, 0.22],
+            outputRange: [0.24, 1, 0.24],
             extrapolate: "clamp",
           });
           return (
@@ -208,9 +205,8 @@ export default function WelcomeScreen() {
                 style={[
                   styles.dot,
                   {
-                    width: dotWidth,
                     opacity: dotOpacity,
-                    backgroundColor: tokens.colors.accent,
+                    backgroundColor: "#4F46E5",
                   },
                 ]}
               />
@@ -219,31 +215,47 @@ export default function WelcomeScreen() {
         })}
       </View>
 
+      {/* Bottom Footer Actions */}
       <View style={[styles.footer, { paddingHorizontal: tokens.spacing.xl }]}>
-        <Button
-          label={
+        <Pressable
+          onPress={handlePrimary}
+          accessibilityRole="button"
+          accessibilityLabel={
             activeIndex === 0
               ? "Get started"
               : activeIndex === SLIDES.length - 1
                 ? "Create account"
                 : "Next"
           }
-          size="lg"
-          onPress={handlePrimary}
-        />
-        <View style={styles.signInRow}>
-          <Text style={[styles.footerText, { color: tokens.colors.textMuted }]}>
-            Already have an account?{" "}
+          style={({ pressed }) => [
+            styles.primaryButton,
+            pressed && !reducedMotion && styles.primaryButtonPressed,
+          ]}
+        >
+          <Text style={styles.primaryButtonText}>
+            {activeIndex === 0
+              ? "Get started"
+              : activeIndex === SLIDES.length - 1
+                ? "Create account"
+                : "Next"}
           </Text>
+          <Ionicons
+            name="arrow-forward"
+            size={20}
+            color="#FFFFFF"
+            style={styles.primaryButtonIcon}
+          />
+        </Pressable>
+
+        <View style={styles.signInRow}>
+          <Text style={styles.footerText}>Already have an account? </Text>
           <Pressable
             onPress={() => router.push("/(auth)/sign-in")}
             hitSlop={12}
             accessibilityRole="link"
             accessibilityLabel="Sign in to existing account"
           >
-            <Text style={[styles.footerLink, { color: tokens.colors.accent }]}>
-              Sign in
-            </Text>
+            <Text style={styles.footerLink}>Sign in</Text>
           </Pressable>
         </View>
       </View>
@@ -252,80 +264,56 @@ export default function WelcomeScreen() {
 }
 
 function SplashPanel({ compact }: { compact: boolean }) {
-  const { tokens } = useTheme();
   return (
-    <View style={styles.splashPanel}>
-      <View
-        style={[
-          styles.logoHalo,
-          {
-            width: compact ? 96 : 118,
-            height: compact ? 96 : 118,
-            borderRadius: compact ? 30 : 34,
-            backgroundColor: tokens.colors.accentSoft,
-          },
-        ]}
-      >
-        <Image
-          source={require("../assets/logo_icon.png")}
-          resizeMode="contain"
-          style={styles.logoLarge}
-        />
+    <View style={[styles.splashPanel, compact && styles.splashPanelCompact]}>
+      <WelcomeHeroIllustration compact={compact} />
+      <View style={styles.splashTextContainer}>
+        <Text accessibilityRole="header" style={styles.brandTitle}>
+          AfterBuy
+        </Text>
+        <Text style={styles.headline}>
+          Keep track of everything{"\n"}you buy,{" "}
+          <Text style={styles.headlineHighlight}>effortlessly.</Text>
+        </Text>
+        <Text style={styles.subtitle}>
+          Save receipts, track returns, warranties,{"\n"}and get reminders — all
+          in one place.
+        </Text>
       </View>
-      <Text
-        accessibilityRole="header"
-        style={[styles.brandTitle, { color: tokens.colors.textStrong }]}
-      >
-        AfterBuy
-      </Text>
-      <Text style={[styles.brandCopy, { color: tokens.colors.textSubtle }]}>
-        Track purchases. Never miss a return or warranty again.
-      </Text>
     </View>
   );
 }
 
 function IntroPanel({ compact }: { compact: boolean }) {
-  const { tokens } = useTheme();
   return (
     <View style={[styles.introPanel, compact && styles.introPanelCompact]}>
-      <View style={styles.headingBlock}>
-        <Text
-          accessibilityRole="header"
-          style={[styles.title, { color: tokens.colors.textStrong }]}
-        >
-          Everything you buy, organized beautifully.
+      <IntroHeroIllustration compact={compact} />
+      <View style={styles.introTextContainer}>
+        <Text accessibilityRole="header" style={styles.brandTitleIntro}>
+          AfterBuy
+        </Text>
+        <Text style={styles.headlineIntro}>
+          Everything you buy,{"\n"}
+          <Text style={styles.headlineHighlight}>organized beautifully.</Text>
+        </Text>
+        <Text style={styles.subtitleIntro}>
+          Save receipts, track returns, warranties, and get reminders — all in
+          one place.
         </Text>
       </View>
-      <View style={[styles.featureList, { gap: tokens.spacing.md }]}>
+      <View style={styles.featureCardsList}>
         {INTRO_ITEMS.map((item) => (
-          <View
-            key={item.title}
-            style={[
-              styles.featureRow,
-              {
-                backgroundColor: tokens.colors.surface,
-                borderColor: tokens.colors.border,
-                borderRadius: tokens.radius.xl,
-              },
-            ]}
-          >
-            <IconTile icon={item.icon} tone={item.tone} />
-            <View style={styles.featureCopy}>
-              <Text
-                style={[styles.featureTitle, { color: tokens.colors.text }]}
-              >
-                {item.title}
-              </Text>
-              <Text
-                style={[
-                  styles.featureSubtitle,
-                  { color: tokens.colors.textSubtle },
-                ]}
-              >
-                {item.subtitle}
-              </Text>
+          <View key={item.title} style={styles.featureCard}>
+            <View
+              style={[styles.featureIconBox, { backgroundColor: item.iconBg }]}
+            >
+              <Ionicons name={item.icon} size={20} color={item.iconColor} />
             </View>
+            <View style={styles.featureCardText}>
+              <Text style={styles.featureCardTitle}>{item.title}</Text>
+              <Text style={styles.featureCardSubtitle}>{item.subtitle}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={14} color="#94A3B8" />
           </View>
         ))}
       </View>
@@ -333,34 +321,36 @@ function IntroPanel({ compact }: { compact: boolean }) {
   );
 }
 
-function StoryPanel({
-  compact,
-  icon,
-  title,
-  copy,
-}: {
-  compact: boolean;
-  icon: "receipt-outline" | "calendar-outline";
-  title: string;
-  copy: string;
-}) {
-  const { tokens } = useTheme();
+function ReceiptPanel({ compact }: { compact: boolean }) {
   return (
     <View style={[styles.storyPanel, compact && styles.storyPanelCompact]}>
-      <IconTile icon={icon} tone="accent" size="lg" />
-      <Text
-        accessibilityRole="header"
-        style={[
-          styles.title,
-          styles.storyTitle,
-          { color: tokens.colors.textStrong },
-        ]}
-      >
-        {title}
-      </Text>
-      <Text style={[styles.storyCopy, { color: tokens.colors.textSubtle }]}>
-        {copy}
-      </Text>
+      <ReceiptHeroIllustration compact={compact} />
+      <View style={styles.storyTextContainer}>
+        <Text accessibilityRole="header" style={styles.storyHeadline}>
+          Receipts stay ready.
+        </Text>
+        <Text style={styles.storySubtitle}>
+          Capture proof of purchase before the box{"\n"}gets recycled or the
+          email disappears.
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+function DeadlinePanel({ compact }: { compact: boolean }) {
+  return (
+    <View style={[styles.storyPanel, compact && styles.storyPanelCompact]}>
+      <DeadlineHeroIllustration compact={compact} />
+      <View style={styles.storyTextContainer}>
+        <Text accessibilityRole="header" style={styles.storyHeadline}>
+          Deadlines stay visible.
+        </Text>
+        <Text style={styles.storySubtitle}>
+          Return windows, warranties, and claims{"\n"}surface before they become
+          expensive surprises.
+        </Text>
+      </View>
     </View>
   );
 }
@@ -368,75 +358,239 @@ function StoryPanel({
 const styles = StyleSheet.create({
   container: { flex: 1 },
   topBar: {
-    minHeight: 44,
+    minHeight: 38,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
-  skipTouch: { minHeight: 44, justifyContent: "center" },
-  skipText: { fontSize: 15, fontWeight: "700" },
+  skipPill: {
+    paddingHorizontal: 16,
+    paddingVertical: 5,
+    borderRadius: 20,
+    backgroundColor: "#EEF0FE",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  skipText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#4F46E5",
+  },
   skipPlaceholder: { width: 44, height: 44 },
   carousel: { flex: 1, justifyContent: "center" },
+  scrollView: { flex: 1 },
   scrollContent: { alignItems: "center" },
-  slide: { alignItems: "center", justifyContent: "center" },
+  slide: {
+    alignItems: "center",
+    justifyContent: "center",
+    height: "100%",
+  },
   splashPanel: {
     alignItems: "center",
     justifyContent: "center",
-    maxWidth: 330,
+    width: "100%",
   },
-  logoHalo: {
+  splashPanelCompact: {
+    transform: [{ scale: 0.92 }],
+  },
+  splashTextContainer: {
+    width: "100%",
+    paddingHorizontal: 24,
     alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 24,
   },
-  logoLarge: { width: 92, height: 92 },
-  brandTitle: { fontSize: 38, lineHeight: 45, fontWeight: "800" },
-  brandCopy: {
-    marginTop: 8,
-    fontSize: 16,
-    lineHeight: 23,
+  brandTitle: {
+    fontSize: 38,
+    lineHeight: 44,
+    fontWeight: "900",
+    color: "#0F172A",
     textAlign: "center",
-    maxWidth: 280,
+    letterSpacing: -0.6,
+    marginTop: 14,
   },
-  introPanel: { width: "100%", maxWidth: 430, gap: 20 },
-  introPanelCompact: { gap: 12 },
-  headingBlock: { gap: 8 },
-  title: { fontSize: 25, lineHeight: 32, fontWeight: "800" },
-  featureList: { width: "100%" },
-  featureRow: {
+  headline: {
+    fontSize: 27,
+    lineHeight: 34,
+    fontWeight: "800",
+    color: "#0F172A",
+    textAlign: "center",
+    marginTop: 8,
+    letterSpacing: -0.4,
+  },
+  headlineHighlight: {
+    color: "#4F46E5",
+  },
+  subtitle: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: "#64748B",
+    textAlign: "center",
+    marginTop: 8,
+    maxWidth: 320,
+    alignSelf: "center",
+    fontWeight: "400",
+  },
+  introPanel: {
+    width: "100%",
+    maxWidth: 430,
+    alignItems: "center",
+  },
+  introPanelCompact: {
+    transform: [{ scale: 0.93 }],
+  },
+  brandTitleIntro: {
+    fontSize: 30,
+    lineHeight: 34,
+    fontWeight: "900",
+    color: "#0F172A",
+    textAlign: "center",
+    letterSpacing: -0.5,
+    marginTop: 2,
+  },
+  headlineIntro: {
+    fontSize: 24,
+    lineHeight: 30,
+    fontWeight: "800",
+    color: "#0F172A",
+    textAlign: "center",
+    marginTop: 2,
+    letterSpacing: -0.3,
+  },
+  subtitleIntro: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: "#64748B",
+    textAlign: "center",
+    marginTop: 4,
+    maxWidth: 325,
+    alignSelf: "center",
+  },
+  introTextContainer: {
+    width: "100%",
+    paddingHorizontal: 20,
+    alignItems: "center",
+  },
+  featureCardsList: {
+    width: "100%",
+    paddingHorizontal: 16,
+    gap: 7,
+    marginTop: 10,
+  },
+  featureCard: {
     flexDirection: "row",
     alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
     borderWidth: 1,
-    padding: 12,
+    borderColor: "rgba(0, 0, 0, 0.04)",
+    shadowColor: "#1E1B4B",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    elevation: 2,
     gap: 12,
   },
-  featureCopy: { flex: 1, gap: 2 },
-  featureTitle: { fontSize: 15, lineHeight: 20, fontWeight: "800" },
-  featureSubtitle: { fontSize: 13, lineHeight: 18, fontWeight: "500" },
-  storyPanel: { alignItems: "center", maxWidth: 330 },
-  storyPanelCompact: { transform: [{ translateY: -12 }] },
-  storyTitle: { marginTop: 24, textAlign: "center" },
-  storyCopy: {
-    marginTop: 10,
-    fontSize: 16,
-    lineHeight: 24,
+  featureIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 13,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  featureCardText: {
+    flex: 1,
+  },
+  featureCardTitle: {
+    fontSize: 14.5,
+    fontWeight: "800",
+    color: "#0F172A",
+  },
+  featureCardSubtitle: {
+    fontSize: 11.5,
+    color: "#64748B",
+    marginTop: 1.5,
+    lineHeight: 15,
+  },
+  storyPanel: {
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
+  },
+  storyPanelCompact: {
+    transform: [{ scale: 0.94 }],
+  },
+  storyTextContainer: {
+    width: "100%",
+    paddingHorizontal: 20,
+    alignItems: "center",
+    marginTop: 4,
+  },
+  storyHeadline: {
+    fontSize: 27,
+    lineHeight: 33,
+    fontWeight: "900",
+    color: "#0F172A",
     textAlign: "center",
+    letterSpacing: -0.4,
+  },
+  storySubtitle: {
+    fontSize: 14.5,
+    lineHeight: 21,
+    color: "#64748B",
+    textAlign: "center",
+    marginTop: 8,
+    maxWidth: 330,
+    alignSelf: "center",
   },
   paginationRow: {
-    minHeight: 34,
+    minHeight: 18,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
+    marginTop: 8,
+    marginBottom: 10,
   },
-  dot: { height: 7, borderRadius: 999 },
-  footer: { width: "100%", maxWidth: 460, alignSelf: "center", gap: 12 },
+  dot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+  },
+  footer: { width: "100%", maxWidth: 460, alignSelf: "center", gap: 8 },
+  primaryButton: {
+    height: 52,
+    backgroundColor: "#4F46E5",
+    borderRadius: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#4F46E5",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    elevation: 8,
+    position: "relative",
+  },
+  primaryButtonPressed: {
+    opacity: 0.92,
+    transform: [{ scale: 0.985 }],
+  },
+  primaryButtonText: {
+    fontSize: 17,
+    fontWeight: "600",
+    color: "#FFFFFF",
+  },
+  primaryButtonIcon: {
+    position: "absolute",
+    right: 22,
+  },
   signInRow: {
-    minHeight: 36,
+    minHeight: 28,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
   },
-  footerText: { fontSize: 14, fontWeight: "500" },
-  footerLink: { fontSize: 14, fontWeight: "800" },
+  footerText: { fontSize: 14, fontWeight: "500", color: "#64748B" },
+  footerLink: { fontSize: 14, fontWeight: "700", color: "#4F46E5" },
 });
