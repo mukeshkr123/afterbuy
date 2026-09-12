@@ -1,0 +1,54 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "acme-prod-api",
+  "main": "apps/api/src/index.ts",
+  "compatibility_date": "2026-07-21",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1,
+  },
+  "vars": {
+    "APP_STAGE": "prod",
+    "REMINDER_QUEUE_NAME": "acme-prod-reminder-queue",
+    "REMINDER_DLQ_NAME": "acme-prod-reminder-dlq",
+    "DAILY_CRON_EXPRESSION": "0 2 * * *",
+    "RATE_LIMIT_ENABLED": "true",
+    "RATE_LIMIT_WINDOW_SECONDS": "60",
+    "RATE_LIMIT_MAX_REQUESTS": "120",
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "acme-prod-d1",
+      "migrations_dir": "packages/db/drizzle",
+    },
+  ],
+  "r2_buckets": [{ "binding": "STORAGE" }],
+  "kv_namespaces": [{ "binding": "APP_KV" }],
+  "queues": {
+    "producers": [
+      {
+        "binding": "REMINDER_QUEUE",
+        "queue": "acme-prod-reminder-queue",
+      },
+      {
+        "binding": "REMINDER_DLQ",
+        "queue": "acme-prod-reminder-dlq",
+      },
+    ],
+    "consumers": [
+      {
+        "queue": "acme-prod-reminder-queue",
+        "max_batch_size": 10,
+        "max_retries": 5,
+        "dead_letter_queue": "acme-prod-reminder-dlq",
+        "max_concurrency": 4,
+        "retry_delay": 60,
+      },
+    ],
+  },
+  "triggers": {
+    "crons": ["0 2 * * *"],
+  },
+}

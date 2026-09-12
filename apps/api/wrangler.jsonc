@@ -2,8 +2,8 @@
   "$schema": "../../node_modules/wrangler/config-schema.json",
   "name": "acme-local-api",
   "main": "src/index.ts",
-  // Keep this in sync with infra/env.ts COMPATIBILITY_DATE and SST worker transforms.
-  "compatibility_date": "2026-07-18",
+  // Local-only config. Production uses the root wrangler.jsonc.
+  "compatibility_date": "2026-07-21",
   "compatibility_flags": ["nodejs_compat"],
   "observability": {
     "enabled": true,
@@ -28,8 +28,7 @@
   "d1_databases": [
     {
       "binding": "DB",
-      // Placeholder only: SST creates real D1 databases during deploy.
-      "database_name": "SST_CREATES_THIS_DATABASE",
+      "database_name": "acme-local-d1",
       "database_id": "00000000-0000-0000-0000-000000000000",
       "migrations_dir": "../../packages/db/drizzle",
     },
@@ -37,7 +36,7 @@
   "r2_buckets": [
     {
       "binding": "STORAGE",
-      "bucket_name": "sst-creates-this-bucket",
+      "bucket_name": "acme-local-storage",
     },
   ],
   "kv_namespaces": [

@@ -1,7 +1,7 @@
 import { readFileSync, statSync } from "node:fs";
 import { globSync } from "node:fs";
 
-const files = globSync("{infra,sst.config.ts,apps/**/wrangler.jsonc}", {
+const files = globSync("{wrangler.jsonc,apps/**/wrangler.jsonc}", {
   withFileTypes: false,
 }).filter((file) => statSync(file).isFile());
 

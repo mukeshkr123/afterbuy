@@ -12,4 +12,5 @@ apps/mobile/android/build
 apps/mobile/android/.gradle
 # Expo generated
 expo-env.d.ts
+apps/api/src/worker-configuration.d.ts
 .expo/

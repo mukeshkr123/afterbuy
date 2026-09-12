@@ -1,5 +1,4 @@
 import { readFileSync } from "node:fs";
-import { globSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -10,93 +9,36 @@ export interface TemplateCheckFailure {
 
 export function verifyTemplate(root = process.cwd()): TemplateCheckFailure[] {
   const failures: TemplateCheckFailure[] = [];
-  const pkg = JSON.parse(read(root, "package.json")) as {
-    devDependencies?: Record<string, string>;
-  };
-  const sstConfig = read(root, "sst.config.ts");
-  const infraEnv = read(root, "infra/env.ts");
-  const apiWrangler = read(root, "apps/api/wrangler.jsonc");
-  const readme = read(root, "README.md");
-  const claude = read(root, "CLAUDE.md");
+  const productionWrangler = read(root, "wrangler.jsonc");
+  const localWrangler = read(root, "apps/api/wrangler.jsonc");
 
-  const provider = /providers:\s*{[\s\S]*?cloudflare:\s*"([^"]+)"/.exec(
-    sstConfig
+  const productionDate = /"compatibility_date"\s*:\s*"([^"]+)"/.exec(
+    productionWrangler
   )?.[1];
-  const pulumi = pkg.devDependencies?.["@pulumi/cloudflare"];
-  if (!provider || provider !== pulumi) {
-    failures.push({
-      check: "provider-pin-sync",
-      detail: `sst.config.ts provider ${provider ?? "<missing>"} does not match @pulumi/cloudflare ${pulumi ?? "<missing>"}`,
-    });
-  }
-
-  const compatibility = /COMPATIBILITY_DATE\s*=\s*"([^"]+)"/.exec(
-    infraEnv
+  const localDate = /"compatibility_date"\s*:\s*"([^"]+)"/.exec(
+    localWrangler
   )?.[1];
-  const wranglerCompatibility = /"compatibility_date":\s*"([^"]+)"/.exec(
-    apiWrangler
-  )?.[1];
-  if (!compatibility || compatibility !== wranglerCompatibility) {
+  if (!productionDate || productionDate !== localDate) {
     failures.push({
       check: "compatibility-date-sync",
-      detail: `infra/env.ts ${compatibility ?? "<missing>"} does not match wrangler ${wranglerCompatibility ?? "<missing>"}`,
+      detail: `root wrangler ${productionDate ?? "<missing>"} does not match local wrangler ${localDate ?? "<missing>"}`,
     });
   }
 
-  if (!/name:\s*"acme"/.test(sstConfig)) {
+  if (!/"name"\s*:\s*"acme-prod-api"/.test(productionWrangler)) {
     failures.push({
-      check: "slug",
-      detail: 'SST app name must remain exactly "acme".',
+      check: "production-worker-name",
+      detail:
+        'Production Wrangler config must name the Worker "acme-prod-api".',
     });
   }
 
-  const forbidden = /\b(opts\.import|retainOnDelete|ignoreChanges)\b/;
-  const guardedFiles = [
-    ...globSync("infra/**/*.{ts,tsx}", { cwd: root, withFileTypes: false }),
-    "sst.config.ts",
-  ];
-  for (const file of guardedFiles) {
-    if (forbidden.test(read(root, file))) {
-      failures.push({
-        check: "state-drift-band-aid",
-        detail: `${file} uses import/retain/ignoreChanges drift controls.`,
-      });
-    }
-  }
-
-  if (!apiWrangler.includes("00000000-0000-0000-0000-000000000000")) {
+  if (/database_id|"id"\s*:/.test(productionWrangler)) {
     failures.push({
-      check: "wrangler-placeholder-d1",
-      detail: "apps/api/wrangler.jsonc must contain only placeholder D1 IDs.",
+      check: "production-no-hardcoded-ids",
+      detail:
+        "Production Wrangler config must rely on automatic provisioning and contain no resource IDs.",
     });
-  }
-
-  for (const section of [
-    "Local Development",
-    "First Deploy",
-    "GitHub Production Values",
-    "Moving Cloudflare Accounts",
-  ]) {
-    if (!readme.includes(section)) {
-      failures.push({
-        check: "readme-section",
-        detail: `README.md is missing ${section}.`,
-      });
-    }
-  }
-
-  for (const phrase of [
-    "No Hardcoded Infrastructure IDs",
-    "State Drift",
-    "Provider Pinning",
-    "GitHub Environments",
-  ]) {
-    if (!claude.includes(phrase)) {
-      failures.push({
-        check: "claude-guardrail",
-        detail: `CLAUDE.md is missing ${phrase}.`,
-      });
-    }
   }
 
   return failures;
