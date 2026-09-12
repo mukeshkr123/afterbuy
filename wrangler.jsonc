@@ -16,6 +16,10 @@
     "RATE_LIMIT_ENABLED": "true",
     "RATE_LIMIT_WINDOW_SECONDS": "60",
     "RATE_LIMIT_MAX_REQUESTS": "120",
+    "ALLOWED_ORIGINS": "https://afterbuy.app,https://www.afterbuy.app",
+    "CLERK_ISSUER": "https://talented-mayfly-77.clerk.accounts.dev",
+    "CLERK_JWKS_URL": "https://talented-mayfly-77.clerk.accounts.dev/.well-known/jwks.json",
+    "CLERK_ALLOWED_AZP": "https://afterbuy.app,https://www.afterbuy.app",
   },
   "d1_databases": [
     {

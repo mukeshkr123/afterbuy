@@ -11,6 +11,7 @@ export function getHealth(env: Env, requestId: string) {
   };
 
   const degradedReasons = Object.entries(checks)
+    .filter(([name]) => name !== "optionalWebhookSecret")
     .filter(([, ok]) => !ok)
     .map(([name]) => `${name} is not configured`);
 

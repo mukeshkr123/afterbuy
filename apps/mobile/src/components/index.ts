@@ -32,3 +32,5 @@ export { SegmentedControl } from "./Tabs";
 export { Toast } from "./Toast";
 export { UndoableToast } from "./UndoableToast";
 export { AuthHeroIllustration } from "./auth/AuthHeroIllustration";
+export { DashboardHeroIllustration } from "./DashboardHeroIllustration";
+export { ProductThumbnail } from "./ProductThumbnail";

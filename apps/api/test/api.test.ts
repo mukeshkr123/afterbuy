@@ -38,14 +38,18 @@ describe("api", () => {
     await expect(res.json()).resolves.toMatchObject({ status: "ok" });
   });
 
-  test("reports degraded when webhook secret is missing", async () => {
+  test("keeps health status healthy when optional webhook secret is missing", async () => {
     const res = await createApp().request(
       "/health",
       {},
       env({ CLERK_WEBHOOK_SECRET: "" })
     );
-    expect(res.status).toBe(503);
-    await expect(res.json()).resolves.toMatchObject({ status: "degraded" });
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({
+      status: "ok",
+      checks: { optionalWebhookSecret: false },
+      degradedReasons: [],
+    });
   });
 
   test("applies env-driven CORS", async () => {

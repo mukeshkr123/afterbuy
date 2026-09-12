@@ -1,8 +1,40 @@
 import { Tabs } from "expo-router";
 import React from "react";
-import { StyleSheet, useWindowDimensions } from "react-native";
-import { AppIcon } from "@/components";
+import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/theme/ThemeProvider";
+
+function TabLabelWithDot({
+  label,
+  focused,
+  color,
+}: {
+  label: string;
+  focused: boolean;
+  color: any;
+}) {
+  const colorStr = typeof color === "string" ? color : String(color);
+  return (
+    <View style={styles.labelContainer}>
+      <Text
+        style={[
+          styles.labelText,
+          {
+            color: colorStr,
+            fontWeight: focused ? "700" : "600",
+          },
+        ]}
+      >
+        {label}
+      </Text>
+      {focused ? (
+        <View style={[styles.indicatorDot, { backgroundColor: colorStr }]} />
+      ) : (
+        <View style={styles.indicatorSpacer} />
+      )}
+    </View>
+  );
+}
 
 export default function TabsLayout() {
   const { tokens } = useTheme();
@@ -13,28 +45,24 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: tokens.colors.accent,
-        tabBarInactiveTintColor: tokens.colors.textSubtle,
+        tabBarActiveTintColor: "#5B4DF5",
+        tabBarInactiveTintColor: "#64748B",
         tabBarPosition: expanded ? "left" : "bottom",
         tabBarLabelPosition: "below-icon",
         tabBarStyle: {
-          backgroundColor: tokens.colors.surface,
-          borderTopColor: tokens.colors.border,
-          borderTopWidth: StyleSheet.hairlineWidth,
-          borderRightColor: tokens.colors.border,
-          borderRightWidth: expanded ? StyleSheet.hairlineWidth : 0,
+          backgroundColor: "#FFFFFF",
+          borderTopColor: "#F1F5F9",
+          borderTopWidth: 1,
+          borderRightColor: "#F1F5F9",
+          borderRightWidth: expanded ? 1 : 0,
           width: expanded ? 92 : undefined,
           height: expanded ? undefined : 64,
-          paddingBottom: expanded ? 12 : 6,
+          paddingBottom: expanded ? 12 : 4,
           paddingTop: 6,
           elevation: 0,
         },
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: "600",
-        },
         tabBarItemStyle: {
-          minHeight: expanded ? 64 : 44,
+          minHeight: expanded ? 64 : 48,
           paddingVertical: expanded ? 6 : 0,
         },
       }}
@@ -43,8 +71,15 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: "Home",
-          tabBarIcon: ({ color }) => (
-            <AppIcon name="home" size={23} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "home" : "home-outline"}
+              size={22}
+              color={color}
+            />
+          ),
+          tabBarLabel: ({ color, focused }) => (
+            <TabLabelWithDot label="Home" color={color} focused={focused} />
           ),
         }}
       />
@@ -52,8 +87,19 @@ export default function TabsLayout() {
         name="purchases"
         options={{
           title: "Purchases",
-          tabBarIcon: ({ color }) => (
-            <AppIcon name="purchases" size={23} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "receipt" : "receipt-outline"}
+              size={22}
+              color={color}
+            />
+          ),
+          tabBarLabel: ({ color, focused }) => (
+            <TabLabelWithDot
+              label="Purchases"
+              color={color}
+              focused={focused}
+            />
           ),
         }}
       />
@@ -61,8 +107,19 @@ export default function TabsLayout() {
         name="reminders"
         options={{
           title: "Reminders",
-          tabBarIcon: ({ color }) => (
-            <AppIcon name="reminders" size={23} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "notifications" : "notifications-outline"}
+              size={22}
+              color={color}
+            />
+          ),
+          tabBarLabel: ({ color, focused }) => (
+            <TabLabelWithDot
+              label="Reminders"
+              color={color}
+              focused={focused}
+            />
           ),
         }}
       />
@@ -76,11 +133,40 @@ export default function TabsLayout() {
         name="profile"
         options={{
           title: "Account",
-          tabBarIcon: ({ color }) => (
-            <AppIcon name="account" size={23} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "person-circle" : "person-circle-outline"}
+              size={24}
+              color={color}
+            />
+          ),
+          tabBarLabel: ({ color, focused }) => (
+            <TabLabelWithDot label="Account" color={color} focused={focused} />
           ),
         }}
       />
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  labelContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 1,
+  },
+  labelText: {
+    fontSize: 11,
+  },
+  indicatorDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    marginTop: 2,
+  },
+  indicatorSpacer: {
+    width: 4,
+    height: 4,
+    marginTop: 2,
+  },
+});
