@@ -129,15 +129,6 @@ export function WelcomeHeroIllustration({
           <Ionicons name="chevron-forward" size={13} color="#9CA3AF" />
         </View>
       </View>
-
-      {/* Hand-drawn Doodle Annotation */}
-      <View style={styles.doodleContainer} pointerEvents="none">
-        <Image
-          source={require("../../../assets/peace_doodle.png")}
-          style={styles.doodleImage}
-          resizeMode="contain"
-        />
-      </View>
     </View>
   );
 }
@@ -379,17 +370,5 @@ const styles = StyleSheet.create({
     color: "#6B7280",
     marginTop: 1,
     lineHeight: 13,
-  },
-  doodleContainer: {
-    position: "absolute",
-    top: 234,
-    right: 10,
-    width: 82,
-    height: 112,
-    zIndex: 4,
-  },
-  doodleImage: {
-    width: "100%",
-    height: "100%",
   },
 });

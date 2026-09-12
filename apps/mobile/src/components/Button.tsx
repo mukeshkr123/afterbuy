@@ -19,6 +19,7 @@ export interface ButtonProps {
   variant?: "primary" | "secondary" | "tertiary" | "ghost" | "danger";
   size?: "md" | "lg";
   leading?: ReactNode;
+  trailing?: ReactNode;
   style?: StyleProp<ViewStyle>;
 }
 
@@ -30,6 +31,7 @@ export function Button({
   variant = "primary",
   size = "md",
   leading,
+  trailing,
   style,
 }: ButtonProps) {
   const { tokens, reducedMotion } = useTheme();
@@ -103,6 +105,7 @@ export function Button({
         >
           {label}
         </Text>
+        {trailing ? <View style={styles.trailing}>{trailing}</View> : null}
       </View>
     </Pressable>
   );
@@ -125,6 +128,9 @@ const styles = StyleSheet.create({
   },
   leading: {
     marginRight: 8,
+  },
+  trailing: {
+    marginLeft: 8,
   },
   label: {
     fontWeight: "600",

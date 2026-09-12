@@ -13,10 +13,10 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import {
+  AuthHeroIllustration,
   Button,
   FormError,
   Input,
-  ScreenHeader,
   ScreenScroll,
   SocialAuthButton,
 } from "@/components";
@@ -107,28 +107,39 @@ export default function SignInScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : undefined}
-      style={{ flex: 1 }}
+      style={{ flex: 1, backgroundColor: tokens.colors.canvas }}
     >
-      <ScreenScroll gap={tokens.spacing.lg} contentStyle={styles.scrollContent}>
-        <ScreenHeader
-          title=""
-          onBack={() =>
-            router.canGoBack() ? router.back() : router.replace("/welcome")
-          }
-        />
-
-        <View style={styles.heading}>
-          <Text
-            accessibilityRole="header"
-            style={[styles.title, { color: tokens.colors.textStrong }]}
+      <ScreenScroll gap={0} contentStyle={styles.scrollContent}>
+        {/* Top Back Button */}
+        <View style={styles.topBar}>
+          <Pressable
+            onPress={() =>
+              router.canGoBack() ? router.back() : router.replace("/welcome")
+            }
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+            hitSlop={10}
+            style={({ pressed }) => [
+              styles.backCircle,
+              pressed && styles.backCirclePressed,
+            ]}
           >
-            Welcome back
-          </Text>
-          <Text style={[styles.subtitle, { color: tokens.colors.textSubtle }]}>
-            Sign in to continue to AfterBuy.
-          </Text>
+            <Ionicons name="chevron-back" size={20} color="#0F172A" />
+          </Pressable>
         </View>
 
+        {/* 3D Hero Illustration */}
+        <AuthHeroIllustration />
+
+        {/* Heading */}
+        <View style={styles.heading}>
+          <Text accessibilityRole="header" style={styles.title}>
+            Welcome back
+          </Text>
+          <Text style={styles.subtitle}>Sign in to continue to AfterBuy.</Text>
+        </View>
+
+        {/* Form */}
         <View style={styles.form}>
           <Input
             label="Email"
@@ -142,6 +153,9 @@ export default function SignInScreen() {
             autoComplete="email"
             returnKeyType="next"
             onSubmitEditing={() => passwordInputRef.current?.focus()}
+            leadingIcon={
+              <Ionicons name="mail-outline" size={19} color="#64748B" />
+            }
           />
 
           <Input
@@ -156,6 +170,9 @@ export default function SignInScreen() {
             autoComplete="current-password"
             returnKeyType="go"
             onSubmitEditing={() => void onSubmit()}
+            leadingIcon={
+              <Ionicons name="lock-closed-outline" size={19} color="#64748B" />
+            }
             adornment={
               <Pressable
                 onPress={() => setShowPassword((v) => !v)}
@@ -169,12 +186,13 @@ export default function SignInScreen() {
                 <Ionicons
                   name={showPassword ? "eye-off-outline" : "eye-outline"}
                   size={20}
-                  color={tokens.colors.textMuted}
+                  color="#64748B"
                 />
               </Pressable>
             }
           />
 
+          {/* Forgot Password Link */}
           <Pressable
             onPress={() => {
               const trimmed = email.trim();
@@ -192,42 +210,33 @@ export default function SignInScreen() {
             hitSlop={10}
             style={styles.forgotTouch}
           >
-            <Text style={[styles.linkText, { color: tokens.colors.accent }]}>
-              Forgot password?
-            </Text>
+            <Text style={styles.forgotText}>Forgot password?</Text>
           </Pressable>
 
           <FormError message={error} />
 
+          {/* Primary Action Button */}
           <Button
             label={pending ? "Signing in..." : "Sign in"}
+            trailing={
+              <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+            }
             disabled={pending || socialLoading !== null}
             busy={pending}
             size="lg"
             onPress={() => void onSubmit()}
+            style={styles.primaryButton}
           />
         </View>
 
+        {/* Divider */}
         <View style={styles.dividerRow}>
-          <View
-            style={[
-              styles.dividerLine,
-              { backgroundColor: tokens.colors.border },
-            ]}
-          />
-          <Text
-            style={[styles.dividerText, { color: tokens.colors.textMuted }]}
-          >
-            or continue with
-          </Text>
-          <View
-            style={[
-              styles.dividerLine,
-              { backgroundColor: tokens.colors.border },
-            ]}
-          />
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>or continue with</Text>
+          <View style={styles.dividerLine} />
         </View>
 
+        {/* Social Auth */}
         <View style={styles.socialBlock}>
           {showAppleSignIn ? (
             <SocialAuthButton
@@ -245,15 +254,12 @@ export default function SignInScreen() {
           />
         </View>
 
+        {/* Footer */}
         <View style={styles.footerRow}>
-          <Text style={[styles.footerText, { color: tokens.colors.textMuted }]}>
-            Don&apos;t have an account?{" "}
-          </Text>
+          <Text style={styles.footerText}>Don&apos;t have an account? </Text>
           <Link href="/(auth)/sign-up" asChild>
             <Pressable accessibilityRole="link" hitSlop={10}>
-              <Text style={[styles.linkText, { color: tokens.colors.accent }]}>
-                Create account
-              </Text>
+              <Text style={styles.linkText}>Create account</Text>
             </Pressable>
           </Link>
         </View>
@@ -265,14 +271,58 @@ export default function SignInScreen() {
 const styles = StyleSheet.create({
   scrollContent: {
     width: "100%",
-    maxWidth: 460,
+    maxWidth: 440,
     alignSelf: "center",
+    paddingHorizontal: 20,
     paddingBottom: 32,
   },
-  heading: { gap: 6, marginTop: 8, marginBottom: 8 },
-  title: { fontSize: 28, lineHeight: 35, fontWeight: "800" },
-  subtitle: { fontSize: 15, lineHeight: 22, fontWeight: "500" },
-  form: { gap: 13 },
+  topBar: {
+    height: 44,
+    justifyContent: "center",
+    alignItems: "flex-start",
+    marginBottom: 4,
+  },
+  backCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "rgba(0, 0, 0, 0.06)",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  backCirclePressed: {
+    opacity: 0.75,
+  },
+  heading: {
+    alignItems: "center",
+    marginTop: 6,
+    marginBottom: 16,
+  },
+  title: {
+    fontSize: 27,
+    lineHeight: 34,
+    fontWeight: "800",
+    color: "#0F172A",
+    textAlign: "center",
+    letterSpacing: -0.3,
+  },
+  subtitle: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: "#475569",
+    textAlign: "center",
+    marginTop: 6,
+  },
+  form: {
+    gap: 13,
+  },
   adornmentPress: {
     width: 48,
     height: 48,
@@ -280,25 +330,59 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   forgotTouch: {
-    minHeight: 34,
+    minHeight: 28,
     alignSelf: "flex-start",
     justifyContent: "center",
+    marginTop: -2,
+    marginBottom: 2,
   },
-  linkText: { fontSize: 14, lineHeight: 20, fontWeight: "800" },
+  forgotText: {
+    fontSize: 13.5,
+    lineHeight: 19,
+    fontWeight: "700",
+    color: "#4F46E5",
+  },
+  primaryButton: {
+    marginTop: 4,
+    borderRadius: 14,
+  },
   dividerRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    marginVertical: 6,
+    marginVertical: 14,
   },
-  dividerLine: { flex: 1, height: StyleSheet.hairlineWidth },
-  dividerText: { fontSize: 13, lineHeight: 18, fontWeight: "600" },
-  socialBlock: { gap: 10 },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "#E2E8F0",
+  },
+  dividerText: {
+    fontSize: 12.5,
+    lineHeight: 17,
+    fontWeight: "600",
+    color: "#64748B",
+  },
+  socialBlock: {
+    gap: 10,
+  },
   footerRow: {
-    minHeight: 44,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    marginTop: 18,
+    marginBottom: 8,
   },
-  footerText: { fontSize: 14, lineHeight: 20, fontWeight: "500" },
+  footerText: {
+    fontSize: 13.5,
+    lineHeight: 20,
+    color: "#475569",
+    fontWeight: "500",
+  },
+  linkText: {
+    fontSize: 13.5,
+    lineHeight: 20,
+    fontWeight: "700",
+    color: "#4F46E5",
+  },
 });

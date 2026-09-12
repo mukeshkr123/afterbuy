@@ -17,6 +17,8 @@ import { WelcomeHeroIllustration } from "@/components/onboarding/WelcomeHeroIllu
 import { IntroHeroIllustration } from "@/components/onboarding/IntroHeroIllustration";
 import { ReceiptHeroIllustration } from "@/components/onboarding/ReceiptHeroIllustration";
 import { DeadlineHeroIllustration } from "@/components/onboarding/DeadlineHeroIllustration";
+import { useAuth } from "@/auth/useAuth";
+import { readSettings } from "@/lib/settings";
 import { useTheme } from "@/theme/ThemeProvider";
 
 type FeatureItem = {
@@ -62,6 +64,7 @@ const SLIDES = ["splash", "intro", "receipt", "deadline"] as const;
 
 export default function WelcomeScreen() {
   const router = useRouter();
+  const { isLoaded, isSignedIn } = useAuth();
   const insets = useSafeAreaInsets();
   const { tokens, reducedMotion } = useTheme();
   const { width, height } = useWindowDimensions();
@@ -70,6 +73,26 @@ export default function WelcomeScreen() {
   const [activeIndex, setActiveIndex] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
   const scrollX = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn) return;
+    let alive = true;
+    void readSettings().then((settings) => {
+      if (!alive) return;
+      if (settings.authOnboardingPending) {
+        router.replace("/onboarding/preferences");
+      } else {
+        router.replace("/(tabs)");
+      }
+    });
+    return () => {
+      alive = false;
+    };
+  }, [isLoaded, isSignedIn, router]);
+
+  if (isLoaded && isSignedIn) {
+    return null;
+  }
 
   const handleScroll = Animated.event(
     [{ nativeEvent: { contentOffset: { x: scrollX } } }],
@@ -221,11 +244,7 @@ export default function WelcomeScreen() {
           onPress={handlePrimary}
           accessibilityRole="button"
           accessibilityLabel={
-            activeIndex === 0
-              ? "Get started"
-              : activeIndex === SLIDES.length - 1
-                ? "Create account"
-                : "Next"
+            activeIndex === SLIDES.length - 1 ? "Get started" : "Next"
           }
           style={({ pressed }) => [
             styles.primaryButton,
@@ -233,11 +252,7 @@ export default function WelcomeScreen() {
           ]}
         >
           <Text style={styles.primaryButtonText}>
-            {activeIndex === 0
-              ? "Get started"
-              : activeIndex === SLIDES.length - 1
-                ? "Create account"
-                : "Next"}
+            {activeIndex === SLIDES.length - 1 ? "Get started" : "Next"}
           </Text>
           <Ionicons
             name="arrow-forward"

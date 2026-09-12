@@ -1,6 +1,7 @@
 import React from "react";
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -22,7 +23,7 @@ export function SocialAuthButton({
   loading = false,
   disabled = false,
 }: SocialAuthButtonProps) {
-  const { tokens, isDark } = useTheme();
+  const { tokens } = useTheme();
 
   const isApple = provider === "apple";
   const label = isApple ? "Continue with Apple" : "Continue with Google";
@@ -39,8 +40,7 @@ export function SocialAuthButton({
         {
           backgroundColor: tokens.colors.surface,
           borderColor: tokens.colors.border,
-          borderRadius: 16,
-          ...tokens.shadow.raised,
+          borderRadius: 14,
         },
         (disabled || loading) && styles.disabled,
         pressed && !disabled && !loading && styles.pressed,
@@ -58,11 +58,10 @@ export function SocialAuthButton({
               style={styles.icon}
             />
           ) : (
-            <Ionicons
-              name="logo-google"
-              size={18}
-              color={isDark ? "#FFFFFF" : "#4285F4"}
-              style={styles.icon}
+            <Image
+              source={require("../../assets/google_g_logo.png")}
+              style={styles.googleIcon}
+              resizeMode="contain"
             />
           )}
           <Text style={[styles.label, { color: tokens.colors.text }]}>
@@ -77,11 +76,16 @@ export function SocialAuthButton({
 const styles = StyleSheet.create({
   button: {
     width: "100%",
-    height: 54,
+    height: 50,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 16,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 3,
+    elevation: 1,
   },
   contentRow: {
     flexDirection: "row",
@@ -91,10 +95,15 @@ const styles = StyleSheet.create({
   icon: {
     marginRight: 10,
   },
+  googleIcon: {
+    width: 19,
+    height: 19,
+    marginRight: 10,
+  },
   label: {
-    fontSize: 16,
+    fontSize: 14.5,
     fontWeight: "600",
-    letterSpacing: -0.2,
+    letterSpacing: -0.1,
   },
   pressed: {
     opacity: 0.92,

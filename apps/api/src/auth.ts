@@ -182,7 +182,16 @@ export async function cachedFindOrProvisionUser(
           if (parsed.deletedAt !== null) {
             throw new ApiError(403, "forbidden", "Account has been deleted");
           }
-          return { id: parsed.id, clerkUserId: parsed.clerkUserId };
+          const row = await db
+            .select({ id: users.id })
+            .from(users)
+            .where(eq(users.id, parsed.id))
+            .get();
+          if (!row) {
+            await env.APP_KV.delete(cacheKey);
+          } else {
+            return { id: parsed.id, clerkUserId: parsed.clerkUserId };
+          }
         }
       } catch (err) {
         if (err instanceof ApiError) throw err;

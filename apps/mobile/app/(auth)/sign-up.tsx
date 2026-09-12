@@ -13,10 +13,10 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import {
+  AuthHeroIllustration,
   Button,
   FormError,
   Input,
-  ScreenHeader,
   ScreenScroll,
   SocialAuthButton,
 } from "@/components";
@@ -164,30 +164,46 @@ export default function SignUpScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : undefined}
-      style={{ flex: 1 }}
+      style={{ flex: 1, backgroundColor: tokens.colors.canvas }}
     >
-      <ScreenScroll gap={tokens.spacing.lg} contentStyle={styles.scrollContent}>
-        <ScreenHeader
-          title=""
-          onBack={() =>
-            router.canGoBack() ? router.back() : router.replace("/welcome")
-          }
-        />
-
-        <View style={styles.heading}>
-          <Text
-            accessibilityRole="header"
-            style={[styles.title, { color: tokens.colors.textStrong }]}
+      <ScreenScroll gap={0} contentStyle={styles.scrollContent}>
+        {/* Top Back Button */}
+        <View style={styles.topBar}>
+          <Pressable
+            onPress={() =>
+              router.canGoBack() ? router.back() : router.replace("/welcome")
+            }
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+            hitSlop={10}
+            style={({ pressed }) => [
+              styles.backCircle,
+              pressed && styles.backCirclePressed,
+            ]}
           >
+            <Ionicons name="chevron-back" size={20} color="#0F172A" />
+          </Pressable>
+        </View>
+
+        {/* 3D Hero Illustration */}
+        <AuthHeroIllustration compact />
+
+        {/* Heading */}
+        <View style={styles.heading}>
+          <Text accessibilityRole="header" style={styles.title}>
             Create your account
           </Text>
-          <Text style={[styles.subtitle, { color: tokens.colors.textSubtle }]}>
-            Let&apos;s get you started.
+          <Text style={styles.subtitle}>
+            {
+              "Join AfterBuy and keep track of everything\nyou buy, effortlessly."
+            }
           </Text>
         </View>
 
+        {/* Form */}
         <View style={styles.form}>
           <Input
+            density="compact"
             label="Full name"
             value={fullName}
             onChangeText={(text) => {
@@ -201,10 +217,14 @@ export default function SignUpScreen() {
             returnKeyType="next"
             onSubmitEditing={() => emailInputRef.current?.focus()}
             error={fieldErrors["fullName"]}
+            leadingIcon={
+              <Ionicons name="person-outline" size={19} color="#64748B" />
+            }
           />
 
           <Input
             ref={emailInputRef}
+            density="compact"
             label="Email"
             value={email}
             onChangeText={(text) => {
@@ -220,10 +240,14 @@ export default function SignUpScreen() {
             returnKeyType="next"
             onSubmitEditing={() => passwordInputRef.current?.focus()}
             error={fieldErrors["email"]}
+            leadingIcon={
+              <Ionicons name="mail-outline" size={19} color="#64748B" />
+            }
           />
 
           <Input
             ref={passwordInputRef}
+            density="compact"
             label="Password"
             value={password}
             onChangeText={(text) => {
@@ -238,6 +262,9 @@ export default function SignUpScreen() {
             returnKeyType="done"
             onSubmitEditing={() => void onSubmit()}
             error={fieldErrors["password"]}
+            leadingIcon={
+              <Ionicons name="lock-closed-outline" size={19} color="#64748B" />
+            }
             adornment={
               <Pressable
                 onPress={() => setShowPassword((value) => !value)}
@@ -251,12 +278,13 @@ export default function SignUpScreen() {
                 <Ionicons
                   name={showPassword ? "eye-off-outline" : "eye-outline"}
                   size={20}
-                  color={tokens.colors.textMuted}
+                  color="#64748B"
                 />
               </Pressable>
             }
           />
 
+          {/* Password Validation Checklist */}
           <View style={styles.checkList}>
             <PasswordCheck
               ok={passwordChecks.length}
@@ -269,7 +297,8 @@ export default function SignUpScreen() {
             <PasswordCheck ok={passwordChecks.number} label="One number" />
           </View>
 
-          <View style={styles.termsRow}>
+          {/* Terms & Privacy Checkbox Card */}
+          <View style={styles.termsCard}>
             <Pressable
               onPress={() => setAgreedTerms((value) => !value)}
               accessibilityRole="checkbox"
@@ -279,41 +308,25 @@ export default function SignUpScreen() {
               style={styles.checkboxTouch}
             >
               <View
-                style={[
-                  styles.checkbox,
-                  {
-                    borderColor: agreedTerms
-                      ? tokens.colors.accent
-                      : tokens.colors.outline,
-                    backgroundColor: agreedTerms
-                      ? tokens.colors.accent
-                      : tokens.colors.surface,
-                  },
-                ]}
+                style={[styles.checkbox, agreedTerms && styles.checkboxActive]}
               >
                 {agreedTerms ? (
-                  <Ionicons
-                    name="checkmark"
-                    size={14}
-                    color={tokens.colors.accentText}
-                  />
+                  <Ionicons name="checkmark" size={14} color="#FFFFFF" />
                 ) : null}
               </View>
             </Pressable>
-            <Text
-              style={[styles.termsText, { color: tokens.colors.textSubtle }]}
-            >
+            <Text style={styles.termsText}>
               I agree to the{" "}
               <Text
                 onPress={() => router.push("/terms" as Href)}
-                style={[styles.inlineLink, { color: tokens.colors.accent }]}
+                style={styles.inlineLink}
               >
                 Terms of Service
               </Text>{" "}
               and{" "}
               <Text
                 onPress={() => router.push("/privacy" as Href)}
-                style={[styles.inlineLink, { color: tokens.colors.accent }]}
+                style={styles.inlineLink}
               >
                 Privacy Policy
               </Text>
@@ -323,51 +336,43 @@ export default function SignUpScreen() {
 
           <FormError message={error} />
 
+          {/* Primary Action Button */}
           <Button
             label={pending ? "Creating account..." : "Create account"}
+            trailing={
+              <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+            }
             disabled={!isFormValid || pending || socialLoading}
             busy={pending}
             size="lg"
             onPress={() => void onSubmit()}
+            style={styles.primaryButton}
           />
         </View>
 
+        {/* Divider */}
         <View style={styles.dividerRow}>
-          <View
-            style={[
-              styles.dividerLine,
-              { backgroundColor: tokens.colors.border },
-            ]}
-          />
-          <Text
-            style={[styles.dividerText, { color: tokens.colors.textMuted }]}
-          >
-            or continue with
-          </Text>
-          <View
-            style={[
-              styles.dividerLine,
-              { backgroundColor: tokens.colors.border },
-            ]}
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>or continue with</Text>
+          <View style={styles.dividerLine} />
+        </View>
+
+        {/* Social Auth */}
+        <View style={styles.socialBlock}>
+          <SocialAuthButton
+            provider="google"
+            onPress={() => void handleGoogleSignUp()}
+            loading={socialLoading}
+            disabled={pending || socialLoading}
           />
         </View>
 
-        <SocialAuthButton
-          provider="google"
-          onPress={() => void handleGoogleSignUp()}
-          loading={socialLoading}
-          disabled={pending || socialLoading}
-        />
-
+        {/* Footer */}
         <View style={styles.footerRow}>
-          <Text style={[styles.footerText, { color: tokens.colors.textMuted }]}>
-            Already have an account?{" "}
-          </Text>
+          <Text style={styles.footerText}>Already have an account? </Text>
           <Link href="/(auth)/sign-in" asChild>
             <Pressable accessibilityRole="link" hitSlop={10}>
-              <Text style={[styles.linkText, { color: tokens.colors.accent }]}>
-                Sign in
-              </Text>
+              <Text style={styles.linkText}>Sign in</Text>
             </Pressable>
           </Link>
         </View>
@@ -377,20 +382,14 @@ export default function SignUpScreen() {
 }
 
 function PasswordCheck({ ok, label }: { ok: boolean; label: string }) {
-  const { tokens } = useTheme();
   return (
     <View style={styles.checkRow}>
       <Ionicons
         name={ok ? "checkmark-circle" : "ellipse-outline"}
-        size={17}
-        color={ok ? tokens.colors.success : tokens.colors.outline}
+        size={15}
+        color={ok ? "#10B981" : "#94A3B8"}
       />
-      <Text
-        style={[
-          styles.checkText,
-          { color: ok ? tokens.colors.successText : tokens.colors.textSubtle },
-        ]}
-      >
+      <Text style={[styles.checkText, ok && styles.checkTextActive]}>
         {label}
       </Text>
     </View>
@@ -400,61 +399,164 @@ function PasswordCheck({ ok, label }: { ok: boolean; label: string }) {
 const styles = StyleSheet.create({
   scrollContent: {
     width: "100%",
-    maxWidth: 460,
+    maxWidth: 440,
     alignSelf: "center",
-    paddingBottom: 32,
+    paddingHorizontal: 20,
+    paddingBottom: 24,
   },
-  heading: { gap: 6, marginTop: 8, marginBottom: 4 },
-  title: { fontSize: 28, lineHeight: 35, fontWeight: "800" },
-  subtitle: { fontSize: 15, lineHeight: 22, fontWeight: "500" },
-  form: { gap: 13 },
+  topBar: {
+    height: 38,
+    justifyContent: "center",
+    alignItems: "flex-start",
+    marginBottom: 0,
+  },
+  backCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "rgba(0, 0, 0, 0.06)",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 2,
+  },
+  backCirclePressed: {
+    opacity: 0.75,
+  },
+  heading: {
+    alignItems: "center",
+    marginTop: 2,
+    marginBottom: 10,
+  },
+  title: {
+    fontSize: 26,
+    lineHeight: 32,
+    fontWeight: "800",
+    color: "#0F172A",
+    textAlign: "center",
+    letterSpacing: -0.3,
+  },
+  subtitle: {
+    fontSize: 13.5,
+    lineHeight: 18,
+    color: "#475569",
+    textAlign: "center",
+    marginTop: 4,
+  },
+  form: {
+    gap: 9,
+  },
   adornmentPress: {
-    width: 48,
-    height: 48,
+    width: 44,
+    height: 44,
     alignItems: "center",
     justifyContent: "center",
   },
-  checkList: { gap: 7, marginTop: -4 },
-  checkRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  checkText: { fontSize: 13, lineHeight: 18, fontWeight: "600" },
+  checkList: {
+    gap: 4,
+    marginTop: -1,
+    marginBottom: 1,
+  },
+  checkRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+  },
+  checkText: {
+    fontSize: 12.5,
+    lineHeight: 17,
+    fontWeight: "500",
+    color: "#475569",
+  },
+  checkTextActive: {
+    color: "#10B981",
+  },
+  termsCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F4F6FF",
+    borderRadius: 13,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    gap: 10,
+    marginTop: 1,
+  },
+  checkboxTouch: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: "#CBD5E1",
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  checkboxActive: {
+    borderColor: "#4F46E5",
+    backgroundColor: "#4F46E5",
+  },
+  termsText: {
+    flex: 1,
+    fontSize: 12.5,
+    lineHeight: 17,
+    color: "#334155",
+    fontWeight: "500",
+  },
+  inlineLink: {
+    color: "#4F46E5",
+    fontWeight: "700",
+  },
+  primaryButton: {
+    marginTop: 2,
+    borderRadius: 14,
+    minHeight: 50,
+  },
   dividerRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    marginVertical: 2,
+    marginVertical: 10,
   },
-  dividerLine: { flex: 1, height: StyleSheet.hairlineWidth },
-  dividerText: { fontSize: 13, lineHeight: 18, fontWeight: "600" },
-  termsRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 10,
-    marginTop: 2,
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "#E2E8F0",
   },
-  checkboxTouch: {
-    minWidth: 44,
-    minHeight: 44,
-    alignItems: "center",
-    justifyContent: "center",
-    marginLeft: -10,
-    marginTop: -8,
+  dividerText: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: "600",
+    color: "#64748B",
   },
-  checkbox: {
-    width: 22,
-    height: 22,
-    borderRadius: 6,
-    borderWidth: 1.5,
-    alignItems: "center",
-    justifyContent: "center",
+  socialBlock: {
+    gap: 8,
   },
-  termsText: { flex: 1, fontSize: 13, lineHeight: 19, fontWeight: "500" },
-  inlineLink: { fontWeight: "800" },
   footerRow: {
-    minHeight: 44,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    marginTop: 12,
+    marginBottom: 6,
   },
-  footerText: { fontSize: 14, lineHeight: 20, fontWeight: "500" },
-  linkText: { fontSize: 14, lineHeight: 20, fontWeight: "800" },
+  footerText: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: "#475569",
+    fontWeight: "500",
+  },
+  linkText: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: "700",
+    color: "#4F46E5",
+  },
 });

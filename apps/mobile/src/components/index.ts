@@ -31,3 +31,4 @@ export { Tabs } from "./Tabs";
 export { SegmentedControl } from "./Tabs";
 export { Toast } from "./Toast";
 export { UndoableToast } from "./UndoableToast";
+export { AuthHeroIllustration } from "./auth/AuthHeroIllustration";

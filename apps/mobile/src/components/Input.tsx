@@ -22,6 +22,8 @@ export interface InputProps {
   numberOfLines?: number | undefined;
   /** Rendered inside the field, right-aligned — e.g. a reveal-password toggle. */
   adornment?: ReactNode;
+  /** Rendered inside the field, left-aligned — e.g. a person, email, or lock icon. */
+  leadingIcon?: ReactNode;
   /** Small helper line below the field. Hidden while an error is showing. */
   hint?: string | null | undefined;
   /** Trailing control on the label row — e.g. a "Forgot password?" link. */
@@ -47,6 +49,7 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
     multiline = false,
     numberOfLines,
     adornment,
+    leadingIcon,
     hint,
     labelAccessory,
   },
@@ -112,7 +115,11 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
               borderColor,
               backgroundColor: tokens.colors.surface,
               borderRadius: tokens.radius.lg,
-              paddingLeft: compact ? tokens.spacing.md : tokens.spacing.lg,
+              paddingLeft: leadingIcon
+                ? 44
+                : compact
+                  ? tokens.spacing.md
+                  : tokens.spacing.lg,
               paddingRight: adornment
                 ? 48
                 : compact
@@ -124,6 +131,11 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
             },
           ]}
         />
+        {leadingIcon ? (
+          <View style={styles.leadingIcon} pointerEvents="none">
+            {leadingIcon}
+          </View>
+        ) : null}
         {adornment ? <View style={styles.adornment}>{adornment}</View> : null}
       </View>
 
@@ -162,6 +174,14 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
+  },
+  leadingIcon: {
+    position: "absolute",
+    left: 14,
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1,
   },
   adornment: {
     position: "absolute",
