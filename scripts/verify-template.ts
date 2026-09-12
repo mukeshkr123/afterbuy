@@ -25,11 +25,10 @@ export function verifyTemplate(root = process.cwd()): TemplateCheckFailure[] {
     });
   }
 
-  if (!/"name"\s*:\s*"acme-prod-api"/.test(productionWrangler)) {
+  if (!/"name"\s*:\s*"afterbuy"/.test(productionWrangler)) {
     failures.push({
       check: "production-worker-name",
-      detail:
-        'Production Wrangler config must name the Worker "acme-prod-api".',
+      detail: 'Production Wrangler config must name the Worker "afterbuy".',
     });
   }
 

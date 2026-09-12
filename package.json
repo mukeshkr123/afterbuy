@@ -17,7 +17,7 @@
     "worker:bootstrap": "tsx scripts/bootstrap-worker-resources.ts",
     "worker:deploy": "wrangler deploy --config wrangler.jsonc --keep-vars",
     "worker:typegen:check": "wrangler types --check apps/api/src/worker-configuration.d.ts --config wrangler.jsonc",
-    "db:migrate:prod": "wrangler d1 migrations apply acme-prod-d1 --remote --config wrangler.jsonc",
+    "db:migrate:prod": "wrangler d1 migrations apply afterbuy-prod-d1 --remote --config wrangler.jsonc",
     "build": "pnpm -r build",
     "ci": "pnpm build && pnpm typecheck && pnpm worker:typegen:check && pnpm lint && pnpm verify:ids && pnpm verify:skills && pnpm verify:template && pnpm verify:migrations && pnpm api:openapi && echo 'Tests skipped per repo policy'",
     "db:backup": "tsx scripts/d1-backup.ts",

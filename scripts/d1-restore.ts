@@ -2,7 +2,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { reorderD1Export } from "./d1-sql-reorder";
 
-const databaseName = process.env.PRODUCTION_D1_DB_NAME ?? "acme-prod-d1";
+const databaseName = process.env.PRODUCTION_D1_DB_NAME ?? "afterbuy-prod-d1";
 const input = process.argv[2];
 
 if (!input) {

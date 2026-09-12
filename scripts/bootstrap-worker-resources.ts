@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 
-const queues = ["acme-prod-reminder-queue", "acme-prod-reminder-dlq"];
+const queues = ["afterbuy-prod-reminder-queue", "afterbuy-prod-reminder-dlq"];
 
 const listed = run(["queues", "list"]);
 

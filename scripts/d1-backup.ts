@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 
-const databaseName = process.env.PRODUCTION_D1_DB_NAME ?? "acme-prod-d1";
+const databaseName = process.env.PRODUCTION_D1_DB_NAME ?? "afterbuy-prod-d1";
 
 mkdirSync("backups", { recursive: true });
 const out = join("backups", `${databaseName}-${new Date().toISOString()}.sql`);

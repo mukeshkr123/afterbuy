@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "acme-prod-api",
+  "name": "afterbuy",
   "main": "apps/api/src/index.ts",
   "compatibility_date": "2026-07-21",
   "compatibility_flags": ["nodejs_compat"],
@@ -10,8 +10,8 @@
   },
   "vars": {
     "APP_STAGE": "prod",
-    "REMINDER_QUEUE_NAME": "acme-prod-reminder-queue",
-    "REMINDER_DLQ_NAME": "acme-prod-reminder-dlq",
+    "REMINDER_QUEUE_NAME": "afterbuy-prod-reminder-queue",
+    "REMINDER_DLQ_NAME": "afterbuy-prod-reminder-dlq",
     "DAILY_CRON_EXPRESSION": "0 2 * * *",
     "RATE_LIMIT_ENABLED": "true",
     "RATE_LIMIT_WINDOW_SECONDS": "60",
@@ -20,7 +20,7 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "acme-prod-d1",
+      "database_name": "afterbuy-prod-d1",
       "migrations_dir": "packages/db/drizzle",
     },
   ],
@@ -30,19 +30,19 @@
     "producers": [
       {
         "binding": "REMINDER_QUEUE",
-        "queue": "acme-prod-reminder-queue",
+        "queue": "afterbuy-prod-reminder-queue",
       },
       {
         "binding": "REMINDER_DLQ",
-        "queue": "acme-prod-reminder-dlq",
+        "queue": "afterbuy-prod-reminder-dlq",
       },
     ],
     "consumers": [
       {
-        "queue": "acme-prod-reminder-queue",
+        "queue": "afterbuy-prod-reminder-queue",
         "max_batch_size": 10,
         "max_retries": 5,
-        "dead_letter_queue": "acme-prod-reminder-dlq",
+        "dead_letter_queue": "afterbuy-prod-reminder-dlq",
         "max_concurrency": 4,
         "retry_delay": 60,
       },
