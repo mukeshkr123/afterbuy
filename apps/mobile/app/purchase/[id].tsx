@@ -1,54 +1,43 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEnqueueMutation } from "@/offline";
-import { useState, type ComponentProps, type ReactNode } from "react";
-import { StyleSheet, View } from "react-native";
+import React, { useState, type ReactNode } from "react";
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 import type {
   Claim,
   PurchaseDetailResponse,
   Receipt,
   Reminder,
 } from "@acme/shared";
-import {
-  AppText,
-  Button,
-  CategoryArtwork,
-  Dialog,
-  EmptyState,
-  FormError,
-  IconTile,
-  ListItem,
-  Money,
-  ScreenHeader,
-  ScreenScroll,
-  SectionCard,
-  SectionHeading,
-  Skeleton,
-  StatusPill,
-  UndoableToast,
-} from "@/components";
-import type { IconTileTone } from "@/components/IconTile";
-import type { StatusPillProps } from "@/components/StatusPill";
+import { Dialog, EmptyState, FormError, Skeleton, UndoableToast, useAdaptiveLayout } from "@/components";
+import { PurchaseArtworkTile } from "@/components/PurchaseArtworkTile";
 import { useApi } from "@/api/ApiProvider";
 import { apiKeys } from "@/api/apiKeys";
-import { deletePurchase, getPurchase, restorePurchase } from "@/api/purchases";
+import { getPurchase } from "@/api/purchases";
+import { useEnqueueMutation } from "@/offline";
 import { fromCaught, type FormErrorState } from "@/hooks/useApiError";
-import { useTheme } from "@/theme/ThemeProvider";
+import { formatMoney } from "@/components/Money";
 import {
   categoryLabel,
   deadlineState,
   deliveryDisplay,
   formatDate,
 } from "@/lib/purchaseDisplay";
-import { CLAIM_STATUS_LABEL, CLAIM_TYPE_LABEL, statusTone } from "@/lib/claims";
+import { CLAIM_STATUS_LABEL, CLAIM_TYPE_LABEL } from "@/lib/claims";
 
 type ActivityEvent = {
   id: string;
   title: string;
   subtitle: string;
   detail?: string | null;
-  tone: IconTileTone;
-  icon: ComponentProps<typeof IconTile>["icon"];
+  icon: keyof typeof Ionicons.glyphMap;
   at: string;
 };
 
@@ -56,8 +45,10 @@ export default function PurchaseDetailScreen() {
   const api = useApi();
   const qc = useQueryClient();
   const router = useRouter();
-  const { tokens } = useTheme();
+  const insets = useSafeAreaInsets();
+  const { contentWidth } = useAdaptiveLayout();
   const { id } = useLocalSearchParams<{ id: string; section?: string }>();
+
   const [error, setError] = useState<FormErrorState>({
     message: null,
     fields: {},
@@ -125,22 +116,41 @@ export default function PurchaseDetailScreen() {
     onError: (caught) => setError(fromCaught(caught)),
   });
 
+  const handleBack = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace("/(tabs)/purchases");
+  };
+
   if (detail.isLoading) {
     return (
-      <ScreenScroll density="compact" gap={tokens.spacing.lg}>
-        <ScreenHeader title="Purchase" />
-        <Skeleton height={118} />
-        <Skeleton height={42} />
-        <Skeleton height={180} />
-      </ScreenScroll>
+      <View style={[styles.screen, { paddingTop: insets.top + 10, paddingHorizontal: 16 }]}>
+        <View style={styles.navBar}>
+          <Pressable onPress={handleBack} style={styles.backButton}>
+            <Ionicons name="chevron-back" size={20} color="#0F172A" />
+          </Pressable>
+          <Text style={styles.navTitle}>Purchase</Text>
+          <View style={styles.navSpacer} />
+        </View>
+        <View style={{ gap: 16, marginTop: 16 }}>
+          <Skeleton height={140} />
+          <Skeleton height={200} />
+          <Skeleton height={160} />
+        </View>
+      </View>
     );
   }
 
   const purchase: PurchaseDetailResponse | undefined = detail.data;
   if (!purchase) {
     return (
-      <ScreenScroll density="compact" gap={tokens.spacing.lg}>
-        <ScreenHeader title="Purchase" />
+      <View style={[styles.screen, { paddingTop: insets.top + 10, paddingHorizontal: 16 }]}>
+        <View style={styles.navBar}>
+          <Pressable onPress={handleBack} style={styles.backButton}>
+            <Ionicons name="chevron-back" size={20} color="#0F172A" />
+          </Pressable>
+          <Text style={styles.navTitle}>Purchase</Text>
+          <View style={styles.navSpacer} />
+        </View>
         <EmptyState
           icon="alert-circle-outline"
           title="Purchase not available"
@@ -151,7 +161,7 @@ export default function PurchaseDetailScreen() {
           }
           action={{ label: "Try again", onPress: () => void detail.refetch() }}
         />
-      </ScreenScroll>
+      </View>
     );
   }
 
@@ -159,6 +169,7 @@ export default function PurchaseDetailScreen() {
   const purchasedOn = formatDate(purchase.purchaseDate);
   const warranty = deadlineState(purchase.warrantyExpiresAt, "Coverage until");
   const returnWindow = deadlineState(purchase.returnDeadlineAt, "Return by");
+
   const nextDeadline = [
     purchase.returnDeadlineAt && returnWindow
       ? {
@@ -175,265 +186,489 @@ export default function PurchaseDetailScreen() {
     .filter((item) => !item.expired)
     .sort((a, b) => a.date.localeCompare(b.date))[0];
 
+  const formattedAmount = formatMoney(purchase.amountMinor, purchase.currency);
+  const activityEvents = buildActivityEvents(purchase);
+
   const openRoute = (
     pathname:
       | "/purchase/[id]/receipts"
       | "/purchase/[id]/claims"
       | "/purchase/[id]/track"
+      | "/purchase/[id]/edit"
   ) => router.push({ pathname, params: { id: purchase.id } });
 
   return (
-    <>
-      <ScreenScroll density="compact" gap={tokens.spacing.lg}>
-        <ScreenHeader
-          title="Purchase"
-          action={{
-            text: "Edit",
-            tone: "accent",
-            onPress: () =>
-              router.push({
-                pathname: "/purchase/[id]/edit",
-                params: { id: purchase.id },
-              }),
-          }}
-        />
+    <View style={styles.screen}>
+      {/* Ambient pastel glow at top right */}
+      <View style={styles.ambientGlowTopRight} pointerEvents="none" />
 
-        <SectionCard surface="grouped" style={{ gap: tokens.spacing.md }}>
-          <View style={[styles.hero, { gap: tokens.spacing.md }]}>
-            <CategoryArtwork category={purchase.category} size="md" />
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          width: "100%",
+          maxWidth: contentWidth,
+          alignSelf: "center",
+          paddingHorizontal: 16,
+          paddingTop: Math.max(insets.top + 6, 16),
+          paddingBottom: Math.max(insets.bottom + 36, 44),
+          gap: 20,
+        }}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Navigation Bar */}
+        <View style={styles.navBar}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+            onPress={handleBack}
+            style={({ pressed }) => [
+              styles.backButton,
+              { opacity: pressed ? 0.8 : 1 },
+            ]}
+          >
+            <Ionicons name="chevron-back" size={20} color="#0F172A" />
+          </Pressable>
+
+          <Text style={styles.navTitle}>Purchase</Text>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Edit purchase"
+            onPress={() => openRoute("/purchase/[id]/edit")}
+            style={({ pressed }) => [
+              styles.editButton,
+              { opacity: pressed ? 0.8 : 1 },
+            ]}
+          >
+            <Text style={styles.editButtonText}>Edit</Text>
+          </Pressable>
+        </View>
+
+        {/* Hero Card */}
+        <View style={styles.heroCard}>
+          <View style={styles.heroTopRow}>
+            <PurchaseArtworkTile
+              title={purchase.title}
+              category={purchase.category}
+              size={50}
+            />
+
             <View style={styles.heroCopy}>
-              <AppText role="title" tone="strong" numberOfLines={2}>
+              <Text numberOfLines={2} style={styles.heroTitle}>
                 {purchase.title}
-              </AppText>
-              <AppText role="subheadline" tone="subtle" numberOfLines={1}>
+              </Text>
+              <Text numberOfLines={1} style={styles.heroSubtitle}>
                 {[purchase.merchant, categoryLabel(purchase.category)]
                   .filter(Boolean)
                   .join(" · ")}
-              </AppText>
+              </Text>
+              <Text style={styles.heroPrice}>{formattedAmount}</Text>
+            </View>
+
+            <View style={styles.statusBadge}>
+              <Text style={styles.statusBadgeText}>{status.label}</Text>
             </View>
           </View>
-          <View style={styles.summaryMetaRow}>
-            <Money
-              amountMinor={purchase.amountMinor}
-              currency={purchase.currency}
-              emphasis="strong"
-              style={{ fontSize: tokens.type.headline.fontSize }}
-            />
-            <StatusPill label={status.label} tone={status.tone} quiet />
-          </View>
+
           {nextDeadline ? (
-            <View
-              style={[
-                styles.nextDeadlineRow,
-                {
-                  borderTopColor: tokens.colors.border,
-                  paddingTop: tokens.spacing.sm,
-                },
-              ]}
-            >
-              <AppText role="caption" tone="subtle" weight="700">
-                Next deadline
-              </AppText>
-              <AppText role="subheadline" weight="600">
-                {nextDeadline.title}
-              </AppText>
-              <AppText role="caption" tone="subtle">
-                {nextDeadline.label} · {nextDeadline.detail}
-              </AppText>
+            <View style={styles.deadlineSubCard}>
+              <View style={styles.deadlineIconTile}>
+                <Ionicons
+                  name="shield-checkmark-outline"
+                  size={19}
+                  color="#16A34A"
+                />
+              </View>
+              <View style={{ flex: 1, gap: 1 }}>
+                <Text style={styles.deadlineLabel}>Next deadline</Text>
+                <Text style={styles.deadlineTitle}>{nextDeadline.title}</Text>
+                <Text style={styles.deadlineDetail}>
+                  {nextDeadline.label} · {nextDeadline.detail}
+                </Text>
+              </View>
             </View>
           ) : null}
-        </SectionCard>
+        </View>
 
-        <View style={{ gap: tokens.spacing.md }}>
-          <SectionHeading title="Purchase details" detail="Recorded data" />
-          <SectionCard flush surface="grouped">
+        {/* Section 1: Purchase details */}
+        <View style={{ gap: 8 }}>
+          <View style={styles.sectionHeaderStack}>
+            <Text style={styles.sectionTitle}>Purchase details</Text>
+            <Text style={styles.sectionSubtitle}>Recorded data</Text>
+          </View>
+
+          <View style={styles.groupedCard}>
             {purchasedOn ? (
-              <DetailRow label="Purchase date" value={purchasedOn} />
+              <DetailRow
+                icon="calendar-outline"
+                label="Purchase date"
+                value={purchasedOn}
+              />
             ) : null}
+
             {purchase.orderNumber ? (
-              <DetailRow label="Order number" value={purchase.orderNumber} />
+              <>
+                <View style={styles.cardDivider} />
+                <DetailRow
+                  icon="receipt-outline"
+                  label="Order number"
+                  value={purchase.orderNumber}
+                />
+              </>
             ) : null}
+
+            <View style={styles.cardDivider} />
             <DetailRow
+              icon="pricetag-outline"
               label="Category"
               value={categoryLabel(purchase.category)}
             />
+
+            <View style={styles.cardDivider} />
             <DetailRow
+              icon="card-outline"
               label="Amount"
-              valueNode={
-                <Money
-                  amountMinor={purchase.amountMinor}
-                  currency={purchase.currency}
-                  emphasis="strong"
-                />
-              }
-              last={!purchase.notes}
+              value={formattedAmount}
             />
+
             {purchase.notes ? (
-              <DetailRow label="Notes" value={purchase.notes} last />
+              <>
+                <View style={styles.cardDivider} />
+                <DetailRow
+                  icon="document-text-outline"
+                  label="Notes"
+                  value={purchase.notes}
+                  multiline
+                />
+              </>
             ) : null}
-          </SectionCard>
+          </View>
         </View>
 
-        <View style={{ gap: tokens.spacing.md }}>
-          <SectionHeading
-            title="Protection"
-            detail="Return, warranty, and claims."
-          />
-          <SectionCard flush surface="grouped">
-            <CoverageRow
-              title="Return window"
-              state={returnWindow}
-              empty="No return deadline recorded"
-              icon="sync-outline"
-            />
-            <CoverageRow
-              title="Warranty"
-              state={warranty}
-              empty="No warranty expiry recorded"
-              icon="shield-checkmark-outline"
-              last={purchase.claims.length === 0}
-            />
-            {purchase.claims.length === 0 ? (
-              <ListItem
-                density="compact"
-                title="No claims opened"
-                subtitle="Start a return, refund, or warranty claim from this purchase."
-                leading={
-                  <IconTile icon="shield-checkmark-outline" tone="accent" />
-                }
-                divider={false}
-                chevron
-                onPress={() => openRoute("/purchase/[id]/claims")}
-              />
-            ) : (
-              purchase.claims.slice(0, 3).map((claim, index) => (
-                <ListItem
-                  key={claim.id}
-                  density="compact"
-                  title={CLAIM_TYPE_LABEL[claim.type]}
-                  subtitle={`Opened ${formatTimestamp(claim.openedAt)}`}
-                  detail={
-                    claim.reference ? `Reference ${claim.reference}` : null
-                  }
-                  leading={
-                    <IconTile
-                      icon="shield-checkmark-outline"
-                      tone={claimTileTone(claim)}
-                    />
-                  }
-                  trailing={
-                    <StatusPill
-                      label={CLAIM_STATUS_LABEL[claim.status]}
-                      tone={statusTone(claim.status)}
-                      quiet
-                    />
-                  }
-                  divider={index < Math.min(purchase.claims.length, 3) - 1}
-                  chevron
-                  onPress={() =>
-                    router.push({
-                      pathname: "/claim/[id]",
-                      params: { id: claim.id },
-                    })
-                  }
+        {/* Section 2: Protection */}
+        <View style={{ gap: 8 }}>
+          <View style={styles.sectionHeaderStack}>
+            <Text style={styles.sectionTitle}>Protection</Text>
+            <Text style={styles.sectionSubtitle}>
+              Return, warranty, and claims.
+            </Text>
+          </View>
+
+          <View style={styles.groupedCard}>
+            {/* Return window */}
+            <View style={styles.protectionRow}>
+              <View style={[styles.protectionIconTile, styles.tilePeach]}>
+                <Ionicons name="sync-outline" size={19} color="#E11D48" />
+              </View>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={styles.protectionItemTitle}>Return window</Text>
+                <Text style={styles.protectionItemSubtitle}>
+                  {returnWindow?.label ?? "No return deadline recorded"}
+                </Text>
+              </View>
+              <View
+                style={[
+                  styles.pillBadge,
+                  returnWindow?.expired
+                    ? styles.pillBadgeRed
+                    : styles.pillBadgeGreen,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.pillBadgeText,
+                    returnWindow?.expired
+                      ? styles.pillBadgeTextRed
+                      : styles.pillBadgeTextGreen,
+                  ]}
+                >
+                  {returnWindow?.expired
+                    ? "Expired"
+                    : returnWindow?.detail ?? "Active"}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.cardDivider} />
+
+            {/* Warranty */}
+            <View style={styles.protectionRow}>
+              <View style={[styles.protectionIconTile, styles.tileMint]}>
+                <Ionicons
+                  name="shield-checkmark-outline"
+                  size={19}
+                  color="#059669"
                 />
+              </View>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={styles.protectionItemTitle}>Warranty</Text>
+                <Text style={styles.protectionItemSubtitle}>
+                  {warranty?.label ?? "No warranty expiry recorded"}
+                </Text>
+              </View>
+              <View style={[styles.pillBadge, styles.pillBadgeGreen]}>
+                <Text
+                  style={[styles.pillBadgeText, styles.pillBadgeTextGreen]}
+                >
+                  {warranty?.detail ?? "Active"}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.cardDivider} />
+
+            {/* Claims */}
+            {purchase.claims.length === 0 ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="No claims opened, start a claim"
+                onPress={() => openRoute("/purchase/[id]/claims")}
+                style={({ pressed }) => [
+                  styles.protectionRow,
+                  { opacity: pressed ? 0.75 : 1 },
+                ]}
+              >
+                <View style={[styles.protectionIconTile, styles.tileLavender]}>
+                  <Ionicons name="shield-outline" size={19} color="#6366F1" />
+                </View>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={styles.protectionItemTitle}>
+                    No claims opened
+                  </Text>
+                  <Text style={styles.protectionItemSubtitle}>
+                    Start a return, refund, or warranty claim from this purchase.
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+              </Pressable>
+            ) : (
+              purchase.claims.map((claim, idx) => (
+                <React.Fragment key={claim.id}>
+                  {idx > 0 ? <View style={styles.cardDivider} /> : null}
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() =>
+                      router.push({
+                        pathname: "/claim/[id]",
+                        params: { id: claim.id },
+                      })
+                    }
+                    style={({ pressed }) => [
+                      styles.protectionRow,
+                      { opacity: pressed ? 0.75 : 1 },
+                    ]}
+                  >
+                    <View
+                      style={[styles.protectionIconTile, styles.tileLavender]}
+                    >
+                      <Ionicons
+                        name="shield-outline"
+                        size={19}
+                        color="#6366F1"
+                      />
+                    </View>
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <Text style={styles.protectionItemTitle}>
+                        {CLAIM_TYPE_LABEL[claim.type]}
+                      </Text>
+                      <Text style={styles.protectionItemSubtitle}>
+                        {CLAIM_STATUS_LABEL[claim.status]} · Opened{" "}
+                        {formatTimestamp(claim.openedAt)}
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+                  </Pressable>
+                </React.Fragment>
               ))
             )}
-          </SectionCard>
+          </View>
         </View>
 
-        <View style={{ gap: tokens.spacing.md }}>
-          <SectionHeading
-            title="Receipts"
-            detail={`${purchase.receipts.length} ${
-              purchase.receipts.length === 1 ? "file" : "files"
-            } attached`}
-          />
-          <SectionCard flush surface="grouped">
+        {/* Section 3: Receipts */}
+        <View style={{ gap: 8 }}>
+          <View style={styles.sectionHeaderStack}>
+            <Text style={styles.sectionTitle}>Receipts</Text>
+            <Text style={styles.sectionSubtitle}>
+              {`${purchase.receipts.length} ${
+                purchase.receipts.length === 1 ? "file" : "files"
+              } attached`}
+            </Text>
+          </View>
+
+          <View style={styles.groupedCard}>
             {purchase.receipts.length === 0 ? (
-              <ListItem
-                density="compact"
-                title="No receipt attached"
-                subtitle="Photograph or choose an image from your library."
-                divider={false}
-                leading={<IconTile icon="document-text-outline" tone="info" />}
-                chevron
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="No receipt attached, photograph or choose image"
                 onPress={() => openRoute("/purchase/[id]/receipts")}
-              />
-            ) : (
-              purchase.receipts
-                .slice(0, 3)
-                .map((receipt, index) => (
-                  <ListItem
-                    key={receipt.id}
-                    density="compact"
-                    title={receiptTitle(receipt)}
-                    subtitle={receiptSize(receipt)}
-                    detail={`Added ${formatTimestamp(receipt.createdAt)}`}
-                    divider={index < Math.min(purchase.receipts.length, 3) - 1}
-                    leading={<IconTile icon="document-outline" tone="info" />}
+                style={({ pressed }) => [
+                  styles.protectionRow,
+                  { opacity: pressed ? 0.75 : 1 },
+                ]}
+              >
+                <View style={[styles.protectionIconTile, styles.tileLavender]}>
+                  <Ionicons
+                    name="document-text-outline"
+                    size={19}
+                    color="#6366F1"
                   />
-                ))
+                </View>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={styles.protectionItemTitle}>
+                    No receipt attached
+                  </Text>
+                  <Text style={styles.protectionItemSubtitle}>
+                    Photograph or choose an image from your library.
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+              </Pressable>
+            ) : (
+              purchase.receipts.map((receipt, idx) => (
+                <React.Fragment key={receipt.id}>
+                  {idx > 0 ? <View style={styles.cardDivider} /> : null}
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => openRoute("/purchase/[id]/receipts")}
+                    style={({ pressed }) => [
+                      styles.protectionRow,
+                      { opacity: pressed ? 0.75 : 1 },
+                    ]}
+                  >
+                    <View
+                      style={[styles.protectionIconTile, styles.tileLavender]}
+                    >
+                      <Ionicons
+                        name="document-outline"
+                        size={19}
+                        color="#6366F1"
+                      />
+                    </View>
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <Text style={styles.protectionItemTitle}>
+                        {receiptTitle(receipt)}
+                      </Text>
+                      <Text style={styles.protectionItemSubtitle}>
+                        {receiptSize(receipt)} · Added{" "}
+                        {formatTimestamp(receipt.createdAt)}
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+                  </Pressable>
+                </React.Fragment>
+              ))
             )}
-          </SectionCard>
-          <Button
-            label={purchase.receipts.length ? "Manage receipts" : "Add receipt"}
+          </View>
+
+          {/* Add Receipt Button */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Add receipt"
             onPress={() => openRoute("/purchase/[id]/receipts")}
-          />
+            style={({ pressed }) => [
+              styles.addReceiptButton,
+              {
+                opacity: pressed ? 0.88 : 1,
+                transform: [{ scale: pressed ? 0.985 : 1 }],
+              },
+            ]}
+          >
+            <Ionicons name="camera-outline" size={19} color="#FFFFFF" />
+            <Text style={styles.addReceiptButtonText}>
+              {purchase.receipts.length ? "Manage receipts" : "Add receipt"}
+            </Text>
+          </Pressable>
         </View>
 
-        <View style={{ gap: tokens.spacing.md }}>
-          <SectionHeading
-            title="Activity"
-            detail="Delivery and reminder history."
-          />
-          <SectionCard flush surface="grouped">
-            {buildActivityEvents(purchase).map((event, index, events) => (
-              <ListItem
-                key={event.id}
-                density="compact"
-                title={event.title}
-                subtitle={event.subtitle}
-                detail={event.detail}
-                leading={<IconTile icon={event.icon} tone={event.tone} />}
-                divider={index < events.length - 1}
-                chevron={
-                  event.id === "delivery" && Boolean(purchase.trackingNumber)
-                }
-                onPress={
-                  event.id === "delivery"
-                    ? () => openRoute("/purchase/[id]/track")
-                    : undefined
-                }
-              />
-            ))}
-          </SectionCard>
-          <Button
-            label="View delivery"
-            variant="secondary"
-            onPress={() => openRoute("/purchase/[id]/track")}
-          />
+        {/* Section 4: Activity */}
+        <View style={{ gap: 8 }}>
+          <View style={styles.sectionHeaderStack}>
+            <Text style={styles.sectionTitle}>Activity</Text>
+            <Text style={styles.sectionSubtitle}>
+              Delivery and reminder history.
+            </Text>
+          </View>
+
+          <View style={styles.activityCard}>
+            <View style={styles.timelineContainer}>
+              {/* Vertical connector line */}
+              <View style={styles.timelineLine} pointerEvents="none" />
+
+              {activityEvents.map((event) => (
+                <View key={event.id} style={styles.timelineItem}>
+                  {/* Purple dot on the line */}
+                  <View style={styles.timelineDot} />
+
+                  {/* Icon Tile */}
+                  <View style={styles.timelineIconTile}>
+                    <Ionicons name={event.icon} size={18} color="#6366F1" />
+                  </View>
+
+                  {/* Event Details */}
+                  <View style={styles.timelineCopy}>
+                    <Text numberOfLines={1} style={styles.timelineTitle}>
+                      {event.title}
+                    </Text>
+                    <Text numberOfLines={1} style={styles.timelineSubtitle}>
+                      {event.subtitle}
+                    </Text>
+                  </View>
+
+                  {/* Date on Right */}
+                  <Text style={styles.timelineDate}>{event.detail}</Text>
+                </View>
+              ))}
+            </View>
+
+            {/* View Delivery Button */}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="View delivery"
+              onPress={() => openRoute("/purchase/[id]/track")}
+              style={({ pressed }) => [
+                styles.viewDeliveryButton,
+                { opacity: pressed ? 0.82 : 1 },
+              ]}
+            >
+              <Ionicons name="navigate-outline" size={17} color="#4F46E5" />
+              <Text style={styles.viewDeliveryText}>View delivery</Text>
+            </Pressable>
+          </View>
         </View>
 
         <FormError message={error.message} />
 
-        <SectionCard tone="danger" surface="grouped">
-          <View style={{ gap: tokens.spacing.sm }}>
-            <AppText role="subheadline" tone="danger" weight="700">
-              Delete purchase
-            </AppText>
-            <AppText role="caption" tone="subtle">
-              This removes the purchase from your active list. You can undo the
-              delete for 5 seconds.
-            </AppText>
-            <Button
-              label="Delete purchase"
-              variant="danger"
-              onPress={() => setConfirmDelete(true)}
-            />
+        {/* Section 5: Delete purchase */}
+        <View style={styles.deleteCard}>
+          <View style={styles.deleteTopRow}>
+            <View style={styles.deleteIconTile}>
+              <Ionicons name="trash-outline" size={20} color="#DC2626" />
+            </View>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={styles.deleteTitle}>Delete purchase</Text>
+              <Text style={styles.deleteSubtitle}>
+                This removes the purchase from your active list. You can undo
+                the delete for 5 seconds.
+              </Text>
+            </View>
           </View>
-        </SectionCard>
-      </ScreenScroll>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Delete purchase"
+            onPress={() => setConfirmDelete(true)}
+            style={({ pressed }) => [
+              styles.deleteButton,
+              {
+                opacity: pressed ? 0.88 : 1,
+                transform: [{ scale: pressed ? 0.985 : 1 }],
+              },
+            ]}
+          >
+            <Text style={styles.deleteButtonText}>Delete purchase</Text>
+          </Pressable>
+        </View>
+      </ScrollView>
 
       <Dialog
         visible={confirmDelete}
@@ -445,6 +680,7 @@ export default function PurchaseDetailScreen() {
         secondaryLabel="Cancel"
         onDismiss={() => setConfirmDelete(false)}
       />
+
       <UndoableToast
         message={deleted ? "Purchase deleted" : null}
         actionLabel="Undo"
@@ -455,104 +691,45 @@ export default function PurchaseDetailScreen() {
           else router.replace("/(tabs)/purchases");
         }}
       />
-    </>
+    </View>
   );
 }
 
 function DetailRow({
+  icon,
   label,
   value,
-  valueNode,
-  last = false,
+  multiline = false,
 }: {
+  icon: keyof typeof Ionicons.glyphMap;
   label: string;
-  value?: string;
-  valueNode?: ReactNode;
-  last?: boolean;
+  value: string;
+  multiline?: boolean;
 }) {
-  const { tokens } = useTheme();
   return (
-    <View
-      style={[
-        styles.detailRow,
-        {
-          paddingHorizontal: tokens.spacing.md,
-          paddingVertical: tokens.spacing.md,
-          gap: tokens.spacing.md,
-          borderBottomColor: tokens.colors.border,
-          borderBottomWidth: last ? 0 : StyleSheet.hairlineWidth,
-        },
-      ]}
-    >
-      <AppText role="subheadline" tone="subtle">
-        {label}
-      </AppText>
-      <View style={styles.detailValue}>
-        {valueNode ?? (
-          <AppText role="subheadline" weight="600" style={styles.valueText}>
-            {value}
-          </AppText>
-        )}
+    <View style={styles.detailRow}>
+      <View style={styles.detailIconTile}>
+        <Ionicons name={icon} size={17} color="#6366F1" />
       </View>
+      <Text style={styles.detailLabel}>{label}</Text>
+      <Text
+        style={[
+          styles.detailValue,
+          multiline && {
+            flex: 1,
+            textAlign: "right",
+            lineHeight: 18,
+            fontSize: 13,
+            fontWeight: "400",
+            color: "#64748B",
+          },
+        ]}
+        numberOfLines={multiline ? 3 : 1}
+      >
+        {value}
+      </Text>
     </View>
   );
-}
-
-function CoverageRow({
-  title,
-  state,
-  empty,
-  icon,
-  last = false,
-}: {
-  title: string;
-  state: ReturnType<typeof deadlineState>;
-  empty: string;
-  icon: ComponentProps<typeof IconTile>["icon"];
-  last?: boolean;
-}) {
-  const { tokens } = useTheme();
-  const tone = deadlineTone(state);
-  return (
-    <View
-      style={[
-        styles.coverageRow,
-        {
-          borderBottomColor: tokens.colors.border,
-          borderBottomWidth: last ? 0 : StyleSheet.hairlineWidth,
-          paddingHorizontal: tokens.spacing.md,
-          paddingVertical: tokens.spacing.md,
-        },
-      ]}
-    >
-      <IconTile icon={icon} tone={deadlineIconTone(state)} />
-      <View style={styles.coverageCopy}>
-        <AppText role="subheadline" tone="strong" weight="700">
-          {title}
-        </AppText>
-        <AppText role="caption" tone="subtle">
-          {state?.label ?? empty}
-        </AppText>
-      </View>
-      <StatusPill label={state?.detail ?? "Not set"} tone={tone} quiet />
-    </View>
-  );
-}
-
-function deadlineTone(
-  state: ReturnType<typeof deadlineState>
-): NonNullable<StatusPillProps["tone"]> {
-  if (!state) return "neutral";
-  if (state.expired) return "danger";
-  if (state.urgent) return "warning";
-  return "success";
-}
-
-function deadlineIconTone(
-  state: ReturnType<typeof deadlineState>
-): IconTileTone {
-  const tone = deadlineTone(state);
-  return tone === "danger" ? "neutral" : tone;
 }
 
 function receiptTitle(receipt: Receipt): string {
@@ -592,11 +769,6 @@ function reminderKindLabel(reminder: Reminder): string {
     : "Warranty reminder";
 }
 
-function claimTileTone(claim: Claim): IconTileTone {
-  const tone = statusTone(claim.status);
-  return tone === "danger" ? "warning" : tone;
-}
-
 function buildActivityEvents(
   purchase: PurchaseDetailResponse
 ): ActivityEvent[] {
@@ -608,7 +780,6 @@ function buildActivityEvents(
       subtitle: purchase.merchant ?? purchase.title,
       detail: formatTimestamp(purchase.createdAt),
       icon: "bag-check-outline",
-      tone: "accent",
       at: purchase.createdAt,
     },
   ];
@@ -621,7 +792,6 @@ function buildActivityEvents(
       : "Current delivery status",
     detail: formatTimestamp(purchase.updatedAt),
     icon: "cube-outline",
-    tone: deliveryTileTone(delivery.tone),
     at: purchase.updatedAt,
   });
 
@@ -632,7 +802,6 @@ function buildActivityEvents(
       subtitle: receiptTitle(receipt),
       detail: formatTimestamp(receipt.createdAt),
       icon: "document-text-outline",
-      tone: "info",
       at: receipt.createdAt,
     });
   });
@@ -641,10 +810,11 @@ function buildActivityEvents(
     events.push({
       id: `reminder-created-${reminder.id}`,
       title: "Reminder created",
-      subtitle: `${reminderKindLabel(reminder)} for ${formatDate(reminder.fireOn) ?? reminder.fireOn}`,
+      subtitle: `${reminderKindLabel(reminder)} for ${
+        formatDate(reminder.fireOn) ?? reminder.fireOn
+      }`,
       detail: formatTimestamp(reminder.createdAt),
       icon: "notifications-outline",
-      tone: "accent",
       at: reminder.createdAt,
     });
     if (reminder.sentAt) {
@@ -654,7 +824,6 @@ function buildActivityEvents(
         subtitle: reminderKindLabel(reminder),
         detail: formatTimestamp(reminder.sentAt),
         icon: "send-outline",
-        tone: "success",
         at: reminder.sentAt,
       });
     }
@@ -665,7 +834,6 @@ function buildActivityEvents(
         subtitle: reminderKindLabel(reminder),
         detail: formatTimestamp(reminder.dismissedAt),
         icon: "checkmark-done-outline",
-        tone: "neutral",
         at: reminder.dismissedAt,
       });
     }
@@ -678,7 +846,6 @@ function buildActivityEvents(
       subtitle: CLAIM_STATUS_LABEL[claim.status],
       detail: formatTimestamp(claim.openedAt),
       icon: "shield-checkmark-outline",
-      tone: claimTileTone(claim),
       at: claim.openedAt,
     });
   });
@@ -686,41 +853,400 @@ function buildActivityEvents(
   return events.sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
 }
 
-function deliveryTileTone(
-  tone: ReturnType<typeof deliveryDisplay>["tone"]
-): IconTileTone {
-  if (tone === "danger") return "warning";
-  if (tone === "success" || tone === "accent") return tone;
-  return "neutral";
-}
-
 const styles = StyleSheet.create({
-  hero: { flexDirection: "row", alignItems: "center" },
-  heroCopy: { flex: 1, gap: 3 },
-  summaryMetaRow: {
+  screen: {
+    flex: 1,
+    backgroundColor: "#F8FAFC",
+    position: "relative",
+  },
+  ambientGlowTopRight: {
+    position: "absolute",
+    top: -40,
+    right: -30,
+    width: 260,
+    height: 220,
+    borderRadius: 130,
+    backgroundColor: "#EDE9FE",
+    opacity: 0.6,
+  },
+  navBar: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 12,
+    minHeight: 44,
+    marginBottom: 2,
   },
-  nextDeadlineRow: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    gap: 2,
-  },
-  coverageRow: {
-    flexDirection: "row",
+  backButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
     alignItems: "center",
-    gap: 12,
+    justifyContent: "center",
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
-  coverageCopy: {
+  navTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+  navSpacer: {
+    width: 42,
+  },
+  editButton: {
+    backgroundColor: "#EEF2FF",
+    borderWidth: 1,
+    borderColor: "#E0E7FF",
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  editButtonText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#5B4DF5",
+  },
+  heroCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#F1F5F9",
+    padding: 18,
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  heroTopRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 14,
+  },
+  heroCopy: {
     flex: 1,
     gap: 2,
   },
+  heroTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#0F172A",
+    lineHeight: 22,
+  },
+  heroSubtitle: {
+    fontSize: 13,
+    color: "#64748B",
+    marginTop: 2,
+  },
+  heroPrice: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#0F172A",
+    marginTop: 4,
+  },
+  statusBadge: {
+    backgroundColor: "#F1F5F9",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  statusBadgeText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#475569",
+  },
+  deadlineSubCard: {
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderRadius: 14,
+    padding: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginTop: 14,
+  },
+  deadlineIconTile: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "#DCFCE7",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  deadlineLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#64748B",
+  },
+  deadlineTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+  deadlineDetail: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: "#15803D",
+  },
+  sectionHeaderStack: {
+    gap: 2,
+    paddingHorizontal: 2,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: "#0F172A",
+    letterSpacing: -0.3,
+  },
+  sectionSubtitle: {
+    fontSize: 13,
+    color: "#64748B",
+    fontWeight: "400",
+  },
+  groupedCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#F1F5F9",
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  cardDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: "#F1F5F9",
+  },
   detailRow: {
     flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 12,
+    gap: 12,
   },
-  detailValue: { flex: 1, alignItems: "flex-end" },
-  valueText: { textAlign: "right" },
+  detailIconTile: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: "#EEF2FF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  detailLabel: {
+    fontSize: 14,
+    color: "#64748B",
+    fontWeight: "500",
+  },
+  detailValue: {
+    flex: 1,
+    textAlign: "right",
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+  protectionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    gap: 12,
+  },
+  protectionIconTile: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tilePeach: {
+    backgroundColor: "#FFF1F2",
+  },
+  tileMint: {
+    backgroundColor: "#ECFDF5",
+  },
+  tileLavender: {
+    backgroundColor: "#EEF2FF",
+  },
+  protectionItemTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+  protectionItemSubtitle: {
+    fontSize: 12,
+    color: "#64748B",
+    lineHeight: 16,
+  },
+  pillBadge: {
+    borderRadius: 8,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+  },
+  pillBadgeRed: {
+    backgroundColor: "#FEF2F2",
+  },
+  pillBadgeGreen: {
+    backgroundColor: "#ECFDF5",
+  },
+  pillBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  pillBadgeTextRed: {
+    color: "#E11D48",
+  },
+  pillBadgeTextGreen: {
+    color: "#059669",
+  },
+  addReceiptButton: {
+    height: 48,
+    backgroundColor: "#775DF5",
+    borderRadius: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    shadowColor: "#775DF5",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.28,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  addReceiptButtonText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  activityCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#F1F5F9",
+    padding: 16,
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  timelineContainer: {
+    position: "relative",
+    gap: 14,
+  },
+  timelineLine: {
+    position: "absolute",
+    left: 4,
+    top: 10,
+    bottom: 10,
+    width: 2,
+    backgroundColor: "#EDE9FE",
+  },
+  timelineItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  timelineDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#775DF5",
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
+  },
+  timelineIconTile: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "#EEF2FF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  timelineCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  timelineTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+  timelineSubtitle: {
+    fontSize: 11,
+    color: "#64748B",
+  },
+  timelineDate: {
+    fontSize: 12,
+    color: "#64748B",
+    fontWeight: "500",
+  },
+  viewDeliveryButton: {
+    backgroundColor: "#F1F5FD",
+    height: 44,
+    borderRadius: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginTop: 14,
+  },
+  viewDeliveryText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#4F46E5",
+  },
+  deleteCard: {
+    backgroundColor: "#FFF5F5",
+    borderWidth: 1,
+    borderColor: "#FECACA",
+    borderRadius: 18,
+    padding: 16,
+  },
+  deleteTopRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+  },
+  deleteIconTile: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: "#FEE2E2",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  deleteTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#DC2626",
+  },
+  deleteSubtitle: {
+    fontSize: 12,
+    color: "#64748B",
+    lineHeight: 16,
+    marginTop: 2,
+  },
+  deleteButton: {
+    height: 48,
+    backgroundColor: "#DC2626",
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 14,
+  },
+  deleteButtonText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
 });

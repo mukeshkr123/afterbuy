@@ -34,3 +34,5 @@ export { UndoableToast } from "./UndoableToast";
 export { AuthHeroIllustration } from "./auth/AuthHeroIllustration";
 export { DashboardHeroIllustration } from "./DashboardHeroIllustration";
 export { ProductThumbnail } from "./ProductThumbnail";
+export { PurchaseArtworkTile } from "./PurchaseArtworkTile";
+export { RemindersBellIllustration } from "./RemindersBellIllustration";

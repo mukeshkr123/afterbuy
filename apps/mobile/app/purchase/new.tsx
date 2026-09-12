@@ -1,20 +1,19 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import type { CreatePurchaseRequest } from "@acme/shared";
-import {
-  AppText,
-  Dialog,
-  FormError,
-  IconTile,
-  ScreenHeader,
-  ScreenScroll,
-  SectionHeading,
-} from "@/components";
+import { Dialog, FormError, useAdaptiveLayout } from "@/components";
 import { PurchaseForm } from "@/components/PurchaseForm";
 import { useApi } from "@/api/ApiProvider";
 import { createPurchase } from "@/api/purchases";
@@ -26,7 +25,8 @@ export default function NewPurchaseScreen() {
   const router = useRouter();
   const qc = useQueryClient();
   const insets = useSafeAreaInsets();
-  const { tokens } = useTheme();
+  const { tokens, reducedMotion } = useTheme();
+  const { contentWidth } = useAdaptiveLayout();
   const { capture } = useLocalSearchParams<{ capture?: string }>();
   const didAutoCapture = useRef(false);
 
@@ -115,86 +115,78 @@ export default function NewPurchaseScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: tokens.colors.canvas }}>
-      <View
-        style={{
-          paddingTop: Math.max(insets.top, 12),
-          paddingHorizontal: tokens.spacing.xl - 4,
-          backgroundColor: tokens.colors.canvas,
-          borderBottomWidth: StyleSheet.hairlineWidth,
-          borderBottomColor: tokens.colors.border,
-        }}
-      >
-        <ScreenHeader title="Add Purchase" onBack={handleBack} />
-      </View>
+    <View style={styles.screen}>
+      {/* Ambient top right pastel background glow */}
+      <View style={styles.ambientGlowTopRight} pointerEvents="none" />
 
-      <ScreenScroll
-        density="compact"
-        gap={tokens.spacing.lg}
-        safeTop={false}
-        contentStyle={{ paddingTop: tokens.spacing.md }}
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          width: "100%",
+          maxWidth: contentWidth,
+          alignSelf: "center",
+          paddingHorizontal: 16,
+          paddingTop: Math.max(insets.top + 6, 16),
+          paddingBottom: Math.max(insets.bottom + 36, 44),
+          gap: 20,
+        }}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
       >
-        <View style={{ gap: tokens.spacing.sm }}>
-          <SectionHeading title="Receipt" detail="Optional" />
+        {/* Navigation Bar: Back button + Centered Title */}
+        <View style={styles.navBar}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+            onPress={handleBack}
+            style={({ pressed }) => [
+              styles.backButton,
+              { opacity: pressed ? 0.8 : 1 },
+            ]}
+          >
+            <Ionicons name="chevron-back" size={20} color="#0F172A" />
+          </Pressable>
+
+          <Text style={styles.navTitle}>Add Purchase</Text>
+
+          <View style={styles.navSpacer} />
+        </View>
+
+        {/* Section 1: Receipt */}
+        <View style={{ gap: 8 }}>
+          <View style={styles.sectionHeaderStack}>
+            <Text style={styles.sectionTitle}>Receipt</Text>
+            <Text style={styles.sectionSubtitle}>Optional</Text>
+          </View>
 
           {receipt ? (
-            <View
-              style={[
-                styles.receiptSelected,
-                {
-                  gap: tokens.spacing.md,
-                  backgroundColor: tokens.colors.surface,
-                  borderColor: tokens.colors.border,
-                  borderRadius: tokens.radius.lg,
-                  padding: tokens.spacing.sm + 2,
-                },
-              ]}
-            >
+            <View style={styles.receiptSelectedCard}>
               <Image
                 source={{ uri: receipt.uri }}
-                style={[
-                  styles.thumb,
-                  {
-                    borderRadius: tokens.radius.sm,
-                    backgroundColor: tokens.colors.neutralSoft,
-                  },
-                ]}
+                style={styles.receiptThumb}
                 resizeMode="cover"
                 accessibilityLabel="Selected receipt image"
               />
-              <View style={{ flex: 1, gap: tokens.spacing.sm }}>
-                <Text
-                  numberOfLines={1}
-                  style={{
-                    color: tokens.colors.text,
-                    fontSize: tokens.type.bodySmall.fontSize,
-                    fontWeight: "600",
-                  }}
-                >
+              <View style={{ flex: 1, gap: 6 }}>
+                <Text numberOfLines={1} style={styles.receiptFileName}>
                   {receipt.name}
                 </Text>
-                <Text
-                  style={{
-                    color: tokens.colors.textMuted,
-                    fontSize: tokens.type.caption.fontSize,
-                  }}
-                >
-                  Attaches when you save
-                </Text>
-                <View style={styles.receiptActions}>
-                  <ReceiptAction
+                <Text style={styles.receiptNote}>Attaches when you save</Text>
+                <View style={styles.receiptActionsRow}>
+                  <ReceiptActionButton
                     label="Retake"
                     icon="camera-outline"
                     disabled={pick.isPending}
                     onPress={() => pick.mutate("camera")}
                   />
-                  <ReceiptAction
+                  <ReceiptActionButton
                     label="Replace"
                     icon="image-outline"
                     disabled={pick.isPending}
                     onPress={() => pick.mutate("library")}
                   />
-                  <ReceiptAction
+                  <ReceiptActionButton
                     label="Remove"
                     icon="trash-outline"
                     destructive
@@ -205,34 +197,22 @@ export default function NewPurchaseScreen() {
               </View>
             </View>
           ) : (
-            <View
-              style={[
-                styles.receiptEmpty,
-                {
-                  backgroundColor: tokens.colors.surface,
-                  borderColor: tokens.colors.border,
-                  borderRadius: tokens.radius.lg,
-                  padding: tokens.spacing.sm + 2,
-                  gap: tokens.spacing.sm + 2,
-                },
-              ]}
-            >
-              <View style={{ flex: 1, gap: 2 }}>
-                <AppText role="subheadline" weight="700">
-                  Add a receipt
-                </AppText>
-                <AppText role="caption" tone="subtle">
+            <View style={styles.receiptCard}>
+              <View style={{ gap: 4 }}>
+                <Text style={styles.receiptCardTitle}>Add a receipt</Text>
+                <Text style={styles.receiptCardSubtitle}>
                   Keep proof of purchase attached to this record.
-                </AppText>
+                </Text>
               </View>
-              <View style={[styles.pickRow, { gap: tokens.spacing.md }]}>
-                <PickButton
+
+              <View style={styles.pickButtonsRow}>
+                <PickActionButton
                   icon="camera-outline"
                   label="Take photo"
                   disabled={pick.isPending}
                   onPress={() => pick.mutate("camera")}
                 />
-                <PickButton
+                <PickActionButton
                   icon="image-outline"
                   label="Choose photo"
                   disabled={pick.isPending}
@@ -241,11 +221,13 @@ export default function NewPurchaseScreen() {
               </View>
             </View>
           )}
+
           <FormError message={pickerError} />
         </View>
 
-        <View style={{ gap: tokens.spacing.sm }}>
-          <SectionHeading title="Purchase details" />
+        {/* Section 2: Purchase details Form */}
+        <View style={{ gap: 14 }}>
+          <Text style={styles.sectionTitle}>Purchase details</Text>
           <PurchaseForm
             embedded
             onDirtyChange={setIsDirty}
@@ -253,7 +235,7 @@ export default function NewPurchaseScreen() {
             submitLabel="Save purchase"
           />
         </View>
-      </ScreenScroll>
+      </ScrollView>
 
       <Dialog
         visible={confirmDiscard}
@@ -273,7 +255,7 @@ export default function NewPurchaseScreen() {
   );
 }
 
-function PickButton({
+function PickActionButton({
   icon,
   label,
   disabled,
@@ -284,7 +266,6 @@ function PickButton({
   disabled: boolean;
   onPress: () => void;
 }) {
-  const { tokens } = useTheme();
   return (
     <Pressable
       onPress={onPress}
@@ -295,31 +276,19 @@ function PickButton({
       style={({ pressed }) => [
         styles.pickButton,
         {
-          backgroundColor: tokens.colors.surface,
-          borderColor: tokens.colors.border,
-          borderRadius: tokens.radius.lg,
-          paddingVertical: tokens.spacing.md - 2,
-          gap: tokens.spacing.xs,
           opacity: disabled ? 0.5 : pressed ? 0.85 : 1,
         },
       ]}
     >
-      <IconTile icon={icon} tone="accent" />
-      <Text
-        style={{
-          color: tokens.colors.text,
-          fontSize: tokens.type.bodySmall.fontSize,
-          fontWeight: "600",
-          textAlign: "center",
-        }}
-      >
-        {label}
-      </Text>
+      <View style={styles.pickIconBox}>
+        <Ionicons name={icon} size={22} color="#6366F1" />
+      </View>
+      <Text style={styles.pickButtonText}>{label}</Text>
     </Pressable>
   );
 }
 
-function ReceiptAction({
+function ReceiptActionButton({
   icon,
   label,
   disabled,
@@ -332,7 +301,6 @@ function ReceiptAction({
   destructive?: boolean | undefined;
   onPress: () => void;
 }) {
-  const { tokens } = useTheme();
   return (
     <Pressable
       onPress={onPress}
@@ -341,25 +309,21 @@ function ReceiptAction({
       accessibilityLabel={label}
       accessibilityState={{ disabled }}
       style={({ pressed }) => [
-        styles.receiptAction,
-        {
-          borderColor: tokens.colors.border,
-          backgroundColor: tokens.colors.surfaceMuted,
-          opacity: disabled ? 0.5 : pressed ? 0.78 : 1,
-        },
+        styles.receiptActionButton,
+        destructive && styles.receiptActionDestructive,
+        { opacity: disabled ? 0.5 : pressed ? 0.78 : 1 },
       ]}
     >
       <Ionicons
         name={icon}
-        size={16}
-        color={destructive ? tokens.colors.dangerText : tokens.colors.icon}
+        size={15}
+        color={destructive ? "#DC2626" : "#64748B"}
       />
       <Text
-        style={{
-          color: destructive ? tokens.colors.dangerText : tokens.colors.text,
-          fontSize: tokens.type.caption.fontSize,
-          fontWeight: "700",
-        }}
+        style={[
+          styles.receiptActionText,
+          destructive && { color: "#DC2626" },
+        ]}
       >
         {label}
       </Text>
@@ -368,41 +332,173 @@ function ReceiptAction({
 }
 
 const styles = StyleSheet.create({
-  receiptSelected: {
+  screen: {
+    flex: 1,
+    backgroundColor: "#F8FAFC",
+    position: "relative",
+  },
+  ambientGlowTopRight: {
+    position: "absolute",
+    top: -40,
+    right: -30,
+    width: 260,
+    height: 220,
+    borderRadius: 130,
+    backgroundColor: "#EDE9FE",
+    opacity: 0.6,
+  },
+  navBar: {
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
+    justifyContent: "space-between",
+    minHeight: 44,
+    marginBottom: 4,
+  },
+  backButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
+    borderColor: "#E2E8F0",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
-  receiptEmpty: {
+  navTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+  navSpacer: {
+    width: 42,
+  },
+  sectionHeaderStack: {
+    gap: 2,
+    paddingHorizontal: 2,
+  },
+  sectionTitle: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#0F172A",
+    letterSpacing: -0.3,
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    color: "#64748B",
+    fontWeight: "400",
+  },
+  receiptCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
     borderWidth: 1,
+    borderColor: "#F1F5F9",
+    padding: 18,
+    gap: 16,
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  thumb: {
-    width: 88,
-    height: 110,
+  receiptCardTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#0F172A",
   },
-  pickRow: {
+  receiptCardSubtitle: {
+    fontSize: 13,
+    color: "#64748B",
+    lineHeight: 18,
+  },
+  pickButtonsRow: {
     flexDirection: "row",
+    gap: 12,
   },
   pickButton: {
     flex: 1,
+    backgroundColor: "#F8FAFC",
+    borderRadius: 16,
     borderWidth: 1,
+    borderColor: "#F1F5F9",
+    paddingVertical: 18,
+    paddingHorizontal: 12,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 8,
-    minHeight: 66,
   },
-  receiptActions: {
+  pickIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: "#EEF2FF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pickButtonText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#0F172A",
+    marginTop: 10,
+    textAlign: "center",
+  },
+  receiptSelectedCard: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#F1F5F9",
+    padding: 16,
+    gap: 14,
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  receiptThumb: {
+    width: 88,
+    height: 110,
+    borderRadius: 12,
+    backgroundColor: "#F1F5F9",
+  },
+  receiptFileName: {
+    color: "#0F172A",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  receiptNote: {
+    color: "#64748B",
+    fontSize: 13,
+  },
+  receiptActionsRow: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
+    marginTop: 6,
   },
-  receiptAction: {
-    minHeight: 40,
+  receiptActionButton: {
+    height: 34,
     borderWidth: 1,
+    borderColor: "#E2E8F0",
+    backgroundColor: "#F8FAFC",
     borderRadius: 999,
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
+  },
+  receiptActionDestructive: {
+    borderColor: "#FEE2E2",
+    backgroundColor: "#FEF2F2",
+  },
+  receiptActionText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#334155",
   },
 });

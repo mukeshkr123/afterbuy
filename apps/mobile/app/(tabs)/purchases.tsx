@@ -15,22 +15,22 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
+  Text,
   TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 import {
   AppIcon,
   AppText,
   Button,
-  CategoryArtwork,
   DateField,
   EmptyState,
-  Money,
+  PurchaseArtworkTile,
   SelectionField,
   Sheet,
   Skeleton,
-  StatusPill,
   useAdaptiveLayout,
 } from "@/components";
 import { useApi } from "@/api/ApiProvider";
@@ -42,7 +42,6 @@ import {
   categoryLabel,
   deadlineState,
   deliveryDisplay,
-  formatDate,
 } from "@/lib/purchaseDisplay";
 
 type CategoryFilter = PurchaseCategory | "all";
@@ -65,35 +64,120 @@ const SORT_OPTIONS: ReadonlyArray<{ value: SortKey; label: string }> = [
   { value: "amount", label: "Highest price" },
 ];
 
-function protectionBadge(
-  iso: string | null | undefined,
-  noun: "Return" | "Warranty"
-) {
-  const state = deadlineState(iso, noun === "Return" ? "Return by" : "Until");
-  if (!state || state.expired) return null;
-  return {
-    label: state.urgent ? `${noun} ${state.detail}` : `${noun} active`,
-    tone: state.urgent ? ("warning" as const) : ("accent" as const),
-  };
+function formatPurchaseDate(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const parts = iso.split("-");
+  const yearStr = parts[0];
+  const monthStr = parts[1];
+  const dayStr = parts[2];
+  if (!yearStr || !monthStr || !dayStr) return null;
+  const monthIdx = parseInt(monthStr, 10) - 1;
+  const day = parseInt(dayStr, 10);
+  const months = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
+  return `${day} ${months[monthIdx] ?? ""} ${yearStr}`;
 }
 
-function purchaseListBadge(purchase: Purchase) {
-  const returnBadge = protectionBadge(purchase.returnDeadlineAt, "Return");
-  const warrantyBadge = protectionBadge(purchase.warrantyExpiresAt, "Warranty");
-
-  return (
-    (returnBadge?.tone === "warning" ? returnBadge : null) ??
-    (warrantyBadge?.tone === "warning" ? warrantyBadge : null) ??
-    returnBadge ??
-    warrantyBadge ??
-    deliveryDisplay(purchase.deliveryStatus)
-  );
+function formatPrice(amountMinor: number, currency = "USD"): string {
+  if (currency === "USD") {
+    if (amountMinor % 100 === 0) {
+      return `$${Math.round(amountMinor / 100)}`;
+    }
+    return `$${(amountMinor / 100).toFixed(2)}`;
+  }
+  return `${currency} ${(amountMinor / 100).toFixed(2)}`;
 }
 
-function shortDate(iso: string | null | undefined): string | null {
-  const formatted = formatDate(iso);
-  if (!formatted) return null;
-  return formatted.replace(",", "");
+interface BadgeConfig {
+  label: string;
+  bgColor: string;
+  textColor: string;
+}
+
+function resolvePurchaseBadge(purchase: Purchase): BadgeConfig {
+  // Check warranty first for long-term protection status
+  if (purchase.warrantyExpiresAt) {
+    const warrantyState = deadlineState(purchase.warrantyExpiresAt, "Warranty");
+    if (warrantyState && !warrantyState.expired) {
+      if (warrantyState.urgent) {
+        return {
+          label: `Warranty ${warrantyState.detail}`,
+          bgColor: "#FEF3C7",
+          textColor: "#B45309",
+        };
+      }
+      return {
+        label: "Warranty active",
+        bgColor: "#EEF2FF",
+        textColor: "#6366F1",
+      };
+    }
+  }
+
+  // Check return deadline
+  if (purchase.returnDeadlineAt) {
+    const returnState = deadlineState(purchase.returnDeadlineAt, "Return");
+    if (returnState && !returnState.expired) {
+      if (returnState.urgent) {
+        return {
+          label: `Return ${returnState.detail}`,
+          bgColor: "#FEF3C7",
+          textColor: "#B45309",
+        };
+      }
+      return {
+        label: "Return active",
+        bgColor: "#EEF2FF",
+        textColor: "#6366F1",
+      };
+    }
+  }
+
+  // Fallback to delivery status
+  switch (purchase.deliveryStatus) {
+    case "shipped":
+      return {
+        label: "Shipped",
+        bgColor: "#EEF2FF",
+        textColor: "#6366F1",
+      };
+    case "delivered":
+      return {
+        label: "Delivered",
+        bgColor: "#ECFDF5",
+        textColor: "#059669",
+      };
+    case "ordered":
+      return {
+        label: "Ordered",
+        bgColor: "#EEF2FF",
+        textColor: "#6366F1",
+      };
+    case "cancelled":
+      return {
+        label: "Cancelled",
+        bgColor: "#FEE2E2",
+        textColor: "#DC2626",
+      };
+    default:
+      return {
+        label: "Ordered",
+        bgColor: "#EEF2FF",
+        textColor: "#6366F1",
+      };
+  }
 }
 
 export default function PurchasesScreen() {
@@ -198,7 +282,11 @@ export default function PurchasesScreen() {
 
   return (
     <>
-      <View style={{ flex: 1, backgroundColor: tokens.colors.canvas }}>
+      <View style={styles.screen}>
+        {/* Ambient top pastel background glow */}
+        <View style={styles.topAmbientGlowLeft} pointerEvents="none" />
+        <View style={styles.topAmbientGlowRight} pointerEvents="none" />
+
         <FlatList
           data={items}
           keyExtractor={(item) => item.id}
@@ -214,7 +302,7 @@ export default function PurchasesScreen() {
             <RefreshControl
               refreshing={list.isRefetching && !list.isFetchingNextPage}
               onRefresh={() => void list.refetch()}
-              tintColor={tokens.colors.primary}
+              tintColor="#5B4DF5"
             />
           }
           onEndReachedThreshold={0.45}
@@ -223,26 +311,24 @@ export default function PurchasesScreen() {
               void list.fetchNextPage();
             }
           }}
-          stickyHeaderIndices={[0]}
           ListHeaderComponent={
             <View
               style={{
-                backgroundColor: tokens.colors.canvas,
-                paddingTop: Math.max(insets.top + tokens.spacing.sm, 20),
-                paddingHorizontal: tokens.spacing.lg,
-                paddingBottom: tokens.spacing.sm,
-                gap: tokens.spacing.sm,
+                paddingTop: Math.max(insets.top + 6, 16),
+                paddingHorizontal: 16,
+                paddingBottom: 8,
+                gap: 12,
               }}
             >
+              {/* Header Title + Gradient Plus Button */}
               <View style={styles.titleRow}>
                 <View style={styles.titleCopy}>
-                  <AppText role="screenTitle" tone="strong">
-                    Purchases
-                  </AppText>
-                  <AppText role="subheadline" tone="subtle">
+                  <Text style={styles.screenTitle}>Purchases</Text>
+                  <Text style={styles.screenSubtitle}>
                     Receipts, returns, and warranties
-                  </AppText>
+                  </Text>
                 </View>
+
                 <Pressable
                   onPress={() => router.push("/purchase/new")}
                   accessibilityRole="button"
@@ -250,54 +336,38 @@ export default function PurchasesScreen() {
                   style={({ pressed }) => [
                     styles.addButton,
                     {
-                      backgroundColor: tokens.colors.primary,
-                      opacity: pressed ? 0.85 : 1,
+                      opacity: pressed ? 0.88 : 1,
                       transform: [
-                        { scale: pressed && !reducedMotion ? 0.96 : 1 },
+                        { scale: pressed && !reducedMotion ? 0.95 : 1 },
                       ],
                     },
                   ]}
                 >
-                  <AppIcon
-                    name="add"
-                    size={22}
-                    color={tokens.colors.onPrimary}
-                  />
+                  <Ionicons name="add" size={26} color="#FFFFFF" />
                 </Pressable>
               </View>
 
-              <View style={[styles.controlsRow, { gap: tokens.spacing.sm }]}>
+              {/* Search Bar + Filter Options Button */}
+              <View style={styles.controlsRow}>
                 <View
                   style={[
                     styles.searchBox,
-                    {
-                      backgroundColor: tokens.colors.surface,
-                      borderColor: searchFocused
-                        ? tokens.colors.focus
-                        : tokens.colors.border,
-                      borderRadius: tokens.radius.lg,
-                      paddingHorizontal: tokens.spacing.sm + 2,
-                      gap: tokens.spacing.sm,
-                    },
+                    searchFocused && styles.searchBoxFocused,
                   ]}
                 >
-                  <AppIcon name="search" size={18} color={tokens.colors.icon} />
+                  <Ionicons name="search-outline" size={20} color="#64748B" />
                   <TextInput
                     ref={searchRef}
                     value={qInput}
                     onChangeText={setQInput}
                     onFocus={() => setSearchFocused(true)}
+                    onBlur={() => setSearchFocused(false)}
                     placeholder="Search purchases"
-                    placeholderTextColor={tokens.colors.textMuted}
+                    placeholderTextColor="#94A3B8"
                     accessibilityLabel="Search purchases"
                     autoCapitalize="none"
                     returnKeyType="search"
-                    style={{
-                      flex: 1,
-                      height: "100%",
-                      color: tokens.colors.text,
-                      fontSize: tokens.type.body.fontSize,
-                    }}
+                    style={styles.searchInput}
                   />
                   {qInput ? (
                     <Pressable
@@ -306,11 +376,7 @@ export default function PurchasesScreen() {
                       accessibilityLabel="Clear search"
                       hitSlop={8}
                     >
-                      <AppIcon
-                        name="close"
-                        size={16}
-                        color={tokens.colors.textMuted}
-                      />
+                      <Ionicons name="close-circle" size={18} color="#94A3B8" />
                     </Pressable>
                   ) : null}
                 </View>
@@ -325,9 +391,7 @@ export default function PurchasesScreen() {
                       { opacity: pressed ? 0.65 : 1 },
                     ]}
                   >
-                    <AppText role="subheadline" tone="accent" weight="700">
-                      Cancel
-                    </AppText>
+                    <Text style={styles.cancelButtonText}>Cancel</Text>
                   </Pressable>
                 ) : (
                   <Pressable
@@ -340,13 +404,8 @@ export default function PurchasesScreen() {
                     onPress={openFiltersSheet}
                     style={({ pressed }) => [
                       styles.filterButton,
+                      activeFilters > 0 && styles.filterButtonActive,
                       {
-                        backgroundColor:
-                          activeFilters > 0
-                            ? tokens.colors.accentSoft
-                            : tokens.colors.surface,
-                        borderColor: tokens.colors.border,
-                        borderRadius: tokens.radius.lg,
                         opacity: pressed ? 0.82 : 1,
                         transform: [
                           { scale: pressed && !reducedMotion ? 0.96 : 1 },
@@ -354,31 +413,28 @@ export default function PurchasesScreen() {
                       },
                     ]}
                   >
-                    <AppIcon
-                      name="filter"
-                      size={18}
-                      color={
-                        activeFilters > 0
-                          ? tokens.colors.primary
-                          : tokens.colors.icon
-                      }
-                    />
+                    {/* 3 Horizontal lines matching the design */}
+                    <View style={styles.filterIconBars}>
+                      <View style={[styles.filterBar, { width: 17 }]} />
+                      <View style={[styles.filterBar, { width: 12 }]} />
+                      <View style={[styles.filterBar, { width: 7 }]} />
+                    </View>
                     {activeFilters > 0 ? (
-                      <AppText role="caption" tone="accent" weight="700">
-                        {activeFilters}
-                      </AppText>
+                      <View style={styles.filterBadge}>
+                        <Text style={styles.filterBadgeText}>
+                          {activeFilters}
+                        </Text>
+                      </View>
                     ) : null}
                   </Pressable>
                 )}
               </View>
 
+              {/* Category Filter Chips */}
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                contentContainerStyle={[
-                  styles.chipsRow,
-                  { gap: tokens.spacing.sm },
-                ]}
+                contentContainerStyle={styles.chipsRow}
                 keyboardShouldPersistTaps="handled"
               >
                 {INLINE_CATEGORIES.map((option) => (
@@ -391,36 +447,30 @@ export default function PurchasesScreen() {
                 ))}
               </ScrollView>
 
+              {/* Results Count & Sort Dropdown Selector */}
               <View style={styles.resultsRow}>
-                <AppText role="caption" tone="subtle" weight="700">
+                <Text style={styles.resultsCount}>
                   {searchActive
                     ? `Results (${items.length})`
                     : `${items.length} purchase${items.length === 1 ? "" : "s"}`}
-                </AppText>
+                </Text>
+
                 <Pressable
                   onPress={() => setSortOpen(true)}
                   accessibilityRole="button"
                   accessibilityLabel={`Sort purchases, ${sortLabel}`}
                   style={({ pressed }) => [
                     styles.sortButton,
-                    {
-                      backgroundColor: tokens.colors.surface,
-                      borderColor: tokens.colors.border,
-                      borderRadius: tokens.radius.lg,
-                      opacity: pressed ? 0.75 : 1,
-                    },
+                    { opacity: pressed ? 0.75 : 1 },
                   ]}
                 >
-                  <AppText role="caption" tone="subtle" weight="600">
-                    {sortLabel}
-                  </AppText>
+                  <Text style={styles.sortButtonText}>{sortLabel}</Text>
+                  <Ionicons name="chevron-down" size={14} color="#475569" />
                 </Pressable>
               </View>
 
               {list.isRefetching && !list.isLoading ? (
-                <AppText role="caption" tone="muted">
-                  Refreshing purchases
-                </AppText>
+                <Text style={styles.refreshingText}>Refreshing purchases</Text>
               ) : null}
             </View>
           }
@@ -478,8 +528,8 @@ export default function PurchasesScreen() {
           ListFooterComponent={
             list.isFetchingNextPage ? (
               <ActivityIndicator
-                color={tokens.colors.primary}
-                style={{ padding: tokens.spacing.xl }}
+                color="#5B4DF5"
+                style={{ padding: 20 }}
                 accessibilityLabel="Loading more purchases"
               />
             ) : null
@@ -487,6 +537,7 @@ export default function PurchasesScreen() {
         />
       </View>
 
+      {/* Filter Sheet */}
       <Sheet visible={filtersOpen} onRequestClose={() => setFiltersOpen(false)}>
         <View style={{ gap: tokens.spacing.md }}>
           <View style={styles.sheetHeader}>
@@ -559,6 +610,7 @@ export default function PurchasesScreen() {
         </View>
       </Sheet>
 
+      {/* Sort Sheet */}
       <Sheet visible={sortOpen} onRequestClose={() => setSortOpen(false)}>
         <View style={{ gap: tokens.spacing.md }}>
           <View style={styles.sheetHeader}>
@@ -567,7 +619,7 @@ export default function PurchasesScreen() {
                 Sort purchases
               </AppText>
               <AppText role="caption" tone="subtle">
-                Server-supported order, newest first
+                Server-supported order
               </AppText>
             </View>
           </View>
@@ -587,29 +639,29 @@ export default function PurchasesScreen() {
                   style={({ pressed }) => [
                     styles.optionRow,
                     {
-                      backgroundColor: selected
-                        ? tokens.colors.accentSoft
-                        : tokens.colors.surface,
-                      borderColor: selected
-                        ? tokens.colors.primary
-                        : tokens.colors.border,
-                      borderRadius: tokens.radius.lg,
+                      backgroundColor: selected ? "#EEF2FF" : "#FFFFFF",
+                      borderColor: selected ? "#5B4DF5" : "#E2E8F0",
+                      borderRadius: 14,
                       opacity: pressed ? 0.75 : 1,
                     },
                   ]}
                 >
-                  <AppText
-                    role="body"
-                    tone={selected ? "accent" : "default"}
-                    weight={selected ? "700" : "500"}
+                  <Text
+                    style={[
+                      styles.optionLabel,
+                      {
+                        color: selected ? "#5B4DF5" : "#0F172A",
+                        fontWeight: selected ? "700" : "500",
+                      },
+                    ]}
                   >
                     {option.label}
-                  </AppText>
+                  </Text>
                   {selected ? (
-                    <AppIcon
-                      name="check"
+                    <Ionicons
+                      name="checkmark"
                       size={20}
-                      color={tokens.colors.primary}
+                      color="#5B4DF5"
                     />
                   ) : null}
                 </Pressable>
@@ -631,7 +683,6 @@ function FilterChip({
   selected: boolean;
   onPress: () => void;
 }) {
-  const { tokens, reducedMotion } = useTheme();
   return (
     <Pressable
       onPress={onPress}
@@ -639,25 +690,21 @@ function FilterChip({
       accessibilityState={{ selected }}
       style={({ pressed }) => [
         styles.chip,
+        selected ? styles.chipSelected : styles.chipUnselected,
         {
-          backgroundColor: selected
-            ? tokens.colors.primary
-            : tokens.colors.surface,
-          borderColor: selected ? tokens.colors.primary : tokens.colors.border,
-          borderRadius: tokens.radius.pill,
           opacity: pressed ? 0.85 : 1,
-          transform: [{ scale: pressed && !reducedMotion ? 0.98 : 1 }],
+          transform: [{ scale: pressed ? 0.98 : 1 }],
         },
       ]}
     >
-      <AppText
-        role="caption"
-        tone={selected ? "strong" : "subtle"}
-        weight="700"
-        style={{ color: selected ? tokens.colors.onPrimary : undefined }}
+      <Text
+        style={[
+          styles.chipText,
+          selected ? styles.chipTextSelected : styles.chipTextUnselected,
+        ]}
       >
         {label}
-      </AppText>
+      </Text>
     </Pressable>
   );
 }
@@ -669,10 +716,10 @@ function PurchaseRowCard({
   purchase: Purchase;
   onPress: () => void;
 }) {
-  const { tokens, reducedMotion } = useTheme();
-  const badge = purchaseListBadge(purchase);
-  const purchasedAt = shortDate(purchase.purchaseDate);
-  const merchant = purchase.merchant?.trim() || "Unknown merchant";
+  const badge = resolvePurchaseBadge(purchase);
+  const formattedDate = formatPurchaseDate(purchase.purchaseDate);
+  const merchant = purchase.merchant?.trim() || "Store";
+  const subtitle = [merchant, formattedDate].filter(Boolean).join("  ·  ");
 
   return (
     <Pressable
@@ -682,81 +729,68 @@ function PurchaseRowCard({
       style={({ pressed }) => [
         styles.card,
         {
-          backgroundColor: tokens.colors.surface,
-          borderColor: tokens.colors.border,
-          borderRadius: tokens.radius.lg,
-          marginHorizontal: tokens.spacing.lg,
-          marginBottom: tokens.spacing.xs,
           opacity: pressed ? 0.88 : 1,
-          transform: [{ scale: pressed && !reducedMotion ? 0.99 : 1 }],
+          transform: [{ scale: pressed ? 0.99 : 1 }],
         },
       ]}
     >
-      <CategoryArtwork category={purchase.category} size="sm" />
-      <View style={styles.cardBody}>
-        <View style={styles.cardTopLine}>
-          <AppText
-            role="subheadline"
-            numberOfLines={1}
-            style={styles.cardTitle}
-          >
+      {/* Product Artwork Tile */}
+      <PurchaseArtworkTile
+        title={purchase.title}
+        category={purchase.category}
+        size={54}
+      />
+
+      {/* Card Body */}
+      <View style={styles.cardCenter}>
+        {/* Title + Price */}
+        <View style={styles.cardHeaderLine}>
+          <Text style={styles.cardTitle} numberOfLines={1}>
             {purchase.title}
-          </AppText>
+          </Text>
           {purchase.amountMinor != null && purchase.amountMinor > 0 ? (
-            <Money
-              amountMinor={purchase.amountMinor}
-              currency={purchase.currency}
-              emphasis="strong"
-              style={{ fontSize: tokens.type.bodySmall.fontSize }}
-            />
+            <Text style={styles.cardPrice}>
+              {formatPrice(purchase.amountMinor, purchase.currency)}
+            </Text>
           ) : null}
         </View>
-        <View style={styles.metaRow}>
-          <AppText role="caption" tone="subtle" numberOfLines={1}>
-            {merchant}
-          </AppText>
-          {purchasedAt ? (
-            <>
-              <View
-                style={[
-                  styles.metaDot,
-                  { backgroundColor: tokens.colors.textMuted },
-                ]}
-              />
-              <AppText role="caption" tone="muted" numberOfLines={1}>
-                {purchasedAt}
-              </AppText>
-            </>
-          ) : null}
+
+        {/* Store · Date */}
+        <Text style={styles.cardSubtitle} numberOfLines={1}>
+          {subtitle}
+        </Text>
+
+        {/* Status Pill Badge */}
+        <View style={styles.badgeRow}>
+          <View style={[styles.badgePill, { backgroundColor: badge.bgColor }]}>
+            <Text style={[styles.badgeText, { color: badge.textColor }]}>
+              {badge.label}
+            </Text>
+          </View>
         </View>
-        <StatusPill label={badge.label} tone={badge.tone} quiet />
       </View>
+
+      {/* Trailing Chevron */}
+      <Ionicons
+        name="chevron-forward"
+        size={18}
+        color="#94A3B8"
+        style={styles.cardChevron}
+      />
     </Pressable>
   );
 }
 
 function PurchaseSkeletonList({ count }: { count: number }) {
-  const { tokens } = useTheme();
   return (
-    <View style={{ gap: tokens.spacing.sm }}>
+    <View style={{ gap: 12 }}>
       {Array.from({ length: count }, (_, index) => (
-        <View
-          key={index}
-          style={[
-            styles.skeletonCard,
-            {
-              backgroundColor: tokens.colors.surface,
-              borderColor: tokens.colors.border,
-              borderRadius: tokens.radius.lg,
-              gap: tokens.spacing.md,
-            },
-          ]}
-        >
-          <Skeleton width={40} height={40} style={{ borderRadius: 12 }} />
-          <View style={{ flex: 1, gap: tokens.spacing.sm }}>
-            <Skeleton width="72%" height={18} />
-            <Skeleton width="48%" height={14} />
-            <Skeleton width={112} height={26} style={{ borderRadius: 999 }} />
+        <View key={index} style={styles.skeletonCard}>
+          <Skeleton width={54} height={54} style={{ borderRadius: 16 }} />
+          <View style={{ flex: 1, gap: 8 }}>
+            <Skeleton width="68%" height={18} />
+            <Skeleton width="45%" height={14} />
+            <Skeleton width={100} height={24} style={{ borderRadius: 8 }} />
           </View>
         </View>
       ))}
@@ -765,6 +799,31 @@ function PurchaseSkeletonList({ count }: { count: number }) {
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: "#F8FAFC",
+    position: "relative",
+  },
+  topAmbientGlowLeft: {
+    position: "absolute",
+    top: -50,
+    left: -40,
+    width: 280,
+    height: 200,
+    borderRadius: 140,
+    backgroundColor: "#E0E7FE",
+    opacity: 0.5,
+  },
+  topAmbientGlowRight: {
+    position: "absolute",
+    top: -40,
+    right: -50,
+    width: 240,
+    height: 180,
+    borderRadius: 120,
+    backgroundColor: "#EDE9FE",
+    opacity: 0.6,
+  },
   titleRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -776,49 +835,153 @@ const styles = StyleSheet.create({
     minWidth: 0,
     gap: 2,
   },
+  screenTitle: {
+    fontSize: 32,
+    fontWeight: "800",
+    color: "#0F172A",
+    letterSpacing: -0.5,
+  },
+  screenSubtitle: {
+    fontSize: 15,
+    fontWeight: "400",
+    color: "#64748B",
+  },
   addButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#5B4DF5",
     alignItems: "center",
     justifyContent: "center",
+    shadowColor: "#5B4DF5",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 4,
   },
   controlsRow: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 10,
+    marginTop: 4,
   },
   searchBox: {
     flex: 1,
-    height: 46,
+    height: 48,
     borderWidth: 1,
+    borderColor: "#E2E8F0",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    paddingHorizontal: 14,
     flexDirection: "row",
     alignItems: "center",
+    gap: 10,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 3,
+    elevation: 1,
   },
-  filterButton: {
-    minWidth: 44,
-    height: 44,
-    borderWidth: 1,
-    paddingHorizontal: 11,
-    flexDirection: "row",
-    gap: 4,
-    alignItems: "center",
-    justifyContent: "center",
+  searchBoxFocused: {
+    borderColor: "#5B4DF5",
+  },
+  searchInput: {
+    flex: 1,
+    height: "100%",
+    color: "#0F172A",
+    fontSize: 15,
   },
   cancelButton: {
     minHeight: 44,
-    paddingHorizontal: 4,
+    paddingHorizontal: 6,
     alignItems: "center",
     justifyContent: "center",
+  },
+  cancelButtonText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#5B4DF5",
+  },
+  filterButton: {
+    width: 48,
+    height: 48,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  filterButtonActive: {
+    backgroundColor: "#EEF2FF",
+    borderColor: "#5B4DF5",
+  },
+  filterIconBars: {
+    alignItems: "flex-start",
+    gap: 3.5,
+  },
+  filterBar: {
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: "#334155",
+  },
+  filterBadge: {
+    position: "absolute",
+    top: 6,
+    right: 6,
+    backgroundColor: "#5B4DF5",
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  filterBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 10,
+    fontWeight: "700",
   },
   chipsRow: {
+    gap: 8,
     paddingRight: 16,
+    paddingVertical: 2,
   },
   chip: {
-    minHeight: 44,
-    borderWidth: 1,
-    paddingHorizontal: 13,
+    height: 38,
+    paddingHorizontal: 18,
+    borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",
+  },
+  chipSelected: {
+    backgroundColor: "#5B4DF5",
+    shadowColor: "#5B4DF5",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  chipUnselected: {
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  chipText: {
+    fontSize: 14,
+  },
+  chipTextSelected: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+  },
+  chipTextUnselected: {
+    color: "#0F172A",
+    fontWeight: "600",
   },
   resultsRow: {
     minHeight: 32,
@@ -826,51 +989,109 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     gap: 12,
+    marginTop: 2,
+  },
+  resultsCount: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#475569",
   },
   sortButton: {
-    minHeight: 44,
-    borderWidth: 1,
-    paddingHorizontal: 12,
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    gap: 5,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  sortButtonText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#334155",
+  },
+  refreshingText: {
+    fontSize: 12,
+    color: "#94A3B8",
+  },
+  card: {
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#F1F5F9",
+    borderRadius: 18,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    padding: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  cardCenter: {
+    flex: 1,
+    minWidth: 0,
+    gap: 4,
+  },
+  cardHeaderLine: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  cardTitle: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+  cardPrice: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+  cardSubtitle: {
+    fontSize: 13,
+    color: "#64748B",
+    fontWeight: "400",
+  },
+  badgeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 2,
+  },
+  badgePill: {
+    paddingHorizontal: 10,
+    paddingVertical: 3.5,
+    borderRadius: 8,
+    alignSelf: "flex-start",
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  cardChevron: {
+    marginLeft: 2,
   },
   emptyWrap: {
     paddingHorizontal: 16,
     paddingTop: 24,
     paddingBottom: 24,
   },
-  card: {
+  skeletonCard: {
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    padding: 10,
+    borderColor: "#F1F5F9",
+    borderRadius: 18,
+    padding: 14,
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-  },
-  cardBody: {
-    flex: 1,
-    minWidth: 0,
-    gap: 5,
-  },
-  cardTopLine: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 10,
-  },
-  cardTitle: {
-    flex: 1,
-    minWidth: 0,
-  },
-  metaRow: {
-    minHeight: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 7,
-  },
-  metaDot: {
-    width: 3,
-    height: 3,
-    borderRadius: 1.5,
+    gap: 12,
   },
   sheetHeader: {
     flexDirection: "row",
@@ -893,10 +1114,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  skeletonCard: {
-    borderWidth: 1,
-    padding: 10,
-    flexDirection: "row",
-    alignItems: "center",
+  optionLabel: {
+    fontSize: 15,
   },
 });

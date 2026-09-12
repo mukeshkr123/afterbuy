@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 import {
+  ActivityIndicator,
   FlatList,
   Pressable,
   ScrollView,
@@ -130,9 +131,17 @@ function FormTrigger({
   const display = value || placeholder;
   return (
     <View style={{ gap: tokens.spacing.xs }}>
-      <AppText role="label" weight="600">
-        {label}
-      </AppText>
+      <View style={styles.triggerLabelRow}>
+        <Text
+          style={{
+            color: tokens.colors.text,
+            fontSize: tokens.type.caption.fontSize + 1,
+            fontWeight: "600",
+          }}
+        >
+          {label}
+        </Text>
+      </View>
       <Pressable
         onPress={onPress}
         accessibilityRole="button"
@@ -140,10 +149,10 @@ function FormTrigger({
         style={({ pressed }) => [
           styles.trigger,
           {
-            borderColor: error ? tokens.colors.danger : tokens.colors.border,
-            backgroundColor: tokens.colors.surface,
-            borderRadius: tokens.radius.lg,
-            paddingHorizontal: tokens.spacing.md,
+            borderColor: error ? tokens.colors.danger : "#E2E8F0",
+            backgroundColor: "#FFFFFF",
+            borderRadius: 14,
+            paddingHorizontal: 16,
             opacity: pressed ? 0.82 : 1,
           },
         ]}
@@ -152,13 +161,14 @@ function FormTrigger({
           numberOfLines={1}
           style={{
             flex: 1,
-            color: value ? tokens.colors.text : tokens.colors.textMuted,
-            fontSize: tokens.type.body.fontSize,
+            color: value ? "#0F172A" : "#94A3B8",
+            fontSize: 15,
+            fontWeight: "500",
           }}
         >
           {display}
         </Text>
-        <Ionicons name={icon} size={19} color={tokens.colors.icon} />
+        <Ionicons name={icon} size={18} color="#94A3B8" />
       </Pressable>
       {error ? (
         <AppText role="label" tone="danger" accessibilityLiveRegion="polite">
@@ -692,29 +702,25 @@ export function PurchaseForm({
         accessibilityRole="button"
         accessibilityState={{ expanded: showOptional }}
         style={({ pressed }) => [
-          styles.sectionToggle,
+          styles.protectionCard,
           {
-            backgroundColor: tokens.colors.surface,
-            borderColor: tokens.colors.border,
-            borderRadius: tokens.radius.lg,
-            paddingHorizontal: tokens.spacing.md,
-            paddingVertical: tokens.spacing.md,
-            opacity: pressed ? 0.84 : 1,
+            opacity: pressed ? 0.85 : 1,
           },
         ]}
       >
+        <View style={styles.protectionIconBox}>
+          <Ionicons name="shield-outline" size={22} color="#6366F1" />
+        </View>
         <View style={{ flex: 1, gap: 2 }}>
-          <AppText role="subheadline" weight="700">
-            Protection & delivery
-          </AppText>
-          <AppText role="caption" tone="subtle">
+          <Text style={styles.protectionTitle}>Protection & delivery</Text>
+          <Text style={styles.protectionSubtitle}>
             Advanced details for tracking, returns, warranty, and notes
-          </AppText>
+          </Text>
         </View>
         <Ionicons
           name={showOptional ? "chevron-up" : "chevron-down"}
-          size={21}
-          color={tokens.colors.icon}
+          size={20}
+          color="#0F172A"
         />
       </Pressable>
 
@@ -832,23 +838,39 @@ export function PurchaseForm({
 
       <View style={{ height: tokens.spacing.xxl }} />
 
-      <View
-        style={[
-          styles.submitBar,
-          {
-            backgroundColor: tokens.colors.canvas,
-            borderTopColor: tokens.colors.border,
-            paddingTop: tokens.spacing.sm,
-          },
-        ]}
-      >
-        <Button
-          label={formState.isSubmitting ? "Saving..." : submitLabel}
-          size="lg"
+      <View style={styles.submitBar}>
+        <Pressable
           onPress={submit}
           disabled={formState.isSubmitting}
-          busy={formState.isSubmitting}
-        />
+          accessibilityRole="button"
+          accessibilityLabel={
+            formState.isSubmitting ? "Saving..." : submitLabel
+          }
+          accessibilityState={{
+            disabled: formState.isSubmitting,
+            busy: formState.isSubmitting,
+          }}
+          style={({ pressed }) => [
+            styles.submitButton,
+            {
+              opacity: formState.isSubmitting ? 0.7 : pressed ? 0.92 : 1,
+              transform: [
+                { scale: pressed && !formState.isSubmitting ? 0.985 : 1 },
+              ],
+            },
+          ]}
+        >
+          {formState.isSubmitting ? (
+            <ActivityIndicator
+              size="small"
+              color="#FFFFFF"
+              style={{ marginRight: 8 }}
+            />
+          ) : null}
+          <Text style={styles.submitButtonText}>
+            {formState.isSubmitting ? "Saving..." : submitLabel}
+          </Text>
+        </Pressable>
       </View>
     </View>
   );
@@ -941,8 +963,13 @@ function DeliveryStatusPicker({
 }
 
 const styles = StyleSheet.create({
+  triggerLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
   trigger: {
-    minHeight: 48,
+    height: 48,
     borderWidth: 1,
     flexDirection: "row",
     alignItems: "center",
@@ -1006,6 +1033,39 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderRadius: 999,
   },
+  protectionCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#F1F5F9",
+    padding: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  protectionIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: "#EEF2FF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  protectionTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+  protectionSubtitle: {
+    fontSize: 12,
+    color: "#64748B",
+    lineHeight: 16,
+  },
   sectionToggle: {
     minHeight: 56,
     borderWidth: 1,
@@ -1022,6 +1082,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   submitBar: {
-    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
+  submitButton: {
+    height: 52,
+    backgroundColor: "#775DF5",
+    borderRadius: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#775DF5",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.28,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  submitButtonText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#FFFFFF",
   },
 });
