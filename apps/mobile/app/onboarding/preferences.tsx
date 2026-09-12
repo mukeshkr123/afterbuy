@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import * as Notifications from "expo-notifications";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { Button, ScreenHeader, ScreenScroll } from "@/components";
@@ -9,6 +10,7 @@ import { apiKeys } from "@/api/apiKeys";
 import { useApi } from "@/api/ApiProvider";
 import { writeSettings, type ThemePreference } from "@/lib/settings";
 import { useTheme } from "@/theme/ThemeProvider";
+import { registerCurrentDevice } from "@/notifications/PushRegistration";
 
 const REMINDER_OPTIONS = [
   { days: 3, label: "3 days before", detail: null },
@@ -26,6 +28,8 @@ const THEME_OPTIONS: readonly {
   { value: "system", label: "System", icon: "phone-portrait-outline" },
 ];
 
+const PUSH_ENABLED = process.env["EXPO_PUBLIC_PUSH_ENABLED"] === "true";
+
 export default function OnboardingPreferencesScreen() {
   const router = useRouter();
   const api = useApi();
@@ -41,7 +45,19 @@ export default function OnboardingPreferencesScreen() {
     setError(null);
     try {
       await setPreference(theme);
-      await patchMe(api, { reminderLeadDays: leadDays });
+      let pushEnabled = false;
+      if (PUSH_ENABLED) {
+        const current = await Notifications.getPermissionsAsync();
+        const permission =
+          current.status === "granted"
+            ? current
+            : await Notifications.requestPermissionsAsync();
+        pushEnabled = permission.status === "granted";
+        if (pushEnabled) {
+          await registerCurrentDevice(api);
+        }
+      }
+      await patchMe(api, { reminderLeadDays: leadDays, pushEnabled });
       await queryClient.invalidateQueries({ queryKey: apiKeys.me() });
       await writeSettings({
         authOnboardingPending: false,
@@ -62,9 +78,7 @@ export default function OnboardingPreferencesScreen() {
       <ScreenHeader
         title=""
         onBack={() =>
-          router.canGoBack()
-            ? router.back()
-            : router.replace("/onboarding/permissions")
+          router.canGoBack() ? router.back() : router.replace("/(auth)/sign-up")
         }
       />
 
@@ -152,6 +166,22 @@ export default function OnboardingPreferencesScreen() {
           })}
         </View>
       </View>
+
+      {PUSH_ENABLED ? (
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: tokens.colors.text }]}>
+              Reminder notifications
+            </Text>
+            <Text
+              style={[styles.sectionHint, { color: tokens.colors.textSubtle }]}
+            >
+              We&apos;ll ask once when you continue so return and warranty
+              reminders can reach this device.
+            </Text>
+          </View>
+        </View>
+      ) : null}
 
       <View style={styles.section}>
         <View style={styles.sectionHeader}>

@@ -289,7 +289,7 @@ export const handleCreatePurchase: RouteHandler<
     category: input.category ?? "other",
     purchaseDate: input.purchaseDate ?? today,
     amountMinor: input.amountMinor ?? null,
-    currency: input.currency ?? "USD",
+    currency: input.currency ?? "INR",
     orderNumber: input.orderNumber ?? null,
     notes: input.notes ?? null,
     deliveryStatus: input.deliveryStatus ?? "ordered",

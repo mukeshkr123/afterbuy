@@ -36,6 +36,11 @@ Optional public env used by release builds and notification wiring:
 EXPO_PUBLIC_PUSH_ENABLED=false
 EXPO_PUBLIC_EAS_PROJECT_ID=
 EXPO_PUBLIC_SUPPORT_EMAIL=support@afterbuy.app
+EXPO_PUBLIC_PRIVACY_POLICY_URL=https://afterbuy.app/privacy
+EXPO_PUBLIC_TERMS_URL=https://afterbuy.app/terms
+EXPO_PUBLIC_ACCOUNT_DELETION_URL=https://afterbuy.app/delete-account
+EXPO_PUBLIC_SENTRY_DSN=
+EXPO_PUBLIC_APP_ENV=development
 ```
 
 If `EXPO_PUBLIC_PUSH_ENABLED=true`, then `EXPO_PUBLIC_EAS_PROJECT_ID` must also
@@ -62,23 +67,28 @@ Required production environment vars:
 ```sh
 EXPO_PUBLIC_API_BASE_URL=https://api.afterbuy.app
 EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_live_xxx
-IOS_TEAM_ID=ABCDE12345
-IOS_PROVISIONING_PROFILE_NAME=AfterBuy App Store
-```
-
-Conditionally required vars:
-
-```sh
 EXPO_PUBLIC_PUSH_ENABLED=true
 EXPO_PUBLIC_EAS_PROJECT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+EXPO_PUBLIC_PRIVACY_POLICY_URL=https://afterbuy.app/privacy
+EXPO_PUBLIC_ACCOUNT_DELETION_URL=https://afterbuy.app/delete-account
+EXPO_PUBLIC_SENTRY_DSN=https://xxx@xxx.ingest.sentry.io/xxx
+EXPO_PUBLIC_APP_ENV=production
+SENTRY_AUTH_TOKEN=sntrys_xxx
+IOS_TEAM_ID=ABCDE12345
+IOS_PROVISIONING_PROFILE_NAME=AfterBuy App Store
 ```
 
 Optional vars:
 
 ```sh
 EXPO_PUBLIC_SUPPORT_EMAIL=support@afterbuy.app
+EXPO_PUBLIC_TERMS_URL=https://afterbuy.app/terms
 IOS_EXPORT_METHOD=app-store
 ```
+
+The India Play Store launch keeps the UI in English, defaults new purchases to
+INR, enables push reminders, and requires externally hosted privacy/account
+deletion URLs for Play Console review.
 
 Required production environment secrets:
 

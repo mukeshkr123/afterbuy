@@ -1,10 +1,8 @@
 import React from "react";
-import { Text, View } from "react-native";
-import { ScreenHeader, ScreenScroll, SectionCard } from "@/components";
+import { Linking, Text, View } from "react-native";
+import { Button, ScreenHeader, ScreenScroll, SectionCard } from "@/components";
 import { useTheme } from "@/theme/ThemeProvider";
-
-const SUPPORT_EMAIL =
-  process.env["EXPO_PUBLIC_SUPPORT_EMAIL"] ?? "support@afterbuy.app";
+import { PRIVACY_POLICY_URL, SUPPORT_EMAIL } from "@/lib/publicLinks";
 
 export default function PrivacyPolicyScreen() {
   const { tokens } = useTheme();
@@ -28,6 +26,13 @@ export default function PrivacyPolicyScreen() {
             {SUPPORT_EMAIL}. Account deletion permanently removes app data and
             receipt files.
           </Body>
+          {PRIVACY_POLICY_URL ? (
+            <Button
+              label="Open privacy policy"
+              variant="secondary"
+              onPress={() => void Linking.openURL(PRIVACY_POLICY_URL)}
+            />
+          ) : null}
         </View>
       </SectionCard>
     </ScreenScroll>

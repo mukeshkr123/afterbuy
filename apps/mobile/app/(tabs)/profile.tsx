@@ -4,6 +4,7 @@ import { useRouter, type Href } from "expo-router";
 import React, { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Constants from "expo-constants";
 import {
   AppText,
   Dialog,
@@ -98,6 +99,8 @@ export default function ProfileScreen() {
       .join("")
       .toUpperCase() || "?";
   const memberSince = formatMemberSince(user?.createdAt);
+  const version =
+    Constants.expoConfig?.version ?? Constants.nativeAppVersion ?? "0.1.0";
 
   return (
     <>
@@ -229,7 +232,7 @@ export default function ProfileScreen() {
           <Text
             style={[styles.versionText, { color: tokens.colors.textMuted }]}
           >
-            AfterBuy 1.0.0
+            AfterBuy {version}
           </Text>
         </View>
       </ScreenScroll>

@@ -57,7 +57,7 @@ export default function VerifyScreen() {
           authOnboardingCompletedAt: null,
         });
         await setActive({ session: result.createdSessionId });
-        router.replace("/onboarding/permissions");
+        router.replace("/onboarding/preferences");
       } else {
         setError("Verification incomplete.");
       }

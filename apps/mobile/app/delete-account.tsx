@@ -21,10 +21,13 @@ import { useTheme } from "@/theme/ThemeProvider";
 import { unregisterCurrentDevice } from "@/notifications/PushRegistration";
 import { useAuth } from "@/auth/useAuth";
 import { outbox } from "@/offline/outbox";
+import {
+  ACCOUNT_DELETION_URL,
+  SUPPORT_EMAIL,
+  mailtoSupport,
+} from "@/lib/publicLinks";
 
 const CONFIRM_WORD = "delete";
-const SUPPORT_EMAIL =
-  process.env["EXPO_PUBLIC_SUPPORT_EMAIL"] ?? "support@afterbuy.app";
 
 export default function DeleteAccountScreen() {
   const api = useApi();
@@ -91,10 +94,15 @@ export default function DeleteAccountScreen() {
                 reminders, claims, and account data.
               </Text>
               <Button
-                label="Email deletion request"
+                label={
+                  ACCOUNT_DELETION_URL
+                    ? "Open deletion request"
+                    : "Email deletion request"
+                }
                 onPress={() =>
                   void Linking.openURL(
-                    `mailto:${SUPPORT_EMAIL}?subject=AfterBuy%20account%20deletion%20request`
+                    ACCOUNT_DELETION_URL ||
+                      mailtoSupport("AfterBuy account deletion request")
                   )
                 }
               />
@@ -275,15 +283,23 @@ export default function DeleteAccountScreen() {
             <ListItem
               title="Contact Support"
               subtitle="We typically respond within 24 hours."
-              divider={false}
+              divider={Boolean(ACCOUNT_DELETION_URL)}
               leading={<IconTile icon="mail-outline" tone="neutral" />}
               chevron
               onPress={() =>
-                void Linking.openURL(
-                  `mailto:${SUPPORT_EMAIL}?subject=AfterBuy%20support`
-                )
+                void Linking.openURL(mailtoSupport("AfterBuy support"))
               }
             />
+            {ACCOUNT_DELETION_URL ? (
+              <ListItem
+                title="Deletion Request"
+                subtitle="Open the web deletion form"
+                divider={false}
+                leading={<IconTile icon="trash-outline" tone="warning" />}
+                chevron
+                onPress={() => void Linking.openURL(ACCOUNT_DELETION_URL)}
+              />
+            ) : null}
           </SectionCard>
         </View>
       </ScreenScroll>

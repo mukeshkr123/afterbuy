@@ -106,7 +106,13 @@ Bootstrap the mobile release environment and generate Android signing material:
 
 ```sh
 pnpm bootstrap:mobile-release production
-MOBILE_CLERK_PUBLISHABLE_KEY=pk_live_xxx pnpm bootstrap:mobile-release production --apply
+MOBILE_CLERK_PUBLISHABLE_KEY=pk_live_xxx \
+MOBILE_EAS_PROJECT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx \
+MOBILE_PRIVACY_POLICY_URL=https://afterbuy.app/privacy \
+MOBILE_ACCOUNT_DELETION_URL=https://afterbuy.app/delete-account \
+MOBILE_SENTRY_DSN=https://xxx@xxx.ingest.sentry.io/xxx \
+SENTRY_AUTH_TOKEN=sntrys_xxx \
+pnpm bootstrap:mobile-release production --apply
 ```
 
 The mobile bootstrap writes runtime values into `apps/mobile/.env`, generates

@@ -21,6 +21,13 @@ const clerkPublishableKey =
   process.env.MOBILE_CLERK_PUBLISHABLE_KEY?.trim() || "";
 const supportEmail =
   process.env.MOBILE_SUPPORT_EMAIL?.trim() || "support@afterbuy.app";
+const privacyPolicyUrl = process.env.MOBILE_PRIVACY_POLICY_URL?.trim() || "";
+const termsUrl = process.env.MOBILE_TERMS_URL?.trim() || "";
+const accountDeletionUrl =
+  process.env.MOBILE_ACCOUNT_DELETION_URL?.trim() || "";
+const sentryDsn = process.env.MOBILE_SENTRY_DSN?.trim() || "";
+const sentryAuthToken = process.env.SENTRY_AUTH_TOKEN?.trim() || "";
+const easProjectId = process.env.MOBILE_EAS_PROJECT_ID?.trim() || "";
 const iosTeamId = process.env.IOS_TEAM_ID?.trim() || "";
 const iosProvisioningProfileName =
   process.env.IOS_PROVISIONING_PROFILE_NAME?.trim() || "";
@@ -150,8 +157,14 @@ function upsertMobileEnv(apiUrl: string) {
   const lines = [
     `EXPO_PUBLIC_API_BASE_URL=${apiUrl}`,
     `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=${localClerkKey}`,
-    "EXPO_PUBLIC_PUSH_ENABLED=false",
+    "EXPO_PUBLIC_PUSH_ENABLED=true",
+    `EXPO_PUBLIC_EAS_PROJECT_ID=${easProjectId}`,
     `EXPO_PUBLIC_SUPPORT_EMAIL=${supportEmail}`,
+    `EXPO_PUBLIC_PRIVACY_POLICY_URL=${privacyPolicyUrl}`,
+    `EXPO_PUBLIC_TERMS_URL=${termsUrl}`,
+    `EXPO_PUBLIC_ACCOUNT_DELETION_URL=${accountDeletionUrl}`,
+    `EXPO_PUBLIC_SENTRY_DSN=${sentryDsn}`,
+    `EXPO_PUBLIC_APP_ENV=${environment}`,
   ];
 
   const passthrough = ["EXPO_PUBLIC_USE_MOCK_AUTH"]
@@ -184,9 +197,24 @@ upsertMobileEnv(apiUrl);
 
 const knownVariables = new Map<string, string>([
   ["EXPO_PUBLIC_API_BASE_URL", apiUrl],
-  ["EXPO_PUBLIC_PUSH_ENABLED", "false"],
+  ["EXPO_PUBLIC_PUSH_ENABLED", "true"],
+  ["EXPO_PUBLIC_EAS_PROJECT_ID", easProjectId],
   ["EXPO_PUBLIC_SUPPORT_EMAIL", supportEmail],
+  ["EXPO_PUBLIC_APP_ENV", environment],
 ]);
+
+if (privacyPolicyUrl) {
+  knownVariables.set("EXPO_PUBLIC_PRIVACY_POLICY_URL", privacyPolicyUrl);
+}
+if (termsUrl) {
+  knownVariables.set("EXPO_PUBLIC_TERMS_URL", termsUrl);
+}
+if (accountDeletionUrl) {
+  knownVariables.set("EXPO_PUBLIC_ACCOUNT_DELETION_URL", accountDeletionUrl);
+}
+if (sentryDsn) {
+  knownVariables.set("EXPO_PUBLIC_SENTRY_DSN", sentryDsn);
+}
 
 if (clerkPublishableKey) {
   knownVariables.set("EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY", clerkPublishableKey);
@@ -211,6 +239,10 @@ const knownSecrets = new Map<string, string>([
   ["ANDROID_KEY_PASSWORD", android.keyPassword],
 ]);
 
+if (sentryAuthToken) {
+  knownSecrets.set("SENTRY_AUTH_TOKEN", sentryAuthToken);
+}
+
 if (iosDistCertPath && iosDistCertPassword && iosProvisioningProfilePath) {
   knownSecrets.set("IOS_DIST_CERT_BASE64", base64File(iosDistCertPath));
   knownSecrets.set("IOS_DIST_CERT_PASSWORD", iosDistCertPassword);
@@ -232,6 +264,21 @@ if (applyMode === "apply") {
 const missingItems: string[] = [];
 if (!clerkPublishableKey) {
   missingItems.push("MOBILE_CLERK_PUBLISHABLE_KEY");
+}
+if (!privacyPolicyUrl) {
+  missingItems.push("MOBILE_PRIVACY_POLICY_URL");
+}
+if (!accountDeletionUrl) {
+  missingItems.push("MOBILE_ACCOUNT_DELETION_URL");
+}
+if (!sentryDsn) {
+  missingItems.push("MOBILE_SENTRY_DSN");
+}
+if (!sentryAuthToken) {
+  missingItems.push("SENTRY_AUTH_TOKEN");
+}
+if (!easProjectId) {
+  missingItems.push("MOBILE_EAS_PROJECT_ID");
 }
 if (!iosTeamId) {
   missingItems.push("IOS_TEAM_ID");

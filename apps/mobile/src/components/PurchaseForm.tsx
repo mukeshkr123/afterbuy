@@ -572,7 +572,7 @@ export function PurchaseForm({
           (initial?.category as CreatePurchaseRequest["category"]) ?? "other",
         purchaseDate: initial?.purchaseDate ?? todayIso(),
         amountMinor: initial?.amountMinor,
-        currency: initial?.currency ?? "USD",
+        currency: initial?.currency ?? "INR",
         notes: initial?.notes,
         deliveryStatus:
           (initial?.deliveryStatus as CreatePurchaseRequest["deliveryStatus"]) ??

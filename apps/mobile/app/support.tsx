@@ -9,9 +9,12 @@ import {
   SectionCard,
 } from "@/components";
 import { useTheme } from "@/theme/ThemeProvider";
-
-const SUPPORT_EMAIL =
-  process.env["EXPO_PUBLIC_SUPPORT_EMAIL"] ?? "support@afterbuy.app";
+import {
+  ACCOUNT_DELETION_URL,
+  PRIVACY_POLICY_URL,
+  SUPPORT_EMAIL,
+  mailtoSupport,
+} from "@/lib/publicLinks";
 
 export default function SupportScreen() {
   const { tokens } = useTheme();
@@ -32,7 +35,7 @@ export default function SupportScreen() {
           </Text>
           <Button
             label="Email support"
-            onPress={() => void Linking.openURL(`mailto:${SUPPORT_EMAIL}`)}
+            onPress={() => void Linking.openURL(mailtoSupport())}
           />
         </View>
       </SectionCard>
@@ -45,11 +48,31 @@ export default function SupportScreen() {
         <ListItem
           title="Contact Support"
           subtitle="We typically respond within 24 hours."
-          divider={false}
+          divider={Boolean(PRIVACY_POLICY_URL || ACCOUNT_DELETION_URL)}
           leading={<IconTile icon="mail-outline" tone="neutral" />}
           chevron
-          onPress={() => void Linking.openURL(`mailto:${SUPPORT_EMAIL}`)}
+          onPress={() => void Linking.openURL(mailtoSupport())}
         />
+        {PRIVACY_POLICY_URL ? (
+          <ListItem
+            title="Privacy Policy"
+            subtitle="How AfterBuy handles your data"
+            divider={Boolean(ACCOUNT_DELETION_URL)}
+            leading={<IconTile icon="document-text-outline" tone="neutral" />}
+            chevron
+            onPress={() => void Linking.openURL(PRIVACY_POLICY_URL)}
+          />
+        ) : null}
+        {ACCOUNT_DELETION_URL ? (
+          <ListItem
+            title="Account Deletion"
+            subtitle="Request deletion from the web"
+            divider={false}
+            leading={<IconTile icon="trash-outline" tone="warning" />}
+            chevron
+            onPress={() => void Linking.openURL(ACCOUNT_DELETION_URL)}
+          />
+        ) : null}
       </SectionCard>
     </ScreenScroll>
   );

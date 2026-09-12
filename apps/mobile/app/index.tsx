@@ -28,7 +28,7 @@ export default function IndexRoute() {
   if (!isSignedIn) return <WelcomeScreen />;
   if (pendingOnboarding === null) return null;
   return pendingOnboarding ? (
-    <Redirect href="/onboarding/permissions" />
+    <Redirect href="/onboarding/preferences" />
   ) : (
     <Redirect href="/(tabs)" />
   );

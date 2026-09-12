@@ -32,6 +32,7 @@ export default function SignInScreen() {
   const { startOAuthFlow: startGoogleOAuth } = useOAuth({
     strategy: "oauth_google",
   });
+  const showAppleSignIn = Platform.OS === "ios";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -228,12 +229,14 @@ export default function SignInScreen() {
         </View>
 
         <View style={styles.socialBlock}>
-          <SocialAuthButton
-            provider="apple"
-            onPress={() => void handleSocialSignIn("oauth_apple")}
-            loading={socialLoading === "apple"}
-            disabled={pending || socialLoading !== null}
-          />
+          {showAppleSignIn ? (
+            <SocialAuthButton
+              provider="apple"
+              onPress={() => void handleSocialSignIn("oauth_apple")}
+              loading={socialLoading === "apple"}
+              disabled={pending || socialLoading !== null}
+            />
+          ) : null}
           <SocialAuthButton
             provider="google"
             onPress={() => void handleSocialSignIn("oauth_google")}

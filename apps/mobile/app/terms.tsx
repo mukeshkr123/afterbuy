@@ -1,10 +1,8 @@
 import React from "react";
-import { Text, View } from "react-native";
-import { ScreenHeader, ScreenScroll, SectionCard } from "@/components";
+import { Linking, Text, View } from "react-native";
+import { Button, ScreenHeader, ScreenScroll, SectionCard } from "@/components";
 import { useTheme } from "@/theme/ThemeProvider";
-
-const SUPPORT_EMAIL =
-  process.env["EXPO_PUBLIC_SUPPORT_EMAIL"] ?? "support@afterbuy.app";
+import { SUPPORT_EMAIL, TERMS_URL } from "@/lib/publicLinks";
 
 export default function TermsScreen() {
   const { tokens } = useTheme();
@@ -27,6 +25,13 @@ export default function TermsScreen() {
             Do not upload unlawful, sensitive, or unrelated files. For support
             or account questions, contact {SUPPORT_EMAIL}.
           </Body>
+          {TERMS_URL ? (
+            <Button
+              label="Open terms"
+              variant="secondary"
+              onPress={() => void Linking.openURL(TERMS_URL)}
+            />
+          ) : null}
         </View>
       </SectionCard>
     </ScreenScroll>

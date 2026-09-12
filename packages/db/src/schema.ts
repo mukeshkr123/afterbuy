@@ -53,7 +53,7 @@ export const purchases = sqliteTable(
       .default("other"),
     purchaseDate: text("purchase_date").notNull(),
     amountMinor: integer("amount_minor"),
-    currency: text("currency").notNull().default("USD"),
+    currency: text("currency").notNull().default("INR"),
     orderNumber: text("order_number"),
     notes: text("notes"),
     deliveryStatus: text("delivery_status", {

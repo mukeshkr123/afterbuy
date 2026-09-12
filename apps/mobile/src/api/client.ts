@@ -1,4 +1,5 @@
 import type { z } from "zod";
+import * as Sentry from "@sentry/react-native";
 import { apiErrorResponseSchema, type ApiErrorCode } from "@acme/shared";
 import { uuidv4 } from "../lib/uuid";
 
@@ -119,6 +120,7 @@ export function createApi(opts: ApiOptions): ApiRequest {
       const json = safeJson(text);
       const parsed = apiErrorResponseSchema.safeParse(json);
       if (parsed.success) {
+        captureApiFailure(res, req.path, parsed.data.error.code);
         throw new ApiError(
           res.status,
           parsed.data.error.code,
@@ -152,6 +154,21 @@ export function createApi(opts: ApiOptions): ApiRequest {
     }
     return req.schema.parse(safeJson(text)) as T;
   };
+}
+
+function captureApiFailure(res: Response, path: string, code: ApiErrorCode) {
+  if (res.status < 500 && res.status !== 429) return;
+  Sentry.captureMessage("API request failed", {
+    level: res.status >= 500 ? "error" : "warning",
+    tags: {
+      api_status: String(res.status),
+      api_error_code: code,
+    },
+    extra: {
+      path,
+      requestId: res.headers.get("x-request-id") ?? undefined,
+    },
+  });
 }
 
 function safeJson(text: string): unknown {

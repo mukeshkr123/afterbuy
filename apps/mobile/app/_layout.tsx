@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ClerkProvider } from "@clerk/clerk-expo";
+import * as Sentry from "@sentry/react-native";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -16,11 +17,25 @@ import { OnlineProvider, OfflineBanner } from "@/offline/OnlineProvider";
 import { useApiBaseUrl } from "@/hooks/useApiBaseUrl";
 
 const CLERK_PUBLISHABLE_KEY = process.env["EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY"];
+const SENTRY_DSN = process.env["EXPO_PUBLIC_SENTRY_DSN"];
+const APP_ENV = process.env["EXPO_PUBLIC_APP_ENV"] ?? "development";
+
+Sentry.init({
+  dsn: SENTRY_DSN,
+  enabled: Boolean(SENTRY_DSN),
+  environment: APP_ENV,
+  tracesSampleRate: 0,
+  sendDefaultPii: false,
+});
 
 if (!CLERK_PUBLISHABLE_KEY) {
   console.warn(
     "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY is not set — sign-in will fail."
   );
+}
+
+if (!CLERK_PUBLISHABLE_KEY && APP_ENV === "production") {
+  throw new Error("Missing EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY in production.");
 }
 
 function PushWiring() {
@@ -49,7 +64,7 @@ function ThemedStack() {
   );
 }
 
-export default function RootLayout() {
+function RootLayout() {
   const apiBaseUrl = useApiBaseUrl();
   const [apiStateReady, setApiStateReady] = useState(false);
 
@@ -94,3 +109,5 @@ export default function RootLayout() {
     </GestureHandlerRootView>
   );
 }
+
+export default Sentry.wrap(RootLayout);

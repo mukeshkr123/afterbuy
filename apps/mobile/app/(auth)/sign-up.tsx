@@ -1,5 +1,6 @@
-import { useSignUp } from "@clerk/clerk-expo";
+import { useOAuth, useSignUp } from "@clerk/clerk-expo";
 import { Link, useRouter, type Href } from "expo-router";
+import * as Linking from "expo-linking";
 import React, { useRef, useState } from "react";
 import {
   KeyboardAvoidingView,
@@ -17,6 +18,7 @@ import {
   Input,
   ScreenHeader,
   ScreenScroll,
+  SocialAuthButton,
 } from "@/components";
 import { writeSettings } from "@/lib/settings";
 import { useTheme } from "@/theme/ThemeProvider";
@@ -27,6 +29,9 @@ export default function SignUpScreen() {
   const { signUp, setActive, isLoaded } = useSignUp();
   const router = useRouter();
   const { tokens } = useTheme();
+  const { startOAuthFlow: startGoogleOAuth } = useOAuth({
+    strategy: "oauth_google",
+  });
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -34,6 +39,7 @@ export default function SignUpScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [agreedTerms, setAgreedTerms] = useState(false);
   const [pending, setPending] = useState(false);
+  const [socialLoading, setSocialLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
@@ -109,7 +115,7 @@ export default function SignUpScreen() {
       await markOnboardingPending();
       if (result.status === "complete") {
         await setActive({ session: result.createdSessionId });
-        router.replace("/onboarding/permissions");
+        router.replace("/onboarding/preferences");
       } else {
         await signUp.prepareEmailAddressVerification({
           strategy: "email_code",
@@ -124,6 +130,34 @@ export default function SignUpScreen() {
       );
     } finally {
       setPending(false);
+    }
+  };
+
+  const handleGoogleSignUp = async () => {
+    setSocialLoading(true);
+    setError(null);
+    try {
+      const { createdSessionId, setActive: setOAuthActive } =
+        await startGoogleOAuth({
+          redirectUrl: Linking.createURL("/oauth-callback", {
+            scheme: "afterbuy",
+          }),
+        });
+      if (createdSessionId && setOAuthActive) {
+        await markOnboardingPending();
+        await setOAuthActive({ session: createdSessionId });
+        router.replace("/onboarding/preferences");
+        return;
+      }
+      setError("Google authentication was canceled or failed.");
+    } catch (e: unknown) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : "Google authentication was canceled or failed."
+      );
+    } finally {
+      setSocialLoading(false);
     }
   };
 
@@ -291,12 +325,39 @@ export default function SignUpScreen() {
 
           <Button
             label={pending ? "Creating account..." : "Create account"}
-            disabled={!isFormValid || pending}
+            disabled={!isFormValid || pending || socialLoading}
             busy={pending}
             size="lg"
             onPress={() => void onSubmit()}
           />
         </View>
+
+        <View style={styles.dividerRow}>
+          <View
+            style={[
+              styles.dividerLine,
+              { backgroundColor: tokens.colors.border },
+            ]}
+          />
+          <Text
+            style={[styles.dividerText, { color: tokens.colors.textMuted }]}
+          >
+            or continue with
+          </Text>
+          <View
+            style={[
+              styles.dividerLine,
+              { backgroundColor: tokens.colors.border },
+            ]}
+          />
+        </View>
+
+        <SocialAuthButton
+          provider="google"
+          onPress={() => void handleGoogleSignUp()}
+          loading={socialLoading}
+          disabled={pending || socialLoading}
+        />
 
         <View style={styles.footerRow}>
           <Text style={[styles.footerText, { color: tokens.colors.textMuted }]}>
@@ -356,6 +417,14 @@ const styles = StyleSheet.create({
   checkList: { gap: 7, marginTop: -4 },
   checkRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   checkText: { fontSize: 13, lineHeight: 18, fontWeight: "600" },
+  dividerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginVertical: 2,
+  },
+  dividerLine: { flex: 1, height: StyleSheet.hairlineWidth },
+  dividerText: { fontSize: 13, lineHeight: 18, fontWeight: "600" },
   termsRow: {
     flexDirection: "row",
     alignItems: "flex-start",

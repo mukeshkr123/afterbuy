@@ -53,22 +53,39 @@ jobs:
           EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ vars.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY }}
           EXPO_PUBLIC_PUSH_ENABLED: ${{ vars.EXPO_PUBLIC_PUSH_ENABLED }}
           EXPO_PUBLIC_EAS_PROJECT_ID: ${{ vars.EXPO_PUBLIC_EAS_PROJECT_ID }}
+          EXPO_PUBLIC_PRIVACY_POLICY_URL: ${{ vars.EXPO_PUBLIC_PRIVACY_POLICY_URL }}
+          EXPO_PUBLIC_TERMS_URL: ${{ vars.EXPO_PUBLIC_TERMS_URL }}
+          EXPO_PUBLIC_ACCOUNT_DELETION_URL: ${{ vars.EXPO_PUBLIC_ACCOUNT_DELETION_URL }}
+          EXPO_PUBLIC_SENTRY_DSN: ${{ vars.EXPO_PUBLIC_SENTRY_DSN }}
+          EXPO_PUBLIC_APP_ENV: ${{ vars.EXPO_PUBLIC_APP_ENV }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: |
           set -euo pipefail
           : "${EXPO_PUBLIC_API_BASE_URL:?Set vars.EXPO_PUBLIC_API_BASE_URL in the production environment}"
           : "${EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY:?Set vars.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY in the production environment}"
+          : "${EXPO_PUBLIC_PRIVACY_POLICY_URL:?Set vars.EXPO_PUBLIC_PRIVACY_POLICY_URL in the production environment}"
+          : "${EXPO_PUBLIC_ACCOUNT_DELETION_URL:?Set vars.EXPO_PUBLIC_ACCOUNT_DELETION_URL in the production environment}"
+          : "${EXPO_PUBLIC_SENTRY_DSN:?Set vars.EXPO_PUBLIC_SENTRY_DSN in the production environment}"
+          : "${SENTRY_AUTH_TOKEN:?Set secrets.SENTRY_AUTH_TOKEN in the production environment}"
           case "$EXPO_PUBLIC_API_BASE_URL" in
             https://*) ;;
             *) echo "EXPO_PUBLIC_API_BASE_URL must use HTTPS"; exit 1 ;;
           esac
+          for url in "$EXPO_PUBLIC_PRIVACY_POLICY_URL" "$EXPO_PUBLIC_ACCOUNT_DELETION_URL" "${EXPO_PUBLIC_TERMS_URL:-https://example.com}"; do
+            case "$url" in
+              https://*) ;;
+              *) echo "Public policy/deletion URLs must use HTTPS"; exit 1 ;;
+            esac
+          done
           case "$EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY" in
-            pk_live_*|pk_test_*) ;;
-            *) echo "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY must start with pk_live_ or pk_test_"; exit 1 ;;
+            pk_live_*) ;;
+            *) echo "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY must start with pk_live_ for production"; exit 1 ;;
           esac
-          if [ "${EXPO_PUBLIC_PUSH_ENABLED:-false}" = "true" ] && [ -z "${EXPO_PUBLIC_EAS_PROJECT_ID:-}" ]; then
-            echo "EXPO_PUBLIC_EAS_PROJECT_ID is required when EXPO_PUBLIC_PUSH_ENABLED=true"
+          if [ "${EXPO_PUBLIC_PUSH_ENABLED:-}" != "true" ]; then
+            echo "EXPO_PUBLIC_PUSH_ENABLED must be true for the Play Store launch"
             exit 1
           fi
+          : "${EXPO_PUBLIC_EAS_PROJECT_ID:?Set vars.EXPO_PUBLIC_EAS_PROJECT_ID when push is enabled}"
 
       - name: Validate mobile version sync
         run: |
@@ -142,6 +159,11 @@ jobs:
           EXPO_PUBLIC_PUSH_ENABLED: ${{ vars.EXPO_PUBLIC_PUSH_ENABLED }}
           EXPO_PUBLIC_EAS_PROJECT_ID: ${{ vars.EXPO_PUBLIC_EAS_PROJECT_ID }}
           EXPO_PUBLIC_SUPPORT_EMAIL: ${{ vars.EXPO_PUBLIC_SUPPORT_EMAIL }}
+          EXPO_PUBLIC_PRIVACY_POLICY_URL: ${{ vars.EXPO_PUBLIC_PRIVACY_POLICY_URL }}
+          EXPO_PUBLIC_TERMS_URL: ${{ vars.EXPO_PUBLIC_TERMS_URL }}
+          EXPO_PUBLIC_ACCOUNT_DELETION_URL: ${{ vars.EXPO_PUBLIC_ACCOUNT_DELETION_URL }}
+          EXPO_PUBLIC_SENTRY_DSN: ${{ vars.EXPO_PUBLIC_SENTRY_DSN }}
+          EXPO_PUBLIC_APP_ENV: ${{ vars.EXPO_PUBLIC_APP_ENV }}
         run: |
           set -euo pipefail
           cat > .env <<EOF
@@ -150,6 +172,11 @@ jobs:
           EXPO_PUBLIC_PUSH_ENABLED=${EXPO_PUBLIC_PUSH_ENABLED:-false}
           EXPO_PUBLIC_EAS_PROJECT_ID=${EXPO_PUBLIC_EAS_PROJECT_ID:-}
           EXPO_PUBLIC_SUPPORT_EMAIL=${EXPO_PUBLIC_SUPPORT_EMAIL:-support@afterbuy.app}
+          EXPO_PUBLIC_PRIVACY_POLICY_URL=${EXPO_PUBLIC_PRIVACY_POLICY_URL}
+          EXPO_PUBLIC_TERMS_URL=${EXPO_PUBLIC_TERMS_URL:-}
+          EXPO_PUBLIC_ACCOUNT_DELETION_URL=${EXPO_PUBLIC_ACCOUNT_DELETION_URL}
+          EXPO_PUBLIC_SENTRY_DSN=${EXPO_PUBLIC_SENTRY_DSN}
+          EXPO_PUBLIC_APP_ENV=${EXPO_PUBLIC_APP_ENV:-production}
           EOF
 
       - name: Decode Android keystore
@@ -166,6 +193,7 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: |
           set -euo pipefail
           : "${ANDROID_KEYSTORE_PASSWORD:?Set secrets.ANDROID_KEYSTORE_PASSWORD in the production environment}"
@@ -238,6 +266,11 @@ jobs:
           EXPO_PUBLIC_PUSH_ENABLED: ${{ vars.EXPO_PUBLIC_PUSH_ENABLED }}
           EXPO_PUBLIC_EAS_PROJECT_ID: ${{ vars.EXPO_PUBLIC_EAS_PROJECT_ID }}
           EXPO_PUBLIC_SUPPORT_EMAIL: ${{ vars.EXPO_PUBLIC_SUPPORT_EMAIL }}
+          EXPO_PUBLIC_PRIVACY_POLICY_URL: ${{ vars.EXPO_PUBLIC_PRIVACY_POLICY_URL }}
+          EXPO_PUBLIC_TERMS_URL: ${{ vars.EXPO_PUBLIC_TERMS_URL }}
+          EXPO_PUBLIC_ACCOUNT_DELETION_URL: ${{ vars.EXPO_PUBLIC_ACCOUNT_DELETION_URL }}
+          EXPO_PUBLIC_SENTRY_DSN: ${{ vars.EXPO_PUBLIC_SENTRY_DSN }}
+          EXPO_PUBLIC_APP_ENV: ${{ vars.EXPO_PUBLIC_APP_ENV }}
         run: |
           set -euo pipefail
           cat > .env <<EOF
@@ -246,6 +279,11 @@ jobs:
           EXPO_PUBLIC_PUSH_ENABLED=${EXPO_PUBLIC_PUSH_ENABLED:-false}
           EXPO_PUBLIC_EAS_PROJECT_ID=${EXPO_PUBLIC_EAS_PROJECT_ID:-}
           EXPO_PUBLIC_SUPPORT_EMAIL=${EXPO_PUBLIC_SUPPORT_EMAIL:-support@afterbuy.app}
+          EXPO_PUBLIC_PRIVACY_POLICY_URL=${EXPO_PUBLIC_PRIVACY_POLICY_URL}
+          EXPO_PUBLIC_TERMS_URL=${EXPO_PUBLIC_TERMS_URL:-}
+          EXPO_PUBLIC_ACCOUNT_DELETION_URL=${EXPO_PUBLIC_ACCOUNT_DELETION_URL}
+          EXPO_PUBLIC_SENTRY_DSN=${EXPO_PUBLIC_SENTRY_DSN}
+          EXPO_PUBLIC_APP_ENV=${EXPO_PUBLIC_APP_ENV:-production}
           EOF
 
       - name: Install CocoaPods
@@ -284,6 +322,7 @@ jobs:
         env:
           IOS_TEAM_ID: ${{ vars.IOS_TEAM_ID }}
           IOS_PROVISIONING_PROFILE_NAME: ${{ vars.IOS_PROVISIONING_PROFILE_NAME }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: |
           set -euo pipefail
           : "${IOS_TEAM_ID:?Set vars.IOS_TEAM_ID in the production environment}"
