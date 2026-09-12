@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Notifications from "expo-notifications";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import { Button, ScreenHeader, ScreenScroll } from "@/components";
+import { AuthHeroIllustration, Button, ScreenScroll } from "@/components";
 import { patchMe } from "@/api/auth";
 import { apiKeys } from "@/api/apiKeys";
 import { useApi } from "@/api/ApiProvider";
@@ -36,7 +36,7 @@ export default function OnboardingPreferencesScreen() {
   const queryClient = useQueryClient();
   const { tokens, preference, setPreference } = useTheme();
   const [leadDays, setLeadDays] = useState(7);
-  const [theme, setTheme] = useState<ThemePreference>(preference);
+  const [theme, setTheme] = useState<ThemePreference>(preference ?? "system");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -74,244 +74,325 @@ export default function OnboardingPreferencesScreen() {
   };
 
   return (
-    <ScreenScroll gap={tokens.spacing.lg} contentStyle={styles.scrollContent}>
-      <ScreenHeader
-        title=""
-        onBack={() =>
-          router.canGoBack() ? router.back() : router.replace("/(auth)/sign-up")
-        }
-      />
-
-      <View style={styles.heading}>
-        <Text
-          accessibilityRole="header"
-          style={[styles.title, { color: tokens.colors.textStrong }]}
-        >
-          Customize your experience
-        </Text>
-        <Text style={[styles.subtitle, { color: tokens.colors.textSubtle }]}>
-          Set your preferences. You can change these anytime.
-        </Text>
-      </View>
-
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: tokens.colors.text }]}>
-            Reminder timing
-          </Text>
-          <Text
-            style={[styles.sectionHint, { color: tokens.colors.textSubtle }]}
+    <View style={{ flex: 1, backgroundColor: tokens.colors.canvas }}>
+      <ScreenScroll gap={0} contentStyle={styles.scrollContent}>
+        {/* Top Back Button */}
+        <View style={styles.topBar}>
+          <Pressable
+            onPress={() =>
+              router.canGoBack()
+                ? router.back()
+                : router.replace("/(auth)/sign-up")
+            }
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+            hitSlop={10}
+            style={({ pressed }) => [
+              styles.backCircle,
+              pressed && styles.backCirclePressed,
+            ]}
           >
-            When should we remind you?
+            <Ionicons name="chevron-back" size={20} color="#0F172A" />
+          </Pressable>
+        </View>
+
+        {/* 3D Hero Illustration */}
+        <AuthHeroIllustration />
+
+        {/* Heading (Left-Aligned) */}
+        <View style={styles.heading}>
+          <Text accessibilityRole="header" style={styles.title}>
+            Customize your experience
+          </Text>
+          <Text style={styles.subtitle}>
+            Set your preferences. You can change these anytime.
           </Text>
         </View>
-        <View style={styles.optionStack}>
-          {REMINDER_OPTIONS.map((option) => {
-            const selected = leadDays === option.days;
-            return (
-              <Pressable
-                key={option.days}
-                accessibilityRole="radio"
-                accessibilityState={{ selected }}
-                accessibilityLabel={option.label}
-                onPress={() => setLeadDays(option.days)}
-                style={({ pressed }) => [
-                  styles.optionRow,
-                  {
-                    backgroundColor: tokens.colors.surface,
-                    borderColor: selected
-                      ? tokens.colors.accent
-                      : tokens.colors.border,
-                    borderRadius: tokens.radius.lg,
-                    opacity: pressed ? 0.86 : 1,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.optionLabel,
-                    {
-                      color: selected
-                        ? tokens.colors.accent
-                        : tokens.colors.text,
-                    },
-                  ]}
-                >
-                  {option.label}
-                </Text>
-                <View style={styles.optionMeta}>
-                  {option.detail ? (
-                    <Text
-                      style={[
-                        styles.recommended,
-                        {
-                          color: tokens.colors.accent,
-                          backgroundColor: tokens.colors.accentSoft,
-                        },
-                      ]}
-                    >
-                      {option.detail}
-                    </Text>
-                  ) : null}
-                  <Ionicons
-                    name={selected ? "checkmark-circle" : "ellipse-outline"}
-                    size={22}
-                    color={
-                      selected ? tokens.colors.accent : tokens.colors.outline
-                    }
-                  />
-                </View>
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
 
-      {PUSH_ENABLED ? (
+        {/* Section 1: Reminder Timing */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: tokens.colors.text }]}>
-              Reminder notifications
-            </Text>
-            <Text
-              style={[styles.sectionHint, { color: tokens.colors.textSubtle }]}
-            >
-              We&apos;ll ask once when you continue so return and warranty
-              reminders can reach this device.
-            </Text>
+            <Text style={styles.sectionTitle}>Reminder timing</Text>
+            <Text style={styles.sectionHint}>When should we remind you?</Text>
           </View>
-        </View>
-      ) : null}
-
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: tokens.colors.text }]}>
-            App theme
-          </Text>
-          <Text
-            style={[styles.sectionHint, { color: tokens.colors.textSubtle }]}
-          >
-            Choose your preferred theme.
-          </Text>
-        </View>
-        <View style={styles.themeGrid}>
-          {THEME_OPTIONS.map((option) => {
-            const selected = theme === option.value;
-            return (
-              <Pressable
-                key={option.value}
-                accessibilityRole="radio"
-                accessibilityState={{ selected }}
-                accessibilityLabel={option.label}
-                onPress={() => setTheme(option.value)}
-                style={({ pressed }) => [
-                  styles.themeOption,
-                  {
-                    backgroundColor: tokens.colors.surface,
-                    borderColor: selected
-                      ? tokens.colors.accent
-                      : tokens.colors.border,
-                    borderRadius: tokens.radius.lg,
-                    opacity: pressed ? 0.86 : 1,
-                  },
-                ]}
-              >
-                <Ionicons
-                  name={option.icon}
-                  size={24}
-                  color={
-                    selected ? tokens.colors.accent : tokens.colors.textSubtle
-                  }
-                />
-                <Text
-                  style={[
-                    styles.themeLabel,
-                    {
-                      color: selected
-                        ? tokens.colors.accent
-                        : tokens.colors.text,
-                    },
+          <View style={styles.optionStack}>
+            {REMINDER_OPTIONS.map((option) => {
+              const selected = leadDays === option.days;
+              return (
+                <Pressable
+                  key={option.days}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected }}
+                  accessibilityLabel={option.label}
+                  onPress={() => setLeadDays(option.days)}
+                  style={({ pressed }) => [
+                    styles.optionRow,
+                    selected
+                      ? styles.optionRowSelected
+                      : styles.optionRowDefault,
+                    pressed && { opacity: 0.88 },
                   ]}
                 >
-                  {option.label}
-                </Text>
-              </Pressable>
-            );
-          })}
+                  <Text
+                    style={[
+                      styles.optionLabel,
+                      selected && styles.optionLabelSelected,
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                  <View style={styles.optionMeta}>
+                    {option.detail ? (
+                      <View style={styles.recommendedBadge}>
+                        <Text style={styles.recommendedText}>
+                          {option.detail}
+                        </Text>
+                      </View>
+                    ) : null}
+                    <Ionicons
+                      name={selected ? "checkmark-circle" : "ellipse-outline"}
+                      size={20}
+                      color={selected ? "#4F46E5" : "#94A3B8"}
+                    />
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
-      </View>
 
-      <View style={{ flex: 1 }} />
+        {/* Section 2: App Theme */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>App theme</Text>
+            <Text style={styles.sectionHint}>Choose your preferred theme.</Text>
+          </View>
+          <View style={styles.themeGrid}>
+            {THEME_OPTIONS.map((option) => {
+              const selected = theme === option.value;
+              return (
+                <Pressable
+                  key={option.value}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected }}
+                  accessibilityLabel={option.label}
+                  onPress={() => setTheme(option.value)}
+                  style={({ pressed }) => [
+                    styles.themeOption,
+                    selected
+                      ? styles.themeOptionSelected
+                      : styles.themeOptionDefault,
+                    pressed && { opacity: 0.88 },
+                  ]}
+                >
+                  <Ionicons
+                    name={option.icon}
+                    size={24}
+                    color={selected ? "#4F46E5" : "#0F172A"}
+                  />
+                  <Text
+                    style={[
+                      styles.themeLabel,
+                      selected && styles.themeLabelSelected,
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
 
-      {error ? (
-        <Text style={[styles.errorText, { color: tokens.colors.dangerText }]}>
-          {error}
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+        {/* Primary Action Button */}
+        <Button
+          label={pending ? "Saving..." : "Get started"}
+          trailing={<Ionicons name="arrow-forward" size={18} color="#FFFFFF" />}
+          busy={pending}
+          disabled={pending}
+          size="lg"
+          onPress={() => void finish()}
+          style={styles.primaryButton}
+        />
+
+        {/* Footnote */}
+        <Text style={styles.footnote}>
+          You&apos;re all set. Let&apos;s organize your purchases.
         </Text>
-      ) : null}
-      <Button
-        label={pending ? "Saving..." : "Get started"}
-        busy={pending}
-        disabled={pending}
-        size="lg"
-        onPress={() => void finish()}
-      />
-      <Text style={[styles.footnote, { color: tokens.colors.textMuted }]}>
-        You&apos;re all set. Let&apos;s organize your purchases.
-      </Text>
-    </ScreenScroll>
+      </ScreenScroll>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   scrollContent: {
     width: "100%",
-    maxWidth: 460,
+    maxWidth: 440,
     alignSelf: "center",
-    minHeight: "100%",
-    paddingBottom: 28,
+    paddingHorizontal: 20,
+    paddingBottom: 24,
   },
-  heading: { gap: 7, marginTop: 8, marginBottom: 6 },
-  title: { fontSize: 28, lineHeight: 35, fontWeight: "800" },
-  subtitle: { fontSize: 15, lineHeight: 22, fontWeight: "500", maxWidth: 340 },
-  section: { gap: 10 },
-  sectionHeader: { gap: 2 },
-  sectionTitle: { fontSize: 16, lineHeight: 22, fontWeight: "800" },
-  sectionHint: { fontSize: 13, lineHeight: 18, fontWeight: "500" },
-  optionStack: { gap: 9 },
-  optionRow: {
-    minHeight: 54,
+  topBar: {
+    height: 38,
+    justifyContent: "center",
+    alignItems: "flex-start",
+    marginBottom: 0,
+  },
+  backCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    paddingHorizontal: 14,
+    borderColor: "rgba(0, 0, 0, 0.06)",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 2,
+  },
+  backCirclePressed: {
+    opacity: 0.75,
+  },
+  heading: {
+    alignItems: "flex-start",
+    marginTop: 2,
+    marginBottom: 16,
+  },
+  title: {
+    fontSize: 27,
+    lineHeight: 33,
+    fontWeight: "800",
+    color: "#0F172A",
+    textAlign: "left",
+    letterSpacing: -0.3,
+  },
+  subtitle: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: "#475569",
+    textAlign: "left",
+    marginTop: 4,
+  },
+  section: {
+    marginBottom: 16,
+  },
+  sectionHeader: {
+    marginBottom: 10,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: "800",
+    color: "#0F172A",
+  },
+  sectionHint: {
+    fontSize: 13.5,
+    lineHeight: 18,
+    color: "#475569",
+    marginTop: 2,
+  },
+  optionStack: {
+    gap: 9,
+  },
+  optionRow: {
+    height: 52,
+    borderRadius: 14,
+    paddingHorizontal: 16,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
-  optionLabel: { fontSize: 15, lineHeight: 20, fontWeight: "700" },
-  optionMeta: { flexDirection: "row", alignItems: "center", gap: 10 },
-  recommended: {
-    overflow: "hidden",
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    fontSize: 11,
-    lineHeight: 14,
-    fontWeight: "800",
+  optionRowDefault: {
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
   },
-  themeGrid: { flexDirection: "row", gap: 10 },
+  optionRowSelected: {
+    backgroundColor: "#F6F6FF",
+    borderWidth: 1.5,
+    borderColor: "#4F46E5",
+  },
+  optionLabel: {
+    fontSize: 14.5,
+    lineHeight: 20,
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+  optionLabelSelected: {
+    color: "#4338CA",
+  },
+  optionMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  recommendedBadge: {
+    backgroundColor: "#EEF0FE",
+    paddingHorizontal: 10,
+    paddingVertical: 3.5,
+    borderRadius: 8,
+  },
+  recommendedText: {
+    fontSize: 11.5,
+    lineHeight: 14,
+    fontWeight: "700",
+    color: "#4F46E5",
+  },
+  themeGrid: {
+    flexDirection: "row",
+    gap: 10,
+  },
   themeOption: {
     flex: 1,
-    minHeight: 78,
-    borderWidth: 1,
+    height: 86,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
+    gap: 8,
   },
-  themeLabel: { fontSize: 13, lineHeight: 18, fontWeight: "800" },
-  errorText: { textAlign: "center", fontSize: 13, lineHeight: 18 },
+  themeOptionDefault: {
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  themeOptionSelected: {
+    backgroundColor: "#F5F4FE",
+    borderWidth: 1.5,
+    borderColor: "#4F46E5",
+  },
+  themeLabel: {
+    fontSize: 13.5,
+    lineHeight: 18,
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+  themeLabelSelected: {
+    color: "#4F46E5",
+  },
+  errorText: {
+    textAlign: "center",
+    fontSize: 13,
+    lineHeight: 18,
+    color: "#DC2626",
+    marginBottom: 8,
+  },
+  primaryButton: {
+    marginTop: 6,
+    marginBottom: 14,
+    borderRadius: 14,
+    minHeight: 52,
+  },
   footnote: {
     textAlign: "center",
-    fontSize: 12,
-    lineHeight: 17,
-    fontWeight: "600",
+    fontSize: 12.5,
+    lineHeight: 18,
+    color: "#64748B",
+    fontWeight: "500",
+    marginBottom: 10,
   },
 });
