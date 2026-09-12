@@ -1,27 +1,22 @@
 import { useQuery } from "@tanstack/react-query";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import {
-  AppIcon,
-  Button,
-  CategoryArtwork,
-  Money,
-  ScreenView,
-  Skeleton,
-} from "@/components";
+import { Ionicons } from "@expo/vector-icons";
+import { Skeleton, useAdaptiveLayout } from "@/components";
+import { PurchaseArtworkTile } from "@/components/PurchaseArtworkTile";
 import { apiKeys } from "@/api/apiKeys";
 import { useApi } from "@/api/ApiProvider";
 import { getPurchase } from "@/api/purchases";
+import { formatMoney } from "@/components/Money";
 import { categoryLabel, formatDate } from "@/lib/purchaseDisplay";
-import { useTheme } from "@/theme/ThemeProvider";
 
 export default function PurchaseSuccessScreen() {
   const router = useRouter();
   const api = useApi();
   const insets = useSafeAreaInsets();
-  const { tokens } = useTheme();
+  const { contentWidth } = useAdaptiveLayout();
   const { id } = useLocalSearchParams<{ id?: string }>();
 
   const purchase = useQuery({
@@ -32,151 +27,143 @@ export default function PurchaseSuccessScreen() {
 
   const p = purchase.data;
   const purchaseDate = formatDate(p?.purchaseDate);
+  const formattedAmount = p ? formatMoney(p.amountMinor, p.currency) : null;
 
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
 
-      <ScreenView>
+      <View style={styles.screen}>
+        {/* Ambient top-right pastel glow */}
+        <View style={styles.ambientGlowTopRight} pointerEvents="none" />
+
         <View
           style={[
             styles.container,
             {
-              paddingHorizontal: tokens.spacing.xxl - 4,
-              paddingTop: Math.max(insets.top + tokens.spacing.xxl, 48),
-              paddingBottom: Math.max(insets.bottom + tokens.spacing.xl, 28),
-              gap: tokens.spacing.xl,
+              width: "100%",
+              maxWidth: contentWidth,
+              alignSelf: "center",
+              paddingHorizontal: 20,
+              paddingTop: Math.max(insets.top + 32, 48),
+              paddingBottom: Math.max(insets.bottom + 24, 32),
             },
           ]}
         >
-          <View style={[styles.centerContent, { gap: tokens.spacing.lg }]}>
-            <View
-              style={[
-                styles.checkCircle,
-                { backgroundColor: tokens.colors.successSoft },
-              ]}
-            >
-              <AppIcon
-                name="check"
-                size={48}
-                color={tokens.colors.successText}
-              />
+          <View style={styles.centerContent}>
+            {/* Green Checkmark Badge */}
+            <View style={styles.checkCircle}>
+              <Ionicons name="checkmark" size={44} color="#16A34A" />
             </View>
 
-            <View style={{ alignItems: "center", gap: tokens.spacing.sm }}>
-              <Text
-                accessibilityRole="header"
-                style={[
-                  styles.mainTitle,
-                  {
-                    color: tokens.colors.text,
-                    fontSize: tokens.type.title.fontSize,
-                    lineHeight: tokens.type.title.lineHeight,
-                  },
-                ]}
-              >
-                Purchase saved
-              </Text>
-              <Text
-                style={[
-                  styles.subtitle,
-                  {
-                    color: tokens.colors.textSubtle,
-                    fontSize: tokens.type.body.fontSize,
-                    lineHeight: tokens.type.body.lineHeight,
-                  },
-                ]}
-              >
+            <View style={styles.textStack}>
+              <Text style={styles.mainTitle}>Purchase saved</Text>
+              <Text style={styles.subtitle}>
                 Return windows, warranty dates, delivery notes, and receipts now
                 live together.
               </Text>
             </View>
 
             {purchase.isLoading ? (
-              <View style={{ width: "100%", gap: tokens.spacing.sm }}>
+              <View style={{ width: "100%", marginTop: 24 }}>
                 <Skeleton height={86} />
               </View>
             ) : p ? (
-              <View
-                style={[
-                  styles.summary,
-                  {
-                    backgroundColor: tokens.colors.surface,
-                    borderColor: tokens.colors.border,
-                    borderRadius: tokens.radius.xl,
-                    padding: tokens.spacing.lg,
-                    gap: tokens.spacing.md,
-                  },
-                ]}
-              >
-                <CategoryArtwork category={p.category} size="lg" />
-                <View style={{ flex: 1, gap: 4 }}>
-                  <Text
-                    numberOfLines={2}
-                    style={{
-                      color: tokens.colors.text,
-                      fontSize: tokens.type.headline.fontSize,
-                      lineHeight: tokens.type.headline.lineHeight,
-                      fontWeight: "800",
-                    }}
-                  >
+              <View style={styles.summaryCard}>
+                <PurchaseArtworkTile
+                  title={p.title}
+                  category={p.category}
+                  size={52}
+                />
+                <View style={styles.summaryCopy}>
+                  <Text numberOfLines={2} style={styles.summaryTitle}>
                     {p.title}
                   </Text>
-                  <Text
-                    numberOfLines={2}
-                    style={{
-                      color: tokens.colors.textSubtle,
-                      fontSize: tokens.type.subheadline.fontSize,
-                      lineHeight: tokens.type.subheadline.lineHeight,
-                    }}
-                  >
+                  <Text numberOfLines={1} style={styles.summarySubtitle}>
                     {[p.merchant, categoryLabel(p.category), purchaseDate]
                       .filter(Boolean)
                       .join(" · ")}
                   </Text>
-                  {p.amountMinor != null && p.amountMinor > 0 ? (
-                    <Money amountMinor={p.amountMinor} currency={p.currency} />
+                  {formattedAmount ? (
+                    <Text style={styles.summaryPrice}>{formattedAmount}</Text>
                   ) : null}
                 </View>
               </View>
             ) : null}
           </View>
 
-          <View style={{ gap: tokens.spacing.sm }}>
+          {/* Action Buttons */}
+          <View style={styles.buttonGroup}>
             {id ? (
-              <Button
-                label="View purchase"
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="View purchase"
                 onPress={() =>
                   router.replace({
                     pathname: "/purchase/[id]",
                     params: { id },
                   })
                 }
-              />
+                style={({ pressed }) => [
+                  styles.primaryButton,
+                  {
+                    opacity: pressed ? 0.88 : 1,
+                    transform: [{ scale: pressed ? 0.985 : 1 }],
+                  },
+                ]}
+              >
+                <Text style={styles.primaryButtonText}>View purchase</Text>
+              </Pressable>
             ) : null}
-            <Button
-              label="Add another purchase"
-              variant="secondary"
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Add another purchase"
               onPress={() => router.replace("/purchase/new")}
-            />
-            <Button
-              label="Back to purchases"
-              variant="secondary"
+              style={({ pressed }) => [
+                styles.secondaryButton,
+                { opacity: pressed ? 0.82 : 1 },
+              ]}
+            >
+              <Text style={styles.secondaryButtonText}>
+                Add another purchase
+              </Text>
+            </Pressable>
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Back to purchases"
               onPress={() => router.replace("/(tabs)/purchases")}
-            />
-            <Button
-              label="Done"
-              variant="tertiary"
-              onPress={() => router.replace("/")}
-            />
+              style={({ pressed }) => [
+                styles.tertiaryButton,
+                { opacity: pressed ? 0.75 : 1 },
+              ]}
+            >
+              <Text style={styles.tertiaryButtonText}>Back to purchases</Text>
+            </Pressable>
           </View>
         </View>
-      </ScreenView>
+      </View>
     </>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: "#F8FAFC",
+    position: "relative",
+  },
+  ambientGlowTopRight: {
+    position: "absolute",
+    top: -40,
+    right: -30,
+    width: 280,
+    height: 240,
+    borderRadius: 140,
+    backgroundColor: "#EDE9FE",
+    opacity: 0.6,
+  },
   container: {
     flex: 1,
     justifyContent: "space-between",
@@ -185,26 +172,121 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    gap: 20,
   },
   checkCircle: {
-    width: 92,
-    height: 92,
-    borderRadius: 46,
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: "#DCFCE7",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#16A34A",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  textStack: {
+    alignItems: "center",
+    gap: 8,
+    maxWidth: 320,
+  },
+  mainTitle: {
+    fontSize: 26,
+    fontWeight: "800",
+    color: "#0F172A",
+    textAlign: "center",
+    letterSpacing: -0.4,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: "#64748B",
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  summaryCard: {
+    width: "100%",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#F1F5F9",
+    padding: 18,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+    marginTop: 8,
+  },
+  summaryCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  summaryTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+  summarySubtitle: {
+    fontSize: 13,
+    color: "#64748B",
+    marginTop: 1,
+  },
+  summaryPrice: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#0F172A",
+    marginTop: 4,
+  },
+  buttonGroup: {
+    gap: 10,
+    width: "100%",
+  },
+  primaryButton: {
+    height: 52,
+    backgroundColor: "#775DF5",
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#775DF5",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.28,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  primaryButtonText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  secondaryButton: {
+    height: 48,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
     alignItems: "center",
     justifyContent: "center",
   },
-  mainTitle: {
-    fontWeight: "800",
-    textAlign: "center",
+  secondaryButtonText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#0F172A",
   },
-  subtitle: {
-    textAlign: "center",
-  },
-  summary: {
-    width: "100%",
-    maxWidth: 440,
-    borderWidth: 1,
-    flexDirection: "row",
+  tertiaryButton: {
+    height: 44,
+    backgroundColor: "#F1F5FD",
+    borderRadius: 14,
     alignItems: "center",
+    justifyContent: "center",
+  },
+  tertiaryButtonText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#5B4DF5",
   },
 });

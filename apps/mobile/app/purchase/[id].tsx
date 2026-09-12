@@ -1,13 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState, type ReactNode } from "react";
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import type {
@@ -16,7 +10,14 @@ import type {
   Receipt,
   Reminder,
 } from "@acme/shared";
-import { Dialog, EmptyState, FormError, Skeleton, UndoableToast, useAdaptiveLayout } from "@/components";
+import {
+  Dialog,
+  EmptyState,
+  FormError,
+  Skeleton,
+  UndoableToast,
+  useAdaptiveLayout,
+} from "@/components";
 import { PurchaseArtworkTile } from "@/components/PurchaseArtworkTile";
 import { useApi } from "@/api/ApiProvider";
 import { apiKeys } from "@/api/apiKeys";
@@ -123,7 +124,12 @@ export default function PurchaseDetailScreen() {
 
   if (detail.isLoading) {
     return (
-      <View style={[styles.screen, { paddingTop: insets.top + 10, paddingHorizontal: 16 }]}>
+      <View
+        style={[
+          styles.screen,
+          { paddingTop: insets.top + 10, paddingHorizontal: 16 },
+        ]}
+      >
         <View style={styles.navBar}>
           <Pressable onPress={handleBack} style={styles.backButton}>
             <Ionicons name="chevron-back" size={20} color="#0F172A" />
@@ -143,7 +149,12 @@ export default function PurchaseDetailScreen() {
   const purchase: PurchaseDetailResponse | undefined = detail.data;
   if (!purchase) {
     return (
-      <View style={[styles.screen, { paddingTop: insets.top + 10, paddingHorizontal: 16 }]}>
+      <View
+        style={[
+          styles.screen,
+          { paddingTop: insets.top + 10, paddingHorizontal: 16 },
+        ]}
+      >
         <View style={styles.navBar}>
           <Pressable onPress={handleBack} style={styles.backButton}>
             <Ionicons name="chevron-back" size={20} color="#0F172A" />
@@ -384,7 +395,7 @@ export default function PurchaseDetailScreen() {
                 >
                   {returnWindow?.expired
                     ? "Expired"
-                    : returnWindow?.detail ?? "Active"}
+                    : (returnWindow?.detail ?? "Active")}
                 </Text>
               </View>
             </View>
@@ -407,9 +418,7 @@ export default function PurchaseDetailScreen() {
                 </Text>
               </View>
               <View style={[styles.pillBadge, styles.pillBadgeGreen]}>
-                <Text
-                  style={[styles.pillBadgeText, styles.pillBadgeTextGreen]}
-                >
+                <Text style={[styles.pillBadgeText, styles.pillBadgeTextGreen]}>
                   {warranty?.detail ?? "Active"}
                 </Text>
               </View>
@@ -436,7 +445,8 @@ export default function PurchaseDetailScreen() {
                     No claims opened
                   </Text>
                   <Text style={styles.protectionItemSubtitle}>
-                    Start a return, refund, or warranty claim from this purchase.
+                    Start a return, refund, or warranty claim from this
+                    purchase.
                   </Text>
                 </View>
                 <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
@@ -476,7 +486,11 @@ export default function PurchaseDetailScreen() {
                         {formatTimestamp(claim.openedAt)}
                       </Text>
                     </View>
-                    <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+                    <Ionicons
+                      name="chevron-forward"
+                      size={18}
+                      color="#94A3B8"
+                    />
                   </Pressable>
                 </React.Fragment>
               ))
@@ -553,7 +567,11 @@ export default function PurchaseDetailScreen() {
                         {formatTimestamp(receipt.createdAt)}
                       </Text>
                     </View>
-                    <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+                    <Ionicons
+                      name="chevron-forward"
+                      size={18}
+                      color="#94A3B8"
+                    />
                   </Pressable>
                 </React.Fragment>
               ))

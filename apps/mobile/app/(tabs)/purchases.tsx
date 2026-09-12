@@ -658,11 +658,7 @@ export default function PurchasesScreen() {
                     {option.label}
                   </Text>
                   {selected ? (
-                    <Ionicons
-                      name="checkmark"
-                      size={20}
-                      color="#5B4DF5"
-                    />
+                    <Ionicons name="checkmark" size={20} color="#5B4DF5" />
                   ) : null}
                 </Pressable>
               );

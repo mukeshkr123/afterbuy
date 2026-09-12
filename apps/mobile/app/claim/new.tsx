@@ -2,8 +2,17 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEnqueueMutation } from "@/offline";
 import React, { useMemo, useState } from "react";
-import { FlatList, Pressable, StyleSheet, View } from "react-native";
+import {
+  FlatList,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 import type {
   Claim,
   ClaimType,
@@ -11,68 +20,51 @@ import type {
   PurchaseListResponse,
 } from "@acme/shared";
 import {
-  AppText,
-  Button,
   EmptyState,
   FormError,
-  IconTile,
-  Input,
-  ListItem,
-  ScreenHeader,
-  ScreenScroll,
-  SectionCard,
-  SegmentedControl,
   Skeleton,
   SkeletonGroup,
-  StatusPill,
   useAdaptiveLayout,
 } from "@/components";
+import { PurchaseArtworkTile } from "@/components/PurchaseArtworkTile";
 import { useApi } from "@/api/ApiProvider";
 import { apiKeys } from "@/api/apiKeys";
 import { createClaim } from "@/api/claims";
 import { getPurchase, listPurchases } from "@/api/purchases";
 import { fromCaught, type FormErrorState } from "@/hooks/useApiError";
 import { CLAIM_TYPE_LABEL } from "@/lib/claims";
-import {
-  categoryIcon,
-  deliveryDisplay,
-  formatDate,
-} from "@/lib/purchaseDisplay";
-import { useTheme } from "@/theme/ThemeProvider";
+import { deliveryDisplay, formatDate } from "@/lib/purchaseDisplay";
 
 const CLAIM_TYPES: Array<{
   value: ClaimType;
   title: string;
   description: string;
-  icon: "repeat-outline" | "cash-outline" | "shield-checkmark-outline";
+  icon: keyof typeof Ionicons.glyphMap;
 }> = [
   {
     value: "return",
     title: "Return request",
-    description:
-      "Use this when you need to send an item back before the return window closes.",
-    icon: "repeat-outline",
+    description: "Send an item back before the return window closes.",
+    icon: "sync-outline",
   },
   {
     value: "refund",
     title: "Refund request",
-    description:
-      "Use this when the purchase should be refunded because the order was wrong or incomplete.",
-    icon: "cash-outline",
+    description: "Request a refund because the order was wrong or incomplete.",
+    icon: "card-outline",
   },
   {
     value: "warranty",
     title: "Warranty claim",
-    description:
-      "Use this when the item is faulty and still covered by the recorded warranty.",
+    description: "Item is faulty and still covered by the recorded warranty.",
     icon: "shield-checkmark-outline",
   },
 ];
 
 const FLOW_STEPS = [
-  { key: "purchase", label: "Choose purchase" },
-  { key: "type", label: "Choose claim type" },
-  { key: "details", label: "Claim details" },
+  { key: "purchase", label: "1. Purchase" },
+  { key: "type", label: "2. Claim type" },
+  { key: "details", label: "3. Details" },
 ] as const;
 
 type ClaimStep = (typeof FLOW_STEPS)[number]["key"] | "submitted";
@@ -96,159 +88,203 @@ export default function NewClaimScreen() {
   const api = useApi();
   const qc = useQueryClient();
   const router = useRouter();
-  const { tokens } = useTheme();
+  const insets = useSafeAreaInsets();
+  const { contentWidth } = useAdaptiveLayout();
   const params = useLocalSearchParams<{
     purchaseId?: string;
-    claimType?: ClaimType;
+    type?: ClaimType;
   }>();
 
-  const [purchaseId, setPurchaseId] = useState(params.purchaseId ?? null);
-  const [claimType, setClaimType] = useState<ClaimType | null>(
-    params.claimType ?? null
+  const [selectedPurchaseId, setSelectedPurchaseId] = useState<string | null>(
+    params.purchaseId ?? null
+  );
+  const [selectedType, setSelectedType] = useState<ClaimType | null>(
+    params.type ?? null
   );
   const [notes, setNotes] = useState("");
-  const [submittedClaim, setSubmittedClaim] = useState<Claim | null>(null);
   const [error, setError] = useState<FormErrorState>({
     message: null,
     fields: {},
   });
+  const [submittedClaim, setSubmittedClaim] = useState<Claim | null>(null);
 
   const purchase = useQuery({
-    queryKey: apiKeys.purchases.detail(purchaseId ?? ""),
-    queryFn: () => getPurchase(api, purchaseId ?? ""),
-    enabled: Boolean(purchaseId),
+    queryKey: apiKeys.purchases.detail(selectedPurchaseId ?? ""),
+    queryFn: () => getPurchase(api, selectedPurchaseId ?? ""),
+    enabled: Boolean(selectedPurchaseId),
   });
 
-  const mutation = useEnqueueMutation<void, Claim>({
-    build: () => {
-      if (!purchaseId) throw new Error("Choose a purchase first.");
-      if (!claimType) throw new Error("Choose a claim type first.");
-      return {
-        method: "POST",
-        endpoint: "/v1/claims",
-        body: {
-          purchaseId,
-          type: claimType,
-          status: "submitted",
-          notes: notes.trim() || null,
-        },
-        label: `Create claim for ${purchase.data?.title || purchaseId}`,
-      };
-    },
-    onSuccess: (claim) => {
-      void qc.invalidateQueries({ queryKey: ["claims"] });
-      void qc.invalidateQueries({ queryKey: ["purchases"] });
-
-      const finalClaim: Claim = {
-        ...claim,
-        id: claim.id || "",
-        purchaseId: claim.purchaseId || purchaseId || "",
-        userId: claim.userId || purchase.data?.userId || "",
-        type: claim.type || claimType || "other",
-        status: claim.status || "submitted",
-        openedAt: claim.openedAt || new Date().toISOString(),
-        resolvedAt: claim.resolvedAt || null,
-        refundAmountMinor: claim.refundAmountMinor || null,
-        reference: claim.reference || null,
-        notes: claim.notes || notes.trim() || null,
-        createdAt: claim.createdAt || new Date().toISOString(),
-        updatedAt: claim.updatedAt || new Date().toISOString(),
-      };
-      setSubmittedClaim(finalClaim);
+  const create = useEnqueueMutation<
+    { purchaseId: string; type: ClaimType; notes?: string },
+    Claim
+  >({
+    build: (variables) => ({
+      method: "POST",
+      endpoint: "/v1/claims",
+      body: variables,
+      label: `File ${variables.type} claim for purchase`,
+      optimisticPatch: {
+        queryKey: apiKeys.claims.list({}),
+        updater: (prev) => prev,
+        rollback: () => undefined,
+      },
+    }),
+    onSuccess: async (created) => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["claims"] }),
+        selectedPurchaseId
+          ? qc.invalidateQueries({
+              queryKey: apiKeys.purchases.detail(selectedPurchaseId),
+            })
+          : Promise.resolve(),
+      ]);
       setError({ message: null, fields: {} });
+      setSubmittedClaim(created);
     },
     onError: (caught) => setError(fromCaught(caught)),
   });
 
-  const step = currentStep({ purchaseId, claimType, submittedClaim });
+  const step = currentStep({
+    purchaseId: selectedPurchaseId,
+    claimType: selectedType,
+    submittedClaim,
+  });
+
+  const handleBack = () => {
+    if (step === "details") {
+      setSelectedType(null);
+    } else if (step === "type" && !params.purchaseId) {
+      setSelectedPurchaseId(null);
+    } else {
+      if (router.canGoBack()) router.back();
+      else router.replace("/claims");
+    }
+  };
 
   return (
-    <ScreenScroll gap={tokens.spacing.xl} safeTop={step !== "purchase"}>
-      <ScreenHeader
-        title={step === "submitted" ? "Claim submitted" : "New claim"}
-        onBack={() => {
-          if (step === "submitted") {
-            router.replace("/claims");
-            return;
-          }
-          if (step === "details") {
-            setClaimType(null);
-            return;
-          }
-          if (step === "type") {
-            if (params.purchaseId) router.back();
-            else setPurchaseId(null);
-            return;
-          }
-          router.back();
+    <View style={styles.screen}>
+      {/* Top ambient glow */}
+      <View style={styles.ambientGlowTopRight} pointerEvents="none" />
+
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          width: "100%",
+          maxWidth: contentWidth,
+          alignSelf: "center",
+          paddingHorizontal: 16,
+          paddingTop: Math.max(insets.top + 6, 16),
+          paddingBottom: Math.max(insets.bottom + 36, 44),
+          gap: 20,
         }}
-      />
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
+      >
+        {/* Navigation Bar */}
+        <View style={styles.navBar}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+            onPress={handleBack}
+            style={({ pressed }) => [
+              styles.backButton,
+              { opacity: pressed ? 0.8 : 1 },
+            ]}
+          >
+            <Ionicons name="chevron-back" size={20} color="#0F172A" />
+          </Pressable>
 
-      {step !== "submitted" ? <FlowHeader step={step} /> : null}
+          <Text style={styles.navTitle}>New Claim</Text>
 
-      {step === "purchase" ? (
-        <ChoosePurchaseStep
-          onSelect={(nextPurchaseId) => {
-            setPurchaseId(nextPurchaseId);
-            setError({ message: null, fields: {} });
-          }}
-        />
-      ) : null}
+          <View style={styles.navSpacer} />
+        </View>
 
-      {step === "type" ? (
-        <ChooseClaimTypeStep
-          purchase={purchase.data}
-          purchaseLoading={purchase.isLoading}
-          onBackToPurchase={
-            params.purchaseId ? undefined : () => setPurchaseId(null)
-          }
-          onSelect={(nextType) => {
-            setClaimType(nextType);
-            setError({ message: null, fields: {} });
-          }}
-        />
-      ) : null}
+        {/* Step Indicator */}
+        {step !== "submitted" ? (
+          <View style={styles.stepIndicatorRow}>
+            {FLOW_STEPS.map((s, idx) => {
+              const active = step === s.key;
+              const completed =
+                (s.key === "purchase" && Boolean(selectedPurchaseId)) ||
+                (s.key === "type" && Boolean(selectedType));
 
-      {step === "details" ? (
-        <ClaimDetailsStep
-          purchase={purchase.data}
-          purchaseLoading={purchase.isLoading}
-          claimType={claimType}
-          notes={notes}
-          error={error}
-          pending={mutation.isPending}
-          onChangeNotes={setNotes}
-          onChangeType={() => setClaimType(null)}
-          onSubmit={() => mutation.mutate()}
-        />
-      ) : null}
+              return (
+                <View
+                  key={s.key}
+                  style={[
+                    styles.stepPill,
+                    active && styles.stepPillActive,
+                    completed && !active && styles.stepPillCompleted,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.stepPillText,
+                      active && styles.stepPillTextActive,
+                      completed && !active && styles.stepPillTextCompleted,
+                    ]}
+                  >
+                    {s.label}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        ) : null}
 
-      {step === "submitted" && submittedClaim ? (
-        <SubmittedStep
-          claim={submittedClaim}
-          purchase={purchase.data}
-          onViewClaims={() => router.replace("/claims")}
-          onBackHome={() => router.replace("/(tabs)")}
-        />
-      ) : null}
-    </ScreenScroll>
-  );
-}
+        {step === "purchase" ? (
+          <ChoosePurchaseStep
+            onSelect={(id) => {
+              setSelectedPurchaseId(id);
+              setError({ message: null, fields: {} });
+            }}
+          />
+        ) : null}
 
-function FlowHeader({ step }: { step: ClaimStep }) {
-  const { tokens } = useTheme();
-  const activeIndex = FLOW_STEPS.findIndex((item) => item.key === step);
+        {step === "type" ? (
+          <ChooseClaimTypeStep
+            purchase={purchase.data}
+            purchaseLoading={purchase.isLoading}
+            onBackToPurchase={
+              params.purchaseId ? undefined : () => setSelectedPurchaseId(null)
+            }
+            onSelect={(type) => {
+              setSelectedType(type);
+              setError({ message: null, fields: {} });
+            }}
+          />
+        ) : null}
 
-  return (
-    <View style={{ gap: tokens.spacing.md }}>
-      <AppText role="caption" tone="subtle" weight="700">
-        Step {activeIndex + 1} of {FLOW_STEPS.length}
-      </AppText>
-      <SegmentedControl
-        tabs={FLOW_STEPS.map((item) => ({ key: item.key, label: item.label }))}
-        activeKey={step}
-        onChange={() => {}}
-      />
+        {step === "details" && selectedPurchaseId && selectedType ? (
+          <ClaimDetailsStep
+            purchase={purchase.data}
+            purchaseLoading={purchase.isLoading}
+            claimType={selectedType}
+            notes={notes}
+            error={error}
+            pending={create.isPending}
+            onChangeNotes={setNotes}
+            onChangeType={() => setSelectedType(null)}
+            onSubmit={() =>
+              create.mutate({
+                purchaseId: selectedPurchaseId,
+                type: selectedType,
+                ...(notes.trim() ? { notes: notes.trim() } : {}),
+              })
+            }
+          />
+        ) : null}
+
+        {step === "submitted" && submittedClaim ? (
+          <SubmittedClaimStep
+            claim={submittedClaim}
+            purchaseTitle={purchase.data?.title}
+            onViewClaims={() => router.replace("/claims")}
+            onBackHome={() => router.replace("/")}
+          />
+        ) : null}
+      </ScrollView>
     </View>
   );
 }
@@ -260,9 +296,6 @@ function ChoosePurchaseStep({
 }) {
   const api = useApi();
   const router = useRouter();
-  const { tokens } = useTheme();
-  const insets = useSafeAreaInsets();
-  const { contentWidth } = useAdaptiveLayout();
 
   const list = useQuery({
     queryKey: apiKeys.purchases.list({ sort: "createdAt", limit: 50 }),
@@ -272,98 +305,59 @@ function ChoosePurchaseStep({
   const items: PurchaseListResponse["items"] = list.data?.items ?? [];
 
   return (
-    <View style={{ marginHorizontal: -(tokens.spacing.xl - 4) }}>
-      <FlatList
-        data={items}
-        keyExtractor={(item) => item.id}
-        scrollEnabled={false}
-        contentContainerStyle={{
-          width: "100%",
-          maxWidth: contentWidth,
-          alignSelf: "center",
-          paddingBottom: Math.max(insets.bottom + 12, 16),
-          flexGrow: items.length === 0 ? 1 : undefined,
-        }}
-        ListHeaderComponent={
-          <View
-            style={{
-              paddingHorizontal: tokens.spacing.xl - 4,
-              paddingBottom: tokens.spacing.md,
-              gap: tokens.spacing.xs,
-            }}
-          >
-            <AppText role="title">Choose purchase</AppText>
-            <AppText role="subheadline" tone="subtle">
-              Claims always belong to a saved purchase. Start by picking the
-              right order.
-            </AppText>
-          </View>
-        }
-        ListEmptyComponent={
-          <View
-            style={{
-              paddingHorizontal: tokens.spacing.xl - 4,
-              paddingTop: tokens.spacing.lg,
-            }}
-          >
-            {list.isLoading ? (
-              <SkeletonGroup count={5} gap={tokens.spacing.md} />
-            ) : list.isError ? (
-              <SectionCard>
-                <View style={{ gap: tokens.spacing.md }}>
-                  <View style={{ gap: 4 }}>
-                    <AppText role="headline">Couldn't load purchases</AppText>
-                    <AppText role="subheadline" tone="subtle">
-                      Check your connection and try again.
-                    </AppText>
-                  </View>
-                  <Button
-                    label="Try again"
-                    variant="secondary"
-                    onPress={() => void list.refetch()}
-                  />
-                </View>
-              </SectionCard>
-            ) : (
-              <EmptyState
-                icon="receipt-outline"
-                title="No purchases yet"
-                message="Add a purchase before filing a claim against it."
-                action={{
-                  label: "Add purchase",
-                  onPress: () => router.push("/purchase/new"),
-                }}
+    <View style={{ gap: 16 }}>
+      <View style={styles.sectionHeaderStack}>
+        <Text style={styles.sectionTitle}>Choose purchase</Text>
+        <Text style={styles.sectionSubtitle}>
+          Claims belong to a saved purchase. Pick the right order.
+        </Text>
+      </View>
+
+      {list.isLoading ? (
+        <SkeletonGroup count={3} gap={12} />
+      ) : items.length === 0 ? (
+        <EmptyState
+          icon="receipt-outline"
+          title="No purchases yet"
+          message="Add a purchase before filing a claim against it."
+          action={{
+            label: "Add purchase",
+            onPress: () => router.push("/purchase/new"),
+          }}
+        />
+      ) : (
+        <View style={{ gap: 10 }}>
+          {items.map((item) => (
+            <Pressable
+              key={item.id}
+              accessibilityRole="button"
+              accessibilityLabel={`Select ${item.title}`}
+              onPress={() => onSelect(item.id)}
+              style={({ pressed }) => [
+                styles.purchaseOptionCard,
+                { opacity: pressed ? 0.85 : 1 },
+              ]}
+            >
+              <PurchaseArtworkTile
+                title={item.title}
+                category={item.category}
+                size={46}
               />
-            )}
-          </View>
-        }
-        ItemSeparatorComponent={() => (
-          <View
-            style={{
-              height: StyleSheet.hairlineWidth,
-              marginLeft: 76,
-              backgroundColor: tokens.colors.border,
-            }}
-          />
-        )}
-        renderItem={({ item }) => (
-          <ListItem
-            title={item.title}
-            subtitle={
-              [item.merchant, formatDate(item.purchaseDate)]
-                .filter(Boolean)
-                .join(" • ") || null
-            }
-            detail={deliveryDisplay(item.deliveryStatus).label}
-            divider={false}
-            leading={
-              <IconTile icon={categoryIcon(item.category)} tone="neutral" />
-            }
-            chevron
-            onPress={() => onSelect(item.id)}
-          />
-        )}
-      />
+              <View style={styles.purchaseOptionCopy}>
+                <Text numberOfLines={1} style={styles.purchaseOptionTitle}>
+                  {item.title}
+                </Text>
+                <Text numberOfLines={1} style={styles.purchaseOptionSubtitle}>
+                  {[item.merchant, formatDate(item.purchaseDate)]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+            </Pressable>
+          ))}
+        </View>
+      )}
     </View>
   );
 }
@@ -379,25 +373,40 @@ function ChooseClaimTypeStep({
   onBackToPurchase?: (() => void) | undefined;
   onSelect: (claimType: ClaimType) => void;
 }) {
-  const { tokens } = useTheme();
-
   return (
-    <View style={{ gap: tokens.spacing.lg }}>
-      <View style={{ gap: tokens.spacing.xs }}>
-        <AppText role="title">Choose claim type</AppText>
-        <AppText role="subheadline" tone="subtle">
+    <View style={{ gap: 18 }}>
+      <View style={styles.sectionHeaderStack}>
+        <Text style={styles.sectionTitle}>Choose claim type</Text>
+        <Text style={styles.sectionSubtitle}>
           Pick the path that best matches what went wrong.
-        </AppText>
+        </Text>
       </View>
 
-      <PurchaseSummaryCard
-        purchase={purchase}
-        loading={purchaseLoading}
-        actionLabel={onBackToPurchase ? "Change purchase" : undefined}
-        onAction={onBackToPurchase}
-      />
+      {/* Selected purchase banner */}
+      {purchase ? (
+        <View style={styles.selectedPurchaseBanner}>
+          <PurchaseArtworkTile
+            title={purchase.title}
+            category={purchase.category}
+            size={44}
+          />
+          <View style={{ flex: 1, gap: 1 }}>
+            <Text numberOfLines={1} style={styles.selectedPurchaseTitle}>
+              {purchase.title}
+            </Text>
+            <Text numberOfLines={1} style={styles.selectedPurchaseSubtitle}>
+              {purchase.merchant ?? "Saved purchase"}
+            </Text>
+          </View>
+          {onBackToPurchase ? (
+            <Pressable onPress={onBackToPurchase} style={styles.changePill}>
+              <Text style={styles.changePillText}>Change</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
 
-      <View style={{ gap: tokens.spacing.sm }}>
+      <View style={{ gap: 12 }}>
         {CLAIM_TYPES.map((item) => (
           <Pressable
             key={item.value}
@@ -405,27 +414,20 @@ function ChooseClaimTypeStep({
             accessibilityLabel={item.title}
             onPress={() => onSelect(item.value)}
             style={({ pressed }) => [
-              styles.optionCard,
-              {
-                backgroundColor: tokens.colors.surface,
-                borderColor: tokens.colors.border,
-                borderRadius: tokens.radius.xl,
-                opacity: pressed ? 0.88 : 1,
-              },
+              styles.claimTypeCard,
+              { opacity: pressed ? 0.88 : 1 },
             ]}
           >
-            <View style={styles.optionHeader}>
-              <IconTile icon={item.icon} tone="accent" />
-              <View style={{ flex: 1, gap: 2 }}>
-                <AppText role="headline">{item.title}</AppText>
-                <AppText role="subheadline" tone="subtle">
-                  {item.description}
-                </AppText>
-              </View>
-              <AppText role="label" tone="accent" weight="700">
-                Select
-              </AppText>
+            <View style={styles.claimTypeIconBox}>
+              <Ionicons name={item.icon} size={22} color="#6366F1" />
             </View>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={styles.claimTypeTitle}>{item.title}</Text>
+              <Text style={styles.claimTypeDescription}>
+                {item.description}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
           </Pressable>
         ))}
       </View>
@@ -446,245 +448,506 @@ function ClaimDetailsStep({
 }: {
   purchase: PurchaseDetailResponse | undefined;
   purchaseLoading: boolean;
-  claimType: ClaimType | null;
+  claimType: ClaimType;
   notes: string;
   error: FormErrorState;
   pending: boolean;
-  onChangeNotes: (value: string) => void;
+  onChangeNotes: (text: string) => void;
   onChangeType: () => void;
   onSubmit: () => void;
 }) {
-  const { tokens } = useTheme();
-
   return (
-    <View style={{ gap: tokens.spacing.lg }}>
-      <View style={{ gap: tokens.spacing.xs }}>
-        <AppText role="title">Claim details</AppText>
-        <AppText role="subheadline" tone="subtle">
-          Summarize the issue clearly so the claim starts with the right
-          context.
-        </AppText>
+    <View style={{ gap: 18 }}>
+      <View style={styles.sectionHeaderStack}>
+        <Text style={styles.sectionTitle}>Claim details</Text>
+        <Text style={styles.sectionSubtitle}>
+          Provide additional context about the claim.
+        </Text>
       </View>
 
-      <PurchaseSummaryCard purchase={purchase} loading={purchaseLoading} />
-
-      <SectionCard>
-        <View style={{ gap: tokens.spacing.md }}>
-          <View style={styles.claimTypeRow}>
-            <View style={{ gap: 2 }}>
-              <AppText role="label" tone="subtle" weight="700">
-                Claim type
-              </AppText>
-              <AppText role="headline">
-                {claimType
-                  ? CLAIM_TYPE_LABEL[claimType]
-                  : "Choose a claim type"}
-              </AppText>
-            </View>
-            <Pressable accessibilityRole="button" onPress={onChangeType}>
-              <AppText role="label" tone="accent" weight="700">
-                Change
-              </AppText>
-            </Pressable>
+      {/* Summary card */}
+      <View style={styles.detailsSummaryCard}>
+        <View style={styles.summaryRow}>
+          <View style={styles.typeBadgePill}>
+            <Text style={styles.typeBadgeText}>
+              {CLAIM_TYPE_LABEL[claimType]}
+            </Text>
           </View>
+          <Pressable onPress={onChangeType}>
+            <Text style={styles.changePillText}>Change type</Text>
+          </Pressable>
         </View>
-      </SectionCard>
 
-      <SectionCard>
-        <Input
-          label="What went wrong?"
+        {purchase ? (
+          <View style={styles.purchaseRowMini}>
+            <PurchaseArtworkTile
+              title={purchase.title}
+              category={purchase.category}
+              size={40}
+            />
+            <View style={{ flex: 1 }}>
+              <Text numberOfLines={1} style={styles.miniTitle}>
+                {purchase.title}
+              </Text>
+              <Text style={styles.miniSubtitle}>
+                {purchase.merchant ?? "Saved purchase"}
+              </Text>
+            </View>
+          </View>
+        ) : null}
+      </View>
+
+      {/* Notes Input */}
+      <View style={{ gap: 8 }}>
+        <Text style={styles.inputLabel}>Reason or notes</Text>
+        <TextInput
           value={notes}
           onChangeText={onChangeNotes}
-          placeholder="Describe the issue, what you expected, and any important timing or condition details."
+          placeholder="Describe what went wrong or why you need to file this claim..."
+          placeholderTextColor="#94A3B8"
           multiline
-          numberOfLines={6}
-          error={error.fields.notes}
+          numberOfLines={4}
+          style={styles.notesInput}
         />
-      </SectionCard>
+      </View>
 
       <FormError message={error.message} />
 
-      <Button
-        label={pending ? "Submitting..." : "Submit claim"}
-        busy={pending}
-        disabled={pending}
-        size="lg"
+      {/* Submit Button */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Submit claim"
         onPress={onSubmit}
-      />
+        disabled={pending}
+        style={({ pressed }) => [
+          styles.submitButton,
+          {
+            opacity: pending ? 0.6 : pressed ? 0.88 : 1,
+            transform: [{ scale: pressed ? 0.985 : 1 }],
+          },
+        ]}
+      >
+        <Text style={styles.submitButtonText}>
+          {pending ? "Submitting claim..." : "Submit claim"}
+        </Text>
+      </Pressable>
     </View>
   );
 }
 
-function SubmittedStep({
+function SubmittedClaimStep({
   claim,
-  purchase,
+  purchaseTitle,
   onViewClaims,
   onBackHome,
 }: {
   claim: Claim;
-  purchase: PurchaseDetailResponse | undefined;
+  purchaseTitle?: string | undefined;
   onViewClaims: () => void;
   onBackHome: () => void;
 }) {
-  const { tokens } = useTheme();
-
   return (
-    <View style={{ gap: tokens.spacing.lg }}>
-      <SectionCard>
-        <View style={{ gap: tokens.spacing.lg }}>
-          <IconTile icon="checkmark-circle-outline" tone="success" />
-          <View style={{ gap: tokens.spacing.xs }}>
-            <AppText role="title">Claim submitted</AppText>
-            <AppText role="body" tone="subtle">
-              {purchase?.title
-                ? `Your ${CLAIM_TYPE_LABEL[claim.type].toLowerCase()} for ${purchase.title} is now in the queue.`
-                : "Your claim is now in the queue."}
-            </AppText>
-          </View>
-          <View style={{ gap: tokens.spacing.sm }}>
-            <Row label="Type" value={CLAIM_TYPE_LABEL[claim.type]} />
-            <Row
-              label="Status"
-              valueNode={<StatusPill label="Submitted" tone="warning" />}
-            />
-            <Row
-              label="Opened"
-              value={
-                formatDate(claim.openedAt.slice(0, 10)) ??
-                claim.openedAt.slice(0, 10)
-              }
-            />
-          </View>
-        </View>
-      </SectionCard>
-
-      <View style={{ gap: tokens.spacing.sm }}>
-        <Button label="View claims" size="lg" onPress={onViewClaims} />
-        <Button label="Back home" variant="secondary" onPress={onBackHome} />
+    <View style={{ alignItems: "center", gap: 20, paddingTop: 16 }}>
+      {/* Green Checkmark Badge */}
+      <View style={styles.checkCircle}>
+        <Ionicons name="checkmark" size={44} color="#16A34A" />
       </View>
-    </View>
-  );
-}
 
-function PurchaseSummaryCard({
-  purchase,
-  loading,
-  actionLabel,
-  onAction,
-}: {
-  purchase: PurchaseDetailResponse | undefined;
-  loading: boolean;
-  actionLabel?: string | undefined;
-  onAction?: (() => void) | undefined;
-}) {
-  const { tokens } = useTheme();
+      <View style={{ alignItems: "center", gap: 6 }}>
+        <Text style={styles.submittedTitle}>Claim filed</Text>
+        <Text style={styles.submittedSubtitle}>
+          Your {CLAIM_TYPE_LABEL[claim.type].toLowerCase()} has been recorded.
+        </Text>
+      </View>
 
-  return (
-    <SectionCard>
-      {loading ? (
-        <View style={{ gap: tokens.spacing.sm }}>
-          <Skeleton height={18} width="50%" />
-          <Skeleton height={14} width="80%" />
+      {/* Reference Card */}
+      <View style={styles.submittedCard}>
+        <View style={styles.submittedRow}>
+          <Text style={styles.submittedLabel}>Purchase</Text>
+          <Text numberOfLines={1} style={styles.submittedValue}>
+            {purchaseTitle ?? "Saved purchase"}
+          </Text>
         </View>
-      ) : purchase ? (
-        <View style={{ gap: tokens.spacing.md }}>
-          <View style={styles.optionHeader}>
-            <IconTile icon={categoryIcon(purchase.category)} tone="neutral" />
-            <View style={{ flex: 1, gap: 2 }}>
-              <AppText role="headline">{purchase.title}</AppText>
-              <AppText role="subheadline" tone="subtle">
-                {[purchase.merchant, formatDate(purchase.purchaseDate)]
-                  .filter(Boolean)
-                  .join(" • ")}
-              </AppText>
+        {claim.reference ? (
+          <>
+            <View style={styles.cardDivider} />
+            <View style={styles.submittedRow}>
+              <Text style={styles.submittedLabel}>Reference</Text>
+              <Text style={styles.submittedValue}>{claim.reference}</Text>
             </View>
-            {onAction && actionLabel ? (
-              <Pressable accessibilityRole="button" onPress={onAction}>
-                <AppText role="label" tone="accent" weight="700">
-                  {actionLabel}
-                </AppText>
-              </Pressable>
-            ) : null}
-          </View>
-          <View style={styles.metaRow}>
-            <StatusPill
-              label={deliveryDisplay(purchase.deliveryStatus).label}
-              tone={deliveryDisplay(purchase.deliveryStatus).tone}
-            />
-            {purchase.returnDeadlineAt ? (
-              <AppText role="caption" tone="subtle">
-                Return by {formatDate(purchase.returnDeadlineAt)}
-              </AppText>
-            ) : null}
-            {purchase.warrantyExpiresAt ? (
-              <AppText role="caption" tone="subtle">
-                Warranty until {formatDate(purchase.warrantyExpiresAt)}
-              </AppText>
-            ) : null}
+          </>
+        ) : null}
+        <View style={styles.cardDivider} />
+        <View style={styles.submittedRow}>
+          <Text style={styles.submittedLabel}>Status</Text>
+          <View style={styles.statusPillSubmitted}>
+            <Text style={styles.statusPillTextSubmitted}>Submitted</Text>
           </View>
         </View>
-      ) : (
-        <View style={{ gap: 4 }}>
-          <AppText role="headline">Purchase unavailable</AppText>
-          <AppText role="subheadline" tone="subtle">
-            We couldn't load the purchase you selected.
-          </AppText>
-        </View>
-      )}
-    </SectionCard>
-  );
-}
+      </View>
 
-function Row({
-  label,
-  value,
-  valueNode,
-}: {
-  label: string;
-  value?: string;
-  valueNode?: React.ReactNode;
-}) {
-  return (
-    <View style={styles.row}>
-      <AppText role="subheadline" tone="subtle">
-        {label}
-      </AppText>
-      {valueNode ?? (
-        <AppText role="subheadline" weight="600" style={styles.rowValue}>
-          {value}
-        </AppText>
-      )}
+      <View style={styles.submittedButtons}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={onViewClaims}
+          style={styles.submitButton}
+        >
+          <Text style={styles.submitButtonText}>View claims</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          onPress={onBackHome}
+          style={styles.backHomeButton}
+        >
+          <Text style={styles.backHomeText}>Back to home</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  optionCard: {
-    borderWidth: StyleSheet.hairlineWidth,
-    padding: 16,
-  },
-  optionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  metaRow: {
-    gap: 6,
-  },
-  claimTypeRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-  },
-  row: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 12,
-    alignItems: "center",
-  },
-  rowValue: {
+  screen: {
     flex: 1,
+    backgroundColor: "#F8FAFC",
+    position: "relative",
+  },
+  ambientGlowTopRight: {
+    position: "absolute",
+    top: -40,
+    right: -30,
+    width: 260,
+    height: 220,
+    borderRadius: 130,
+    backgroundColor: "#EDE9FE",
+    opacity: 0.6,
+  },
+  navBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    minHeight: 44,
+  },
+  backButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  navTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+  navSpacer: {
+    width: 42,
+  },
+  stepIndicatorRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  stepPill: {
+    flex: 1,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stepPillActive: {
+    backgroundColor: "#775DF5",
+    borderColor: "#775DF5",
+  },
+  stepPillCompleted: {
+    backgroundColor: "#EEF2FF",
+    borderColor: "#E0E7FF",
+  },
+  stepPillText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#64748B",
+  },
+  stepPillTextActive: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+  },
+  stepPillTextCompleted: {
+    color: "#5B4DF5",
+    fontWeight: "600",
+  },
+  sectionHeaderStack: {
+    gap: 2,
+    paddingHorizontal: 2,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: "#0F172A",
+    letterSpacing: -0.3,
+  },
+  sectionSubtitle: {
+    fontSize: 13,
+    color: "#64748B",
+  },
+  purchaseOptionCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#F1F5F9",
+    padding: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  purchaseOptionCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  purchaseOptionTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+  purchaseOptionSubtitle: {
+    fontSize: 12,
+    color: "#64748B",
+  },
+  selectedPurchaseBanner: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#F1F5F9",
+    padding: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  selectedPurchaseTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+  selectedPurchaseSubtitle: {
+    fontSize: 12,
+    color: "#64748B",
+  },
+  changePill: {
+    backgroundColor: "#EEF2FF",
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  changePillText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#5B4DF5",
+  },
+  claimTypeCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#F1F5F9",
+    padding: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  claimTypeIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: "#EEF2FF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  claimTypeTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+  claimTypeDescription: {
+    fontSize: 12,
+    color: "#64748B",
+    lineHeight: 16,
+  },
+  detailsSummaryCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#F1F5F9",
+    padding: 16,
+    gap: 12,
+  },
+  summaryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  typeBadgePill: {
+    backgroundColor: "#EEF2FF",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  typeBadgeText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#5B4DF5",
+  },
+  purchaseRowMini: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingTop: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "#F1F5F9",
+  },
+  miniTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+  miniSubtitle: {
+    fontSize: 12,
+    color: "#64748B",
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#0F172A",
+  },
+  notesInput: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 14,
+    color: "#0F172A",
+    minHeight: 96,
+    textAlignVertical: "top",
+  },
+  submitButton: {
+    height: 52,
+    backgroundColor: "#775DF5",
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
+    shadowColor: "#775DF5",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.28,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  submitButtonText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  checkCircle: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: "#DCFCE7",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  submittedTitle: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: "#0F172A",
+  },
+  submittedSubtitle: {
+    fontSize: 14,
+    color: "#64748B",
+    textAlign: "center",
+  },
+  submittedCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#F1F5F9",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    width: "100%",
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  submittedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 10,
+  },
+  submittedLabel: {
+    fontSize: 14,
+    color: "#64748B",
+  },
+  submittedValue: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#0F172A",
+    maxWidth: 200,
     textAlign: "right",
+  },
+  cardDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: "#F1F5F9",
+  },
+  statusPillSubmitted: {
+    backgroundColor: "#FEF3C7",
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  statusPillTextSubmitted: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#B45309",
+  },
+  submittedButtons: {
+    width: "100%",
+    gap: 10,
+    marginTop: 8,
+  },
+  backHomeButton: {
+    height: 48,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  backHomeText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#0F172A",
   },
 });

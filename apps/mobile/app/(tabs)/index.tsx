@@ -9,12 +9,12 @@ import {
   AppText,
   Button,
   DashboardHeroIllustration,
-  ProductThumbnail,
   ScreenScroll,
   SectionCard,
   Skeleton,
   StatusPill,
 } from "@/components";
+import { PurchaseArtworkTile } from "@/components/PurchaseArtworkTile";
 import { useApi } from "@/api/ApiProvider";
 import { apiKeys } from "@/api/apiKeys";
 import { getMe } from "@/api/auth";
@@ -340,17 +340,32 @@ export default function HomeScreen() {
           </Text>
         </View>
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Account profile"
-          onPress={() => router.push("/(tabs)/profile")}
-          style={({ pressed }) => [
-            styles.avatarCircle,
-            { opacity: pressed ? 0.8 : 1 },
-          ]}
-        >
-          <Text style={styles.avatarInitials}>{userDisplay.initials}</Text>
-        </Pressable>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Notifications"
+            onPress={() => router.push("/settings/permissions")}
+            style={({ pressed }) => [
+              styles.bellButton,
+              { opacity: pressed ? 0.8 : 1 },
+            ]}
+          >
+            <Ionicons name="notifications-outline" size={20} color="#0F172A" />
+            <View style={styles.bellDot} />
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Account profile"
+            onPress={() => router.push("/(tabs)/profile")}
+            style={({ pressed }) => [
+              styles.avatarCircle,
+              { opacity: pressed ? 0.8 : 1 },
+            ]}
+          >
+            <Text style={styles.avatarInitials}>{userDisplay.initials}</Text>
+          </Pressable>
+        </View>
       </View>
 
       {/* 2. Welcome Greeting & 3D Hero Illustration */}
@@ -743,8 +758,8 @@ function CompactPurchaseRow({
         },
       ]}
     >
-      {/* Product Image Thumbnail */}
-      <ProductThumbnail
+      {/* Product Artwork Tile */}
+      <PurchaseArtworkTile
         title={purchase.title}
         category={purchase.category}
         size={52}
@@ -1099,5 +1114,30 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
+  },
+  bellButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#F1F5F9",
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  bellDot: {
+    position: "absolute",
+    top: 9,
+    right: 9,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: "#5B4DF5",
   },
 });

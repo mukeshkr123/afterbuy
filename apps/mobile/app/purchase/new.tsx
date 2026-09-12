@@ -320,10 +320,7 @@ function ReceiptActionButton({
         color={destructive ? "#DC2626" : "#64748B"}
       />
       <Text
-        style={[
-          styles.receiptActionText,
-          destructive && { color: "#DC2626" },
-        ]}
+        style={[styles.receiptActionText, destructive && { color: "#DC2626" }]}
       >
         {label}
       </Text>

@@ -2,13 +2,7 @@ import { useClerk, useUser } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, type Href } from "expo-router";
 import React, { useState } from "react";
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Constants from "expo-constants";
 import { Dialog, useAdaptiveLayout } from "@/components";
@@ -67,7 +61,9 @@ const NAV_MENU: ReadonlyArray<NavMenuItem> = [
   },
 ];
 
-function formatMemberDate(dateVal: Date | string | number | null | undefined): string {
+function formatMemberDate(
+  dateVal: Date | string | number | null | undefined
+): string {
   if (!dateVal) return "12 Sep 2026";
   const date = dateVal instanceof Date ? dateVal : new Date(dateVal);
   if (Number.isNaN(date.getTime())) return "12 Sep 2026";
@@ -115,9 +111,7 @@ export default function ProfileScreen() {
 
   const userName =
     clerkFullName ||
-    (clerkFirstName
-      ? `${clerkFirstName} ${clerkLastName ?? ""}`.trim()
-      : "") ||
+    (clerkFirstName ? `${clerkFirstName} ${clerkLastName ?? ""}`.trim() : "") ||
     "Mukesh Kumar";
 
   const initials =
@@ -261,16 +255,9 @@ export default function ProfileScreen() {
                 ]}
               >
                 <View
-                  style={[
-                    styles.navIconBox,
-                    { backgroundColor: item.iconBg },
-                  ]}
+                  style={[styles.navIconBox, { backgroundColor: item.iconBg }]}
                 >
-                  <Ionicons
-                    name={item.icon}
-                    size={22}
-                    color={item.iconColor}
-                  />
+                  <Ionicons name={item.icon} size={22} color={item.iconColor} />
                 </View>
 
                 <View style={styles.navCopy}>
@@ -282,11 +269,7 @@ export default function ProfileScreen() {
                   </Text>
                 </View>
 
-                <Ionicons
-                  name="chevron-forward"
-                  size={18}
-                  color="#94A3B8"
-                />
+                <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
               </Pressable>
             ))}
           </View>

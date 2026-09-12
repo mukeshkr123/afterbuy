@@ -2,36 +2,31 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEnqueueMutation } from "@/offline";
 import React, { useState } from "react";
-import { View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 import {
-  Button,
   Dialog,
   EmptyState,
   FormError,
-  ScreenHeader,
-  ScreenScroll,
-  SectionCard,
   Skeleton,
   UndoableToast,
+  useAdaptiveLayout,
 } from "@/components";
 import { PurchaseForm } from "@/components/PurchaseForm";
 import { useApi } from "@/api/ApiProvider";
 import { apiKeys } from "@/api/apiKeys";
-import {
-  deletePurchase,
-  getPurchase,
-  patchPurchase,
-  restorePurchase,
-} from "@/api/purchases";
+import { getPurchase, patchPurchase } from "@/api/purchases";
 import { fromCaught, type FormErrorState } from "@/hooks/useApiError";
-import { useTheme } from "@/theme/ThemeProvider";
 
 export default function EditPurchaseScreen() {
   const api = useApi();
   const qc = useQueryClient();
   const router = useRouter();
-  const { tokens } = useTheme();
+  const insets = useSafeAreaInsets();
+  const { contentWidth } = useAdaptiveLayout();
   const { id } = useLocalSearchParams<{ id: string }>();
+
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleted, setDeleted] = useState(false);
   const [error, setError] = useState<FormErrorState>({
@@ -44,6 +39,8 @@ export default function EditPurchaseScreen() {
     queryFn: () => getPurchase(api, id ?? ""),
     enabled: Boolean(id),
   });
+
+  const p = detail.data;
 
   const mutation = useEnqueueMutation<Parameters<typeof patchPurchase>[2], any>(
     {
@@ -130,34 +127,72 @@ export default function EditPurchaseScreen() {
     onError: (caught) => setError(fromCaught(caught)),
   });
 
-  const p = detail.data;
+  const handleBack = () => {
+    if (router.canGoBack()) router.back();
+    else
+      router.replace({
+        pathname: "/purchase/[id]",
+        params: { id: id ?? "" },
+      });
+  };
 
   return (
-    <>
-      <ScreenScroll gap={tokens.spacing.lg} safeTop={true}>
-        <ScreenHeader title="Edit Purchase" />
+    <View style={styles.screen}>
+      {/* Top ambient glow */}
+      <View style={styles.ambientGlowTopRight} pointerEvents="none" />
+
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          width: "100%",
+          maxWidth: contentWidth,
+          alignSelf: "center",
+          paddingHorizontal: 16,
+          paddingTop: Math.max(insets.top + 6, 16),
+          paddingBottom: Math.max(insets.bottom + 36, 44),
+          gap: 20,
+        }}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
+      >
+        {/* Navigation Bar */}
+        <View style={styles.navBar}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+            onPress={handleBack}
+            style={({ pressed }) => [
+              styles.backButton,
+              { opacity: pressed ? 0.8 : 1 },
+            ]}
+          >
+            <Ionicons name="chevron-back" size={20} color="#0F172A" />
+          </Pressable>
+
+          <Text style={styles.navTitle}>Edit Purchase</Text>
+
+          <View style={styles.navSpacer} />
+        </View>
+
         {detail.isLoading ? (
-          // This screen used to render `null` while loading, so it looked
-          // like a blank page rather than a page that was still arriving.
-          <>
-            <Skeleton height={72} />
-            <Skeleton height={72} />
-            <Skeleton height={72} />
-          </>
+          <View style={{ gap: 14 }}>
+            <Skeleton height={64} />
+            <Skeleton height={64} />
+            <Skeleton height={64} />
+          </View>
         ) : !p ? (
-          <SectionCard>
-            <EmptyState
-              icon="alert-circle-outline"
-              title="Purchase not available"
-              message="We couldn't load this purchase. Check your connection and try again."
-              action={{
-                label: "Try again",
-                onPress: () => void detail.refetch(),
-              }}
-            />
-          </SectionCard>
+          <EmptyState
+            icon="alert-circle-outline"
+            title="Purchase not available"
+            message="We couldn't load this purchase. Check your connection and try again."
+            action={{
+              label: "Try again",
+              onPress: () => void detail.refetch(),
+            }}
+          />
         ) : (
-          <View style={{ gap: tokens.spacing.lg }}>
+          <View style={{ gap: 20 }}>
             <PurchaseForm
               embedded
               initial={{
@@ -177,20 +212,50 @@ export default function EditPurchaseScreen() {
               onSubmit={(d) => mutation.mutateAsync(d)}
               submitLabel="Save changes"
             />
-            <Button
-              label={
-                deleteMutation.isPending ? "Deleting..." : "Delete purchase"
-              }
-              variant="danger"
-              size="lg"
-              busy={deleteMutation.isPending}
-              disabled={deleteMutation.isPending}
-              onPress={() => setConfirmDelete(true)}
-            />
+
             <FormError message={error.message} />
+
+            {/* Danger delete card */}
+            <View style={styles.deleteCard}>
+              <View style={styles.deleteTopRow}>
+                <View style={styles.deleteIconTile}>
+                  <Ionicons name="trash-outline" size={20} color="#DC2626" />
+                </View>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={styles.deleteTitle}>Delete purchase</Text>
+                  <Text style={styles.deleteSubtitle}>
+                    This removes the purchase from your active list. You can
+                    restore it from undo flows where available.
+                  </Text>
+                </View>
+              </View>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Delete purchase"
+                onPress={() => setConfirmDelete(true)}
+                disabled={deleteMutation.isPending}
+                style={({ pressed }) => [
+                  styles.deleteButton,
+                  {
+                    opacity: deleteMutation.isPending
+                      ? 0.6
+                      : pressed
+                        ? 0.88
+                        : 1,
+                    transform: [{ scale: pressed ? 0.985 : 1 }],
+                  },
+                ]}
+              >
+                <Text style={styles.deleteButtonText}>
+                  {deleteMutation.isPending ? "Deleting..." : "Delete purchase"}
+                </Text>
+              </Pressable>
+            </View>
           </View>
         )}
-      </ScreenScroll>
+      </ScrollView>
+
       <Dialog
         visible={confirmDelete}
         title="Delete this purchase?"
@@ -201,6 +266,7 @@ export default function EditPurchaseScreen() {
         secondaryLabel="Cancel"
         onDismiss={() => setConfirmDelete(false)}
       />
+
       <UndoableToast
         message={deleted ? "Purchase deleted" : null}
         actionLabel="Undo"
@@ -210,6 +276,99 @@ export default function EditPurchaseScreen() {
           router.replace("/(tabs)/purchases");
         }}
       />
-    </>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: "#F8FAFC",
+    position: "relative",
+  },
+  ambientGlowTopRight: {
+    position: "absolute",
+    top: -40,
+    right: -30,
+    width: 260,
+    height: 220,
+    borderRadius: 130,
+    backgroundColor: "#EDE9FE",
+    opacity: 0.6,
+  },
+  navBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    minHeight: 44,
+    marginBottom: 4,
+  },
+  backButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  navTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+  navSpacer: {
+    width: 42,
+  },
+  deleteCard: {
+    backgroundColor: "#FFF5F5",
+    borderWidth: 1,
+    borderColor: "#FECACA",
+    borderRadius: 18,
+    padding: 16,
+    marginTop: 8,
+  },
+  deleteTopRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+  },
+  deleteIconTile: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: "#FEE2E2",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  deleteTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#DC2626",
+  },
+  deleteSubtitle: {
+    fontSize: 12,
+    color: "#64748B",
+    lineHeight: 16,
+    marginTop: 2,
+  },
+  deleteButton: {
+    height: 48,
+    backgroundColor: "#DC2626",
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 14,
+  },
+  deleteButtonText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+});

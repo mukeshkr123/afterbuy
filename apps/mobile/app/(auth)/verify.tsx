@@ -2,9 +2,11 @@ import { useSignUp } from "@clerk/clerk-expo";
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -12,9 +14,10 @@ import {
   type NativeSyntheticEvent,
   type TextInputKeyPressEventData,
 } from "react-native";
-import { Button, FormError, ScreenHeader, ScreenScroll } from "@/components";
+import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { FormError } from "@/components";
 import { writeSettings } from "@/lib/settings";
-import { useTheme } from "@/theme/ThemeProvider";
 
 const CODE_LENGTH = 6;
 const RESEND_SECONDS = 30;
@@ -22,7 +25,7 @@ const RESEND_SECONDS = 30;
 export default function VerifyScreen() {
   const { signUp, setActive, isLoaded } = useSignUp();
   const router = useRouter();
-  const { tokens } = useTheme();
+  const insets = useSafeAreaInsets();
 
   const [digits, setDigits] = useState<string[]>(
     Array.from({ length: CODE_LENGTH }, () => "")
@@ -34,7 +37,6 @@ export default function VerifyScreen() {
 
   const inputRefs = useRef<Array<TextInput | null>>([]);
 
-  // The address Clerk actually sent the code to, rather than a sample number.
   const destination = signUp?.emailAddress ?? null;
 
   useEffect(() => {
@@ -69,7 +71,6 @@ export default function VerifyScreen() {
   };
 
   const handleDigitChange = (text: string, index: number) => {
-    // A pasted code fills the whole grid at once.
     if (text.length > 1) {
       const pasted = text.replace(/\D/g, "").slice(0, CODE_LENGTH).split("");
       const next = [...digits];
@@ -118,55 +119,57 @@ export default function VerifyScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : undefined}
-      style={{ flex: 1 }}
+      style={styles.container}
     >
-      <ScreenScroll gap={tokens.spacing.xl}>
-        <ScreenHeader
-          title=""
-          onBack={() =>
+      {/* Ambient background glow */}
+      <View style={styles.ambientGlow} pointerEvents="none" />
+
+      {/* Header */}
+      <View
+        style={[styles.header, { paddingTop: Math.max(insets.top + 8, 16) }]}
+      >
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          onPress={() =>
             router.canGoBack()
               ? router.back()
               : router.replace("/(auth)/sign-up")
           }
-        />
+          style={({ pressed }) => [
+            styles.backBtn,
+            pressed && styles.backBtnPressed,
+          ]}
+        >
+          <Ionicons name="arrow-back" size={20} color="#0F172A" />
+        </Pressable>
+        <Text style={styles.headerTitle}>Verification</Text>
+        <View style={{ width: 42 }} />
+      </View>
 
-        <View style={{ gap: tokens.spacing.xs }}>
-          <Text
-            accessibilityRole="header"
-            style={[
-              styles.title,
-              {
-                color: tokens.colors.text,
-                fontSize: tokens.type.display.fontSize - 2,
-              },
-            ]}
-          >
+      <ScrollView
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: Math.max(insets.bottom + 32, 40) },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.heading}>
+          <Text accessibilityRole="header" style={styles.title}>
             Verify your email
           </Text>
-          <Text
-            style={{
-              color: tokens.colors.textMuted,
-              fontSize: tokens.type.body.fontSize,
-              lineHeight: tokens.type.body.lineHeight,
-            }}
-          >
-            We sent a {CODE_LENGTH}-digit code to
-          </Text>
+          <Text style={styles.subtitle}>Enter the 6-digit code sent to</Text>
           {destination ? (
-            <Text
-              style={{
-                color: tokens.colors.text,
-                fontSize: tokens.type.body.fontSize,
-                fontWeight: "700",
-              }}
-            >
-              {destination}
-            </Text>
+            <View style={styles.destinationPill}>
+              <Ionicons name="mail" size={14} color="#775DF5" />
+              <Text style={styles.destinationText}>{destination}</Text>
+            </View>
           ) : null}
         </View>
 
+        {/* OTP Input Grid */}
         <View
-          style={[styles.otpRow, { gap: tokens.spacing.sm }]}
+          style={styles.otpRow}
           accessibilityLabel={`${CODE_LENGTH} digit verification code`}
         >
           {digits.map((digit, idx) => (
@@ -187,15 +190,8 @@ export default function VerifyScreen() {
               autoComplete="one-time-code"
               style={[
                 styles.otpBox,
-                {
-                  backgroundColor: tokens.colors.surface,
-                  borderColor:
-                    focusedIndex === idx
-                      ? tokens.colors.accent
-                      : tokens.colors.border,
-                  borderRadius: tokens.radius.lg,
-                  color: tokens.colors.text,
-                },
+                focusedIndex === idx && styles.otpBoxFocused,
+                digit !== "" && styles.otpBoxFilled,
               ]}
             />
           ))}
@@ -203,12 +199,23 @@ export default function VerifyScreen() {
 
         <FormError message={error} />
 
-        <View style={{ gap: tokens.spacing.md }}>
-          <Button
-            label={pending ? "Verifying…" : "Verify"}
+        <View style={styles.actions}>
+          <Pressable
+            accessibilityRole="button"
             disabled={pending || !complete}
             onPress={() => void verifyCode(digits.join(""))}
-          />
+            style={({ pressed }) => [
+              styles.primaryBtn,
+              (pending || !complete) && { opacity: 0.5 },
+              pressed && styles.primaryBtnPressed,
+            ]}
+          >
+            {pending ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Text style={styles.primaryBtnText}>Verify & Continue</Text>
+            )}
+          </Pressable>
 
           <Pressable
             onPress={() => void handleResend()}
@@ -219,14 +226,10 @@ export default function VerifyScreen() {
             style={styles.resendPress}
           >
             <Text
-              style={{
-                color:
-                  secondsLeft > 0
-                    ? tokens.colors.textMuted
-                    : tokens.colors.accent,
-                fontSize: tokens.type.bodySmall.fontSize + 1,
-                fontWeight: "600",
-              }}
+              style={[
+                styles.resendText,
+                secondsLeft > 0 && styles.resendTextDisabled,
+              ]}
             >
               {secondsLeft > 0
                 ? `Resend code in ${secondsLeft}s`
@@ -234,31 +237,158 @@ export default function VerifyScreen() {
             </Text>
           </Pressable>
         </View>
-      </ScreenScroll>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  title: {
+  container: {
+    flex: 1,
+    backgroundColor: "#F8FAFC",
+  },
+  ambientGlow: {
+    position: "absolute",
+    top: -60,
+    right: -60,
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    backgroundColor: "#EDE9FE",
+    opacity: 0.7,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+  },
+  backBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  backBtnPressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.97 }],
+  },
+  headerTitle: {
+    fontSize: 20,
     fontWeight: "800",
-    letterSpacing: -0.8,
+    color: "#0F172A",
+    letterSpacing: -0.4,
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    gap: 28,
+  },
+  heading: {
+    gap: 8,
+    alignItems: "center",
+  },
+  title: {
+    fontSize: 26,
+    lineHeight: 32,
+    fontWeight: "800",
+    color: "#0F172A",
+    letterSpacing: -0.3,
+    textAlign: "center",
+  },
+  subtitle: {
+    fontSize: 14,
+    color: "#64748B",
+    textAlign: "center",
+  },
+  destinationPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#EDE9FE",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginTop: 4,
+  },
+  destinationText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#775DF5",
   },
   otpRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "center",
+    gap: 8,
   },
   otpBox: {
-    flex: 1,
-    height: 60,
+    width: 48,
+    height: 56,
+    backgroundColor: "#FFFFFF",
     borderWidth: 1.5,
+    borderColor: "#E2E8F0",
+    borderRadius: 14,
     textAlign: "center",
-    fontSize: 24,
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#0F172A",
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  otpBoxFocused: {
+    borderColor: "#775DF5",
+    backgroundColor: "#F5F3FF",
+  },
+  otpBoxFilled: {
+    borderColor: "#CBD5E1",
+  },
+  actions: {
+    gap: 14,
+  },
+  primaryBtn: {
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: "#775DF5",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#775DF5",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  primaryBtnPressed: {
+    opacity: 0.9,
+    transform: [{ scale: 0.99 }],
+  },
+  primaryBtnText: {
+    color: "#FFFFFF",
+    fontSize: 16,
     fontWeight: "700",
   },
   resendPress: {
-    minHeight: 48,
     alignItems: "center",
-    justifyContent: "center",
+    paddingVertical: 8,
+  },
+  resendText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#775DF5",
+  },
+  resendTextDisabled: {
+    color: "#94A3B8",
   },
 });

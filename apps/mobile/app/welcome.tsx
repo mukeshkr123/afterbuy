@@ -229,7 +229,7 @@ export default function WelcomeScreen() {
                   styles.dot,
                   {
                     opacity: dotOpacity,
-                    backgroundColor: "#4F46E5",
+                    backgroundColor: "#775DF5",
                   },
                 ]}
               />
@@ -380,16 +380,16 @@ const styles = StyleSheet.create({
   },
   skipPill: {
     paddingHorizontal: 16,
-    paddingVertical: 5,
+    paddingVertical: 6,
     borderRadius: 20,
-    backgroundColor: "#EEF0FE",
+    backgroundColor: "#EDE9FE",
     alignItems: "center",
     justifyContent: "center",
   },
   skipText: {
     fontSize: 14,
-    fontWeight: "600",
-    color: "#4F46E5",
+    fontWeight: "700",
+    color: "#775DF5",
   },
   skipPlaceholder: { width: 44, height: 44 },
   carousel: { flex: 1, justifyContent: "center" },
@@ -432,7 +432,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.4,
   },
   headlineHighlight: {
-    color: "#4F46E5",
+    color: "#775DF5",
   },
   subtitle: {
     fontSize: 15,
@@ -575,16 +575,16 @@ const styles = StyleSheet.create({
   footer: { width: "100%", maxWidth: 460, alignSelf: "center", gap: 8 },
   primaryButton: {
     height: 52,
-    backgroundColor: "#4F46E5",
+    backgroundColor: "#775DF5",
     borderRadius: 16,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#4F46E5",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 16,
-    elevation: 8,
+    shadowColor: "#775DF5",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 6,
     position: "relative",
   },
   primaryButtonPressed: {
@@ -593,7 +593,7 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     fontSize: 17,
-    fontWeight: "600",
+    fontWeight: "700",
     color: "#FFFFFF",
   },
   primaryButtonIcon: {
@@ -607,5 +607,5 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   footerText: { fontSize: 14, fontWeight: "500", color: "#64748B" },
-  footerLink: { fontSize: 14, fontWeight: "700", color: "#4F46E5" },
+  footerLink: { fontSize: 14, fontWeight: "700", color: "#775DF5" },
 });

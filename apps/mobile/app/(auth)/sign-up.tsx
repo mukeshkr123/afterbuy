@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   AuthHeroIllustration,
   Button,
@@ -21,14 +22,13 @@ import {
   SocialAuthButton,
 } from "@/components";
 import { writeSettings } from "@/lib/settings";
-import { useTheme } from "@/theme/ThemeProvider";
 
 const MIN_PASSWORD_LENGTH = 8;
 
 export default function SignUpScreen() {
   const { signUp, setActive, isLoaded } = useSignUp();
   const router = useRouter();
-  const { tokens } = useTheme();
+  const insets = useSafeAreaInsets();
   const { startOAuthFlow: startGoogleOAuth } = useOAuth({
     strategy: "oauth_google",
   });
@@ -164,24 +164,26 @@ export default function SignUpScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : undefined}
-      style={{ flex: 1, backgroundColor: tokens.colors.canvas }}
+      style={styles.container}
     >
+      {/* Ambient background glow */}
+      <View style={styles.ambientGlow} pointerEvents="none" />
+
       <ScreenScroll gap={0} contentStyle={styles.scrollContent}>
         {/* Top Back Button */}
-        <View style={styles.topBar}>
+        <View style={[styles.topBar, { paddingTop: Math.max(insets.top, 8) }]}>
           <Pressable
             onPress={() =>
               router.canGoBack() ? router.back() : router.replace("/welcome")
             }
             accessibilityRole="button"
             accessibilityLabel="Go back"
-            hitSlop={10}
             style={({ pressed }) => [
-              styles.backCircle,
-              pressed && styles.backCirclePressed,
+              styles.backBtn,
+              pressed && styles.backBtnPressed,
             ]}
           >
-            <Ionicons name="chevron-back" size={20} color="#0F172A" />
+            <Ionicons name="arrow-back" size={20} color="#0F172A" />
           </Pressable>
         </View>
 
@@ -397,36 +399,51 @@ function PasswordCheck({ ok, label }: { ok: boolean; label: string }) {
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#F8FAFC",
+  },
+  ambientGlow: {
+    position: "absolute",
+    top: -60,
+    right: -60,
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    backgroundColor: "#EDE9FE",
+    opacity: 0.7,
+  },
   scrollContent: {
     width: "100%",
     maxWidth: 440,
     alignSelf: "center",
     paddingHorizontal: 20,
-    paddingBottom: 24,
+    paddingBottom: 28,
   },
   topBar: {
-    height: 38,
+    minHeight: 50,
     justifyContent: "center",
     alignItems: "flex-start",
     marginBottom: 0,
   },
-  backCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+  backBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: "rgba(0, 0, 0, 0.06)",
+    borderColor: "#E2E8F0",
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000000",
+    shadowColor: "#0F172A",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
-    shadowRadius: 5,
+    shadowRadius: 4,
     elevation: 2,
   },
-  backCirclePressed: {
-    opacity: 0.75,
+  backBtnPressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.97 }],
   },
   heading: {
     alignItems: "center",
@@ -444,7 +461,7 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 13.5,
     lineHeight: 18,
-    color: "#475569",
+    color: "#64748B",
     textAlign: "center",
     marginTop: 4,
   },
@@ -479,8 +496,8 @@ const styles = StyleSheet.create({
   termsCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F4F6FF",
-    borderRadius: 13,
+    backgroundColor: "#EDE9FE",
+    borderRadius: 14,
     paddingVertical: 10,
     paddingHorizontal: 12,
     gap: 10,
@@ -501,8 +518,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   checkboxActive: {
-    borderColor: "#4F46E5",
-    backgroundColor: "#4F46E5",
+    borderColor: "#775DF5",
+    backgroundColor: "#775DF5",
   },
   termsText: {
     flex: 1,
@@ -512,13 +529,19 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   inlineLink: {
-    color: "#4F46E5",
+    color: "#775DF5",
     fontWeight: "700",
   },
   primaryButton: {
-    marginTop: 2,
-    borderRadius: 14,
-    minHeight: 50,
+    marginTop: 4,
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: "#775DF5",
+    shadowColor: "#775DF5",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
   },
   dividerRow: {
     flexDirection: "row",
@@ -550,13 +573,13 @@ const styles = StyleSheet.create({
   footerText: {
     fontSize: 13,
     lineHeight: 18,
-    color: "#475569",
+    color: "#64748B",
     fontWeight: "500",
   },
   linkText: {
     fontSize: 13,
     lineHeight: 18,
     fontWeight: "700",
-    color: "#4F46E5",
+    color: "#775DF5",
   },
 });

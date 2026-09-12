@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   AuthHeroIllustration,
   Button,
@@ -20,12 +21,11 @@ import {
   ScreenScroll,
   SocialAuthButton,
 } from "@/components";
-import { useTheme } from "@/theme/ThemeProvider";
 
 export default function SignInScreen() {
   const { signIn, setActive, isLoaded } = useSignIn();
   const router = useRouter();
-  const { tokens } = useTheme();
+  const insets = useSafeAreaInsets();
   const { startOAuthFlow: startAppleOAuth } = useOAuth({
     strategy: "oauth_apple",
   });
@@ -107,24 +107,26 @@ export default function SignInScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : undefined}
-      style={{ flex: 1, backgroundColor: tokens.colors.canvas }}
+      style={styles.container}
     >
+      {/* Ambient pastel glow */}
+      <View style={styles.ambientGlow} pointerEvents="none" />
+
       <ScreenScroll gap={0} contentStyle={styles.scrollContent}>
         {/* Top Back Button */}
-        <View style={styles.topBar}>
+        <View style={[styles.topBar, { paddingTop: Math.max(insets.top, 8) }]}>
           <Pressable
             onPress={() =>
               router.canGoBack() ? router.back() : router.replace("/welcome")
             }
             accessibilityRole="button"
             accessibilityLabel="Go back"
-            hitSlop={10}
             style={({ pressed }) => [
-              styles.backCircle,
-              pressed && styles.backCirclePressed,
+              styles.backBtn,
+              pressed && styles.backBtnPressed,
             ]}
           >
-            <Ionicons name="chevron-back" size={20} color="#0F172A" />
+            <Ionicons name="arrow-back" size={20} color="#0F172A" />
           </Pressable>
         </View>
 
@@ -269,6 +271,20 @@ export default function SignInScreen() {
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#F8FAFC",
+  },
+  ambientGlow: {
+    position: "absolute",
+    top: -60,
+    right: -60,
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    backgroundColor: "#EDE9FE",
+    opacity: 0.7,
+  },
   scrollContent: {
     width: "100%",
     maxWidth: 440,
@@ -277,28 +293,29 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   topBar: {
-    height: 44,
+    minHeight: 50,
     justifyContent: "center",
     alignItems: "flex-start",
     marginBottom: 4,
   },
-  backCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  backBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: "rgba(0, 0, 0, 0.06)",
+    borderColor: "#E2E8F0",
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000000",
+    shadowColor: "#0F172A",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
-    shadowRadius: 6,
+    shadowRadius: 4,
     elevation: 2,
   },
-  backCirclePressed: {
-    opacity: 0.75,
+  backBtnPressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.97 }],
   },
   heading: {
     alignItems: "center",
@@ -306,17 +323,17 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   title: {
-    fontSize: 27,
-    lineHeight: 34,
+    fontSize: 28,
+    lineHeight: 35,
     fontWeight: "800",
     color: "#0F172A",
     textAlign: "center",
-    letterSpacing: -0.3,
+    letterSpacing: -0.4,
   },
   subtitle: {
     fontSize: 14,
     lineHeight: 20,
-    color: "#475569",
+    color: "#64748B",
     textAlign: "center",
     marginTop: 6,
   },
@@ -340,11 +357,18 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     lineHeight: 19,
     fontWeight: "700",
-    color: "#4F46E5",
+    color: "#775DF5",
   },
   primaryButton: {
-    marginTop: 4,
-    borderRadius: 14,
+    marginTop: 6,
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: "#775DF5",
+    shadowColor: "#775DF5",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
   },
   dividerRow: {
     flexDirection: "row",
@@ -376,13 +400,13 @@ const styles = StyleSheet.create({
   footerText: {
     fontSize: 13.5,
     lineHeight: 20,
-    color: "#475569",
+    color: "#64748B",
     fontWeight: "500",
   },
   linkText: {
     fontSize: 13.5,
     lineHeight: 20,
     fontWeight: "700",
-    color: "#4F46E5",
+    color: "#775DF5",
   },
 });

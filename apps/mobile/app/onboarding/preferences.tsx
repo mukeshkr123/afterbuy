@@ -1,10 +1,18 @@
 import React, { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Notifications from "expo-notifications";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import { AuthHeroIllustration, Button, ScreenScroll } from "@/components";
+import { AuthHeroIllustration } from "@/components";
 import { patchMe } from "@/api/auth";
 import { apiKeys } from "@/api/apiKeys";
 import { useApi } from "@/api/ApiProvider";
@@ -13,9 +21,24 @@ import { useTheme } from "@/theme/ThemeProvider";
 import { registerCurrentDevice } from "@/notifications/PushRegistration";
 
 const REMINDER_OPTIONS = [
-  { days: 3, label: "3 days before", detail: null },
-  { days: 7, label: "7 days before", detail: "Recommended" },
-  { days: 15, label: "15 days before", detail: null },
+  {
+    days: 3,
+    label: "3 days before",
+    subtitle: "Best for immediate action",
+    detail: null,
+  },
+  {
+    days: 7,
+    label: "7 days before",
+    subtitle: "Standard 1-week notice",
+    detail: "Recommended",
+  },
+  {
+    days: 15,
+    label: "15 days before",
+    subtitle: "Extended 2-week notice",
+    detail: null,
+  },
 ] as const;
 
 const THEME_OPTIONS: readonly {
@@ -32,9 +55,10 @@ const PUSH_ENABLED = process.env["EXPO_PUBLIC_PUSH_ENABLED"] === "true";
 
 export default function OnboardingPreferencesScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const api = useApi();
   const queryClient = useQueryClient();
-  const { tokens, preference, setPreference } = useTheme();
+  const { preference, setPreference } = useTheme();
   const [leadDays, setLeadDays] = useState(7);
   const [theme, setTheme] = useState<ThemePreference>(preference ?? "system");
   const [pending, setPending] = useState(false);
@@ -74,88 +98,130 @@ export default function OnboardingPreferencesScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: tokens.colors.canvas }}>
-      <ScreenScroll gap={0} contentStyle={styles.scrollContent}>
-        {/* Top Back Button */}
-        <View style={styles.topBar}>
-          <Pressable
-            onPress={() =>
-              router.canGoBack()
-                ? router.back()
-                : router.replace("/(auth)/sign-up")
-            }
-            accessibilityRole="button"
-            accessibilityLabel="Go back"
-            hitSlop={10}
-            style={({ pressed }) => [
-              styles.backCircle,
-              pressed && styles.backCirclePressed,
-            ]}
-          >
-            <Ionicons name="chevron-back" size={20} color="#0F172A" />
-          </Pressable>
-        </View>
+    <View style={styles.container}>
+      {/* Ambient background glow */}
+      <View style={styles.ambientGlow} pointerEvents="none" />
 
-        {/* 3D Hero Illustration */}
-        <AuthHeroIllustration />
+      {/* Header */}
+      <View
+        style={[styles.header, { paddingTop: Math.max(insets.top + 8, 16) }]}
+      >
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          onPress={() =>
+            router.canGoBack()
+              ? router.back()
+              : router.replace("/(auth)/sign-up")
+          }
+          style={({ pressed }) => [
+            styles.backBtn,
+            pressed && styles.backBtnPressed,
+          ]}
+        >
+          <Ionicons name="arrow-back" size={20} color="#0F172A" />
+        </Pressable>
+        <Text style={styles.headerTitle}>Preferences</Text>
+        <View style={{ width: 42 }} />
+      </View>
 
-        {/* Heading (Left-Aligned) */}
+      <ScrollView
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: Math.max(insets.bottom + 32, 40) },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        <AuthHeroIllustration compact />
+
         <View style={styles.heading}>
           <Text accessibilityRole="header" style={styles.title}>
-            Customize your experience
+            Personalize your setup
           </Text>
           <Text style={styles.subtitle}>
-            Set your preferences. You can change these anytime.
+            Choose how early you want alerts and customize how AfterBuy looks.
           </Text>
         </View>
 
         {/* Section 1: Reminder Timing */}
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Reminder timing</Text>
-            <Text style={styles.sectionHint}>When should we remind you?</Text>
-          </View>
-          <View style={styles.optionStack}>
-            {REMINDER_OPTIONS.map((option) => {
+          <Text style={styles.sectionHeading}>REMINDER TIMING</Text>
+          <View style={styles.groupCard}>
+            {REMINDER_OPTIONS.map((option, idx) => {
               const selected = leadDays === option.days;
+              const isLast = idx === REMINDER_OPTIONS.length - 1;
+
               return (
-                <Pressable
-                  key={option.days}
-                  accessibilityRole="radio"
-                  accessibilityState={{ selected }}
-                  accessibilityLabel={option.label}
-                  onPress={() => setLeadDays(option.days)}
-                  style={({ pressed }) => [
-                    styles.optionRow,
-                    selected
-                      ? styles.optionRowSelected
-                      : styles.optionRowDefault,
-                    pressed && { opacity: 0.88 },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.optionLabel,
-                      selected && styles.optionLabelSelected,
+                <React.Fragment key={option.days}>
+                  <Pressable
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected }}
+                    accessibilityLabel={option.label}
+                    onPress={() => setLeadDays(option.days)}
+                    style={({ pressed }) => [
+                      styles.optionRow,
+                      selected && styles.optionRowSelected,
+                      pressed && styles.optionRowPressed,
                     ]}
                   >
-                    {option.label}
-                  </Text>
-                  <View style={styles.optionMeta}>
-                    {option.detail ? (
-                      <View style={styles.recommendedBadge}>
-                        <Text style={styles.recommendedText}>
-                          {option.detail}
+                    <View style={styles.optionLeft}>
+                      <View
+                        style={[
+                          styles.alarmIconBox,
+                          {
+                            backgroundColor: selected ? "#EDE9FE" : "#F1F5F9",
+                          },
+                        ]}
+                      >
+                        <Ionicons
+                          name="alarm-outline"
+                          size={18}
+                          color={selected ? "#775DF5" : "#64748B"}
+                        />
+                      </View>
+                      <View style={{ gap: 2 }}>
+                        <View
+                          style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                            gap: 8,
+                          }}
+                        >
+                          <Text
+                            style={[
+                              styles.optionLabel,
+                              selected && styles.optionLabelSelected,
+                            ]}
+                          >
+                            {option.label}
+                          </Text>
+                          {option.detail ? (
+                            <View style={styles.recommendedBadge}>
+                              <Text style={styles.recommendedText}>
+                                {option.detail}
+                              </Text>
+                            </View>
+                          ) : null}
+                        </View>
+                        <Text style={styles.optionSubtitle}>
+                          {option.subtitle}
                         </Text>
                       </View>
-                    ) : null}
-                    <Ionicons
-                      name={selected ? "checkmark-circle" : "ellipse-outline"}
-                      size={20}
-                      color={selected ? "#4F46E5" : "#94A3B8"}
-                    />
-                  </View>
-                </Pressable>
+                    </View>
+
+                    <View
+                      style={[
+                        styles.radioCircle,
+                        selected && styles.radioCircleSelected,
+                      ]}
+                    >
+                      {selected && (
+                        <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                      )}
+                    </View>
+                  </Pressable>
+                  {!isLast && <View style={styles.separator} />}
+                </React.Fragment>
               );
             })}
           </View>
@@ -163,10 +229,7 @@ export default function OnboardingPreferencesScreen() {
 
         {/* Section 2: App Theme */}
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>App theme</Text>
-            <Text style={styles.sectionHint}>Choose your preferred theme.</Text>
-          </View>
+          <Text style={styles.sectionHeading}>APP THEME</Text>
           <View style={styles.themeGrid}>
             {THEME_OPTIONS.map((option) => {
               const selected = theme === option.value;
@@ -179,17 +242,22 @@ export default function OnboardingPreferencesScreen() {
                   onPress={() => setTheme(option.value)}
                   style={({ pressed }) => [
                     styles.themeOption,
-                    selected
-                      ? styles.themeOptionSelected
-                      : styles.themeOptionDefault,
-                    pressed && { opacity: 0.88 },
+                    selected && styles.themeOptionSelected,
+                    pressed && styles.themeOptionPressed,
                   ]}
                 >
-                  <Ionicons
-                    name={option.icon}
-                    size={24}
-                    color={selected ? "#4F46E5" : "#0F172A"}
-                  />
+                  <View
+                    style={[
+                      styles.themeIconBox,
+                      selected && styles.themeIconBoxSelected,
+                    ]}
+                  >
+                    <Ionicons
+                      name={option.icon}
+                      size={22}
+                      color={selected ? "#775DF5" : "#64748B"}
+                    />
+                  </View>
                   <Text
                     style={[
                       styles.themeLabel,
@@ -207,141 +275,195 @@ export default function OnboardingPreferencesScreen() {
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
         {/* Primary Action Button */}
-        <Button
-          label={pending ? "Saving..." : "Get started"}
-          trailing={<Ionicons name="arrow-forward" size={18} color="#FFFFFF" />}
-          busy={pending}
+        <Pressable
+          accessibilityRole="button"
           disabled={pending}
-          size="lg"
           onPress={() => void finish()}
-          style={styles.primaryButton}
-        />
+          style={({ pressed }) => [
+            styles.primaryBtn,
+            pending && { opacity: 0.7 },
+            pressed && styles.primaryBtnPressed,
+          ]}
+        >
+          {pending ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <>
+              <Text style={styles.primaryBtnText}>Get started</Text>
+              <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+            </>
+          )}
+        </Pressable>
 
-        {/* Footnote */}
         <Text style={styles.footnote}>
-          You&apos;re all set. Let&apos;s organize your purchases.
+          You&apos;re all set. Let&apos;s start organizing your purchases.
         </Text>
-      </ScreenScroll>
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollContent: {
-    width: "100%",
-    maxWidth: 440,
-    alignSelf: "center",
+  container: {
+    flex: 1,
+    backgroundColor: "#F8FAFC",
+  },
+  ambientGlow: {
+    position: "absolute",
+    top: -60,
+    right: -60,
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    backgroundColor: "#EDE9FE",
+    opacity: 0.7,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 20,
-    paddingBottom: 24,
+    paddingBottom: 16,
   },
-  topBar: {
-    height: 38,
-    justifyContent: "center",
-    alignItems: "flex-start",
-    marginBottom: 0,
-  },
-  backCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+  backBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: "rgba(0, 0, 0, 0.06)",
+    borderColor: "#E2E8F0",
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000000",
+    shadowColor: "#0F172A",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
-    shadowRadius: 5,
+    shadowRadius: 4,
     elevation: 2,
   },
-  backCirclePressed: {
-    opacity: 0.75,
+  backBtnPressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.97 }],
   },
-  heading: {
-    alignItems: "flex-start",
-    marginTop: 2,
-    marginBottom: 16,
-  },
-  title: {
-    fontSize: 27,
-    lineHeight: 33,
+  headerTitle: {
+    fontSize: 20,
     fontWeight: "800",
     color: "#0F172A",
-    textAlign: "left",
+    letterSpacing: -0.4,
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    gap: 22,
+  },
+  heading: {
+    gap: 6,
+    alignItems: "center",
+  },
+  title: {
+    fontSize: 24,
+    lineHeight: 30,
+    fontWeight: "800",
+    color: "#0F172A",
     letterSpacing: -0.3,
+    textAlign: "center",
   },
   subtitle: {
     fontSize: 14,
     lineHeight: 20,
-    color: "#475569",
-    textAlign: "left",
-    marginTop: 4,
+    color: "#64748B",
+    textAlign: "center",
+    maxWidth: 320,
   },
   section: {
-    marginBottom: 16,
+    gap: 10,
   },
-  sectionHeader: {
-    marginBottom: 10,
+  sectionHeading: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#64748B",
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+    marginLeft: 4,
   },
-  sectionTitle: {
-    fontSize: 16,
-    lineHeight: 22,
-    fontWeight: "800",
-    color: "#0F172A",
-  },
-  sectionHint: {
-    fontSize: 13.5,
-    lineHeight: 18,
-    color: "#475569",
-    marginTop: 2,
-  },
-  optionStack: {
-    gap: 9,
+  groupCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#F1F5F9",
+    overflow: "hidden",
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03,
+    shadowRadius: 10,
+    elevation: 1,
   },
   optionRow: {
-    height: 52,
-    borderRadius: 14,
-    paddingHorizontal: 16,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-  },
-  optionRowDefault: {
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
   optionRowSelected: {
-    backgroundColor: "#F6F6FF",
-    borderWidth: 1.5,
-    borderColor: "#4F46E5",
+    backgroundColor: "#F5F3FF",
+  },
+  optionRowPressed: {
+    opacity: 0.8,
+  },
+  optionLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    flex: 1,
+  },
+  alarmIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
   },
   optionLabel: {
-    fontSize: 14.5,
-    lineHeight: 20,
+    fontSize: 15,
     fontWeight: "700",
     color: "#0F172A",
   },
   optionLabelSelected: {
-    color: "#4338CA",
+    color: "#775DF5",
   },
-  optionMeta: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
+  optionSubtitle: {
+    fontSize: 13,
+    color: "#64748B",
   },
   recommendedBadge: {
-    backgroundColor: "#EEF0FE",
-    paddingHorizontal: 10,
-    paddingVertical: 3.5,
-    borderRadius: 8,
+    backgroundColor: "#DCFCE7",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
   },
   recommendedText: {
-    fontSize: 11.5,
-    lineHeight: 14,
+    fontSize: 11,
     fontWeight: "700",
-    color: "#4F46E5",
+    color: "#16A34A",
+  },
+  radioCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: "#CBD5E1",
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 12,
+  },
+  radioCircleSelected: {
+    borderColor: "#775DF5",
+    backgroundColor: "#775DF5",
+  },
+  separator: {
+    height: 1,
+    backgroundColor: "#F1F5F9",
+    marginLeft: 66,
   },
   themeGrid: {
     flexDirection: "row",
@@ -349,50 +471,80 @@ const styles = StyleSheet.create({
   },
   themeOption: {
     flex: 1,
-    height: 86,
-    borderRadius: 14,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#F1F5F9",
+    paddingVertical: 16,
+    alignItems: "center",
+    gap: 8,
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  themeOptionSelected: {
+    borderColor: "#775DF5",
+    backgroundColor: "#F5F3FF",
+  },
+  themeOptionPressed: {
+    opacity: 0.8,
+  },
+  themeIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: "#F1F5F9",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  themeIconBoxSelected: {
+    backgroundColor: "#EDE9FE",
+  },
+  themeLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#64748B",
+  },
+  themeLabelSelected: {
+    color: "#775DF5",
+    fontWeight: "700",
+  },
+  errorText: {
+    color: "#DC2626",
+    fontSize: 13,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  primaryBtn: {
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-  },
-  themeOptionDefault: {
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-  },
-  themeOptionSelected: {
-    backgroundColor: "#F5F4FE",
-    borderWidth: 1.5,
-    borderColor: "#4F46E5",
-  },
-  themeLabel: {
-    fontSize: 13.5,
-    lineHeight: 18,
-    fontWeight: "700",
-    color: "#0F172A",
-  },
-  themeLabelSelected: {
-    color: "#4F46E5",
-  },
-  errorText: {
-    textAlign: "center",
-    fontSize: 13,
-    lineHeight: 18,
-    color: "#DC2626",
-    marginBottom: 8,
-  },
-  primaryButton: {
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: "#775DF5",
+    shadowColor: "#775DF5",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
     marginTop: 6,
-    marginBottom: 14,
-    borderRadius: 14,
-    minHeight: 52,
+  },
+  primaryBtnPressed: {
+    opacity: 0.9,
+    transform: [{ scale: 0.99 }],
+  },
+  primaryBtnText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "700",
   },
   footnote: {
     textAlign: "center",
-    fontSize: 12.5,
-    lineHeight: 18,
-    color: "#64748B",
+    fontSize: 13,
+    color: "#94A3B8",
     fontWeight: "500",
-    marginBottom: 10,
   },
 });
